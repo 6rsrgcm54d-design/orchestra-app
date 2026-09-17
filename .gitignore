@@ -1,0 +1,13 @@
+node_modules
+dist
+.env
+*.local
+.DS_Store
+Thumbs.db
+
+# Netlify
+.netlify
+
+# Editor
+.vscode
+.idea
