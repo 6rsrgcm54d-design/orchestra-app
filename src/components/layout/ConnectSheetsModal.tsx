@@ -167,6 +167,31 @@ export default function ConnectSheetsModal({
                   {isConnecting ? 'A testar e ligar...' : 'Ligar ao Google Sheets Agora'}
                 </button>
               </form>
+
+              {/* Botão de Partilha para iPad / Outros Dispositivos */}
+              {currentId && isAppsScript(currentId) && (
+                <div className="mt-4 p-3.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800/60 rounded-xl space-y-2">
+                  <div className="flex items-center gap-1.5 text-blue-900 dark:text-blue-200 font-semibold text-xs">
+                    <Sparkles size={14} className="text-blue-500 flex-shrink-0" />
+                    <span>Ligar facilmente no iPad ou telemóvel</span>
+                  </div>
+                  <p className="text-[11px] text-blue-800/80 dark:text-blue-300/80 leading-relaxed">
+                    Para não teres de voltar a colar o link no iPad, copia o link direto abaixo e abre-o no Safari do iPad (ou envia por WhatsApp/AirDrop). O iPad ficará configurado e ligado automaticamente!
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const autoLink = `${window.location.origin}/?sync=${encodeURIComponent(currentId)}`;
+                      navigator.clipboard.writeText(autoLink);
+                      toast.success('Link de acesso copiado! Abre-o no teu iPad.');
+                    }}
+                    className="w-full py-2 px-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium text-xs flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                  >
+                    <Copy size={13} />
+                    Copiar Link Automático para o iPad
+                  </button>
+                </div>
+              )}
             </div>
           )}
 

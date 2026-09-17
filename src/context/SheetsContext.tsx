@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
   getSpreadsheetMeta,
@@ -67,6 +67,28 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       setIsConnecting(false);
     }
   }, []);
+
+  // Suporte a link direto de sincronização (ex: abrir no iPad via ?sync=...)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const syncParam = params.get('sync') || params.get('sheet');
+    if (syncParam) {
+      if (!localStorage.getItem('orchestra_guest_user')) {
+        const guestUser = {
+          id: 'maestro-luis',
+          name: 'Maestro: Luís Machado',
+          email: 'luismachado78@gmail.com',
+          picture: '',
+        };
+        localStorage.setItem('orchestra_guest_user', JSON.stringify(guestUser));
+      }
+      connect(syncParam).then(() => {
+        const cleanUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, cleanUrl);
+        window.location.reload();
+      });
+    }
+  }, [connect]);
 
   const connectLocal = useCallback(async () => {
     await connect(LOCAL_STORAGE_ID);
