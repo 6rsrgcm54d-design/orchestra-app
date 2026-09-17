@@ -31,7 +31,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const saved = localStorage.getItem(GUEST_KEY);
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const u = JSON.parse(saved);
+        if (u.name === 'Direção Artística / Maestro' || u.email === 'orquestra@bomfim.pt') {
+          u.name = 'Maestro: Luís Machado';
+          u.email = 'luismachado78@gmail.com';
+          localStorage.setItem(GUEST_KEY, JSON.stringify(u));
+        }
+        return u;
       } catch {
         return null;
       }
@@ -108,14 +114,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const signInGuest = useCallback(() => {
     const guestUser: GoogleUser = {
-      name: 'Direção Artística / Maestro',
-      email: 'orquestra@bomfim.pt',
+      name: 'Maestro: Luís Machado',
+      email: 'luismachado78@gmail.com',
       picture: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80',
     };
     setUser(guestUser);
     setAccessToken('guest-token');
     localStorage.setItem(GUEST_KEY, JSON.stringify(guestUser));
-    toast.success('Bem-vindo à OrquestraApp!');
+    toast.success('Bem-vindo, Maestro Luís Machado!');
   }, []);
 
   const signOut = useCallback(() => {
