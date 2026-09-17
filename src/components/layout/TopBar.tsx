@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, RefreshCw, Unplug } from 'lucide-react';
+import { Sun, Moon, RefreshCw, Unplug, Cloud, HardDrive } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import type { GoogleUser, NavModule } from '../../types';
 
@@ -15,12 +15,23 @@ interface TopBarProps {
   activeModule: NavModule;
   user: GoogleUser;
   spreadsheetTitle?: string;
+  isLocalMode?: boolean;
   onSync: () => void;
   onDisconnect: () => void;
+  onOpenConnect: () => void;
   isSyncing?: boolean;
 }
 
-export default function TopBar({ activeModule, user, spreadsheetTitle, onSync, onDisconnect, isSyncing }: TopBarProps) {
+export default function TopBar({
+  activeModule,
+  user,
+  spreadsheetTitle,
+  isLocalMode,
+  onSync,
+  onDisconnect,
+  onOpenConnect,
+  isSyncing,
+}: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -30,35 +41,48 @@ export default function TopBar({ activeModule, user, spreadsheetTitle, onSync, o
         <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
           {MODULE_LABELS[activeModule]}
         </h1>
-        {spreadsheetTitle && (
-          <p className="text-xs text-gray-500 dark:text-gray-400 flex items-center gap-1">
-            <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-            {spreadsheetTitle}
-          </p>
-        )}
+        <div className="flex items-center gap-2 mt-0.5">
+          <button
+            onClick={onOpenConnect}
+            className="text-xs text-gray-500 dark:text-gray-400 hover:text-orchestra-gold transition-colors flex items-center gap-1.5 group"
+            title="Clica para alterar ou ligar a outra folha"
+          >
+            <span
+              className={`w-2 h-2 rounded-full inline-block ${
+                isLocalMode ? 'bg-amber-500' : 'bg-green-500'
+              }`}
+            />
+            <span className="group-hover:underline">{spreadsheetTitle || 'Fonte de Dados'}</span>
+            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 group-hover:text-orchestra-gold">
+              Alterar
+            </span>
+          </button>
+        </div>
       </div>
 
       {/* Right: actions + user */}
       <div className="flex items-center gap-2">
+        {/* Connect to Google Sheets button (if in local mode) */}
+        {isLocalMode && (
+          <button
+            onClick={onOpenConnect}
+            className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-orchestra-navy bg-orchestra-gold/90 hover:bg-orchestra-gold rounded-lg transition-all shadow-sm"
+            title="Ligar ao teu Google Sheets no Google Drive"
+          >
+            <Cloud size={14} />
+            <span>Ligar ao Google Drive</span>
+          </button>
+        )}
+
         {/* Sync button */}
         <button
           onClick={onSync}
           disabled={isSyncing}
-          title="Sincronizar com Google Sheets"
+          title="Sincronizar com a fonte de dados"
           className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all disabled:opacity-50"
         >
           <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
           <span className="hidden sm:inline">Sincronizar</span>
-        </button>
-
-        {/* Disconnect */}
-        <button
-          onClick={onDisconnect}
-          title="Desconectar Spreadsheet"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all"
-        >
-          <Unplug size={15} />
-          <span className="hidden sm:inline">Desconectar</span>
         </button>
 
         {/* Theme toggle */}
@@ -78,11 +102,15 @@ export default function TopBar({ activeModule, user, spreadsheetTitle, onSync, o
           <img
             src={user.picture}
             alt={user.name}
-            className="w-8 h-8 rounded-full border-2 border-orchestra-gold"
+            className="w-8 h-8 rounded-full border-2 border-orchestra-gold object-cover"
           />
           <div className="hidden md:block text-right">
-            <p className="text-xs font-medium text-gray-900 dark:text-white leading-tight">{user.name}</p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">{user.email}</p>
+            <p className="text-xs font-medium text-gray-900 dark:text-white leading-tight">
+              {user.name}
+            </p>
+            <p className="text-xs text-gray-500 dark:text-gray-400 leading-tight">
+              {user.email}
+            </p>
           </div>
         </div>
       </div>

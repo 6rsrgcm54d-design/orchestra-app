@@ -1,5 +1,5 @@
 /**
- * Google Sheets API v4 wrapper + Local Storage Engine (Modo sem configuração)
+ * Google Sheets API v4 wrapper + Local Storage Engine + Google Apps Script Web App Bridge
  */
 
 import { getAccessToken } from './googleAuth';
@@ -11,6 +11,125 @@ export const LOCAL_STORAGE_ID = 'local-storage';
 export function isLocalId(id: string): boolean {
   return id === LOCAL_STORAGE_ID || id.startsWith('local');
 }
+
+export function isAppsScript(id: string): boolean {
+  return typeof id === 'string' && id.includes('script.google.com');
+}
+
+// ─── Código do Google Apps Script (Pronto a Copiar) ──────────────────────────
+
+export const GOOGLE_APPS_SCRIPT_CODE = `// ============================================================
+// OrquestraApp — Script de Ligação com o Google Sheets
+// ============================================================
+// Instruções:
+// 1. No teu Google Sheet, vai a Extensões > Apps Script
+// 2. Apaga o código existente e cola este código todo
+// 3. Clica em 'Implementar' (canto superior direito) > 'Nova implementação'
+// 4. Clica no ícone da roda dentada ao lado de 'Selecionar tipo' > 'Aplicação Web'
+// 5. Configura:
+//    - Descrição: OrquestraApp API
+//    - Executar como: Eu (o teu email)
+//    - Quem tem acesso: Qualquer pessoa (Anyone)
+// 6. Clica em 'Implementar', autoriza o acesso e COPIA O URL gerado!
+// ============================================================
+
+function doGet(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  e = e || { parameter: {} };
+  var sheetName = e.parameter.sheet;
+  var action = e.parameter.action;
+
+  if (action === 'getMeta') {
+    var sheets = ss.getSheets().map(function(s, idx) {
+      return { properties: { sheetId: idx, title: s.getName() } };
+    });
+    return jsonResponse({ title: ss.getName(), sheets: sheets });
+  }
+
+  if (sheetName) {
+    var sheet = ss.getSheetByName(sheetName);
+    if (!sheet) {
+      sheet = initDefaultSheet(ss, sheetName);
+    }
+    var values = sheet.getDataRange().getValues();
+    var formatted = values.map(function(row) {
+      return row.map(function(cell) {
+        if (cell instanceof Date) {
+          return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
+        }
+        return String(cell);
+      });
+    });
+    return jsonResponse({ values: formatted });
+  }
+
+  var result = {};
+  ss.getSheets().forEach(function(s) {
+    result[s.getName()] = s.getDataRange().getValues();
+  });
+  return jsonResponse(result);
+}
+
+function doPost(e) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var data = JSON.parse(e.postData.contents);
+  var action = data.action;
+  var sheetName = data.sheet;
+  var sheet = ss.getSheetByName(sheetName);
+
+  if (!sheet) {
+    sheet = initDefaultSheet(ss, sheetName);
+  }
+
+  if (action === 'append') {
+    data.values.forEach(function(row) {
+      sheet.appendRow(row);
+    });
+    return jsonResponse({ success: true });
+  }
+
+  if (action === 'update') {
+    if (data.rowIndex) {
+      var row = data.values[0];
+      sheet.getRange(data.rowIndex, 1, 1, row.length).setValues([row]);
+    } else if (data.values && data.values.length) {
+      var numRows = data.values.length;
+      var numCols = data.values[0].length;
+      sheet.getRange(1, 1, numRows, numCols).setValues(data.values);
+    }
+    return jsonResponse({ success: true });
+  }
+
+  if (action === 'delete') {
+    var rowIndex = data.rowIndex;
+    if (rowIndex > 0 && rowIndex <= sheet.getLastRow()) {
+      sheet.deleteRow(rowIndex);
+    }
+    return jsonResponse({ success: true });
+  }
+
+  return jsonResponse({ success: false, error: 'Unknown action' });
+}
+
+function initDefaultSheet(ss, name) {
+  var sheet = ss.insertSheet(name);
+  var headers = {
+    'Alunos': ['Nome', 'Naipe', 'Email', 'Nível', 'Ativo'],
+    'Repertório': ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'],
+    'Avaliações': ['Nome Aluno', 'Naipe', 'Critério', 'Pontuação', 'Data', 'Observações'],
+    'Critérios': ['Nome do Critério', 'Descrição', 'Peso'],
+    'PlanosPalco': ['PlanosPalco_JSON']
+  };
+  if (headers[name]) {
+    sheet.appendRow(headers[name]);
+  }
+  return sheet;
+}
+
+function jsonResponse(obj) {
+  return ContentService.createTextOutput(JSON.stringify(obj))
+    .setMimeType(ContentService.MimeType.JSON);
+}`;
 
 // ─── Dados Iniciais da Orquestra (Modo Local) ──────────────────────────────────
 
@@ -235,7 +354,28 @@ function parseTabFromRange(range: string): string {
   return match ? match[1].trim() : range;
 }
 
-// ─── Helpers Google Sheets ───────────────────────────────────────────────────
+// ─── Helpers Apps Script Web App ─────────────────────────────────────────────
+
+async function callAppsScriptGet<T>(url: string, params: Record<string, string>): Promise<T> {
+  const query = new URLSearchParams(params).toString();
+  const sep = url.includes('?') ? '&' : '?';
+  const res = await fetch(`${url}${sep}${query}`);
+  if (!res.ok) throw new Error(`Erro de comunicação com o Google Apps Script (${res.status})`);
+  return res.json() as Promise<T>;
+}
+
+async function callAppsScriptPost<T>(url: string, body: Record<string, unknown>): Promise<T> {
+  // Envia text/plain para evitar CORS preflight OPTIONS request
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`Erro ao escrever no Google Apps Script (${res.status})`);
+  return res.json() as Promise<T>;
+}
+
+// ─── Helpers Google Sheets OAuth ─────────────────────────────────────────────
 
 function authHeaders(): HeadersInit {
   const token = getAccessToken();
@@ -258,6 +398,12 @@ async function handleResponse<T>(res: Response): Promise<T> {
 // ─── Read ─────────────────────────────────────────────────────────────────────
 
 export async function readRange(spreadsheetId: string, range: string): Promise<string[][]> {
+  if (isAppsScript(spreadsheetId)) {
+    const tabName = parseTabFromRange(range);
+    const data = await callAppsScriptGet<{ values?: string[][] }>(spreadsheetId, { sheet: tabName });
+    return data.values ?? [];
+  }
+
   if (isLocalId(spreadsheetId)) {
     const tabName = parseTabFromRange(range);
     return getLocalTab(tabName);
@@ -273,7 +419,7 @@ export async function batchReadRanges(
   spreadsheetId: string,
   ranges: string[]
 ): Promise<Record<string, string[][]>> {
-  if (isLocalId(spreadsheetId)) {
+  if (isAppsScript(spreadsheetId) || isLocalId(spreadsheetId)) {
     const result: Record<string, string[][]> = {};
     for (const r of ranges) {
       result[r] = await readRange(spreadsheetId, r);
@@ -301,15 +447,28 @@ export async function updateRange(
   range: string,
   values: (string | number | boolean)[][]
 ): Promise<void> {
+  if (isAppsScript(spreadsheetId)) {
+    const tabName = parseTabFromRange(range);
+    const rowMatch = range.match(/([0-9]+)/);
+    const rowIndex = rowMatch ? parseInt(rowMatch[1], 10) : undefined;
+    await callAppsScriptPost(spreadsheetId, {
+      action: 'update',
+      sheet: tabName,
+      range,
+      rowIndex,
+      values,
+    });
+    return;
+  }
+
   if (isLocalId(spreadsheetId)) {
     const tabName = parseTabFromRange(range);
     const current = getLocalTab(tabName);
     const strValues = values.map((r) => r.map(String));
 
-    // Ex: Alunos!A2:E2 -> substitui a linha 2 (index 1)
     const rowMatch = range.match(/([0-9]+)/);
     if (rowMatch && strValues.length === 1) {
-      const rowIndex = parseInt(rowMatch[1], 10) - 1; // 0-based
+      const rowIndex = parseInt(rowMatch[1], 10) - 1;
       if (rowIndex >= 0) {
         current[rowIndex] = strValues[0];
         setLocalTab(tabName, current);
@@ -317,7 +476,6 @@ export async function updateRange(
       }
     }
 
-    // Se for o sheet inteiro ou intervalo grande
     if (strValues.length > 0 && strValues[0].length > 0) {
       setLocalTab(tabName, strValues);
     }
@@ -338,6 +496,16 @@ export async function appendRows(
   range: string,
   values: (string | number | boolean)[][]
 ): Promise<void> {
+  if (isAppsScript(spreadsheetId)) {
+    const tabName = parseTabFromRange(range);
+    await callAppsScriptPost(spreadsheetId, {
+      action: 'append',
+      sheet: tabName,
+      values,
+    });
+    return;
+  }
+
   if (isLocalId(spreadsheetId)) {
     const tabName = parseTabFromRange(range);
     const current = getLocalTab(tabName);
@@ -361,6 +529,17 @@ export async function deleteRow(
   sheetId: number,
   rowIndex: number
 ): Promise<void> {
+  if (isAppsScript(spreadsheetId)) {
+    const tabNames = ['Alunos', 'Repertório', 'Avaliações', 'Critérios', 'PlanosPalco'];
+    const tabName = tabNames[sheetId] || 'Alunos';
+    await callAppsScriptPost(spreadsheetId, {
+      action: 'delete',
+      sheet: tabName,
+      rowIndex: rowIndex + 1, // 1-based
+    });
+    return;
+  }
+
   if (isLocalId(spreadsheetId)) {
     const tabNames = ['Alunos', 'Repertório', 'Avaliações', 'Critérios', 'PlanosPalco'];
     const tabName = tabNames[sheetId] || 'Alunos';
@@ -398,6 +577,36 @@ export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
   title: string;
   sheets: Array<{ properties: { sheetId: number; title: string } }>;
 }> {
+  if (isAppsScript(spreadsheetId)) {
+    try {
+      const data = await callAppsScriptGet<{
+        title?: string;
+        sheets?: Array<{ properties: { sheetId: number; title: string } }>;
+      }>(spreadsheetId, { action: 'getMeta' });
+      return {
+        title: data.title || 'Google Sheets (Drive)',
+        sheets: data.sheets || [
+          { properties: { sheetId: 0, title: 'Alunos' } },
+          { properties: { sheetId: 1, title: 'Repertório' } },
+          { properties: { sheetId: 2, title: 'Avaliações' } },
+          { properties: { sheetId: 3, title: 'Critérios' } },
+          { properties: { sheetId: 4, title: 'PlanosPalco' } },
+        ],
+      };
+    } catch {
+      return {
+        title: 'Google Sheets (Drive Conectado)',
+        sheets: [
+          { properties: { sheetId: 0, title: 'Alunos' } },
+          { properties: { sheetId: 1, title: 'Repertório' } },
+          { properties: { sheetId: 2, title: 'Avaliações' } },
+          { properties: { sheetId: 3, title: 'Critérios' } },
+          { properties: { sheetId: 4, title: 'PlanosPalco' } },
+        ],
+      };
+    }
+  }
+
   if (isLocalId(spreadsheetId)) {
     return {
       title: 'Orquestra Bomfim (Base de Dados Local)',
@@ -421,7 +630,7 @@ export async function ensureSheetExists(
   sheets: Array<{ properties: { sheetId: number; title: string } }>,
   tabName: string
 ): Promise<void> {
-  if (isLocalId(spreadsheetId)) return;
+  if (isAppsScript(spreadsheetId) || isLocalId(spreadsheetId)) return;
 
   const exists = sheets.some((s) => s.properties.title === tabName);
   if (exists) return;
@@ -438,6 +647,7 @@ export async function ensureSheetExists(
 }
 
 export function extractSpreadsheetId(urlOrId: string): string {
+  if (isAppsScript(urlOrId)) return urlOrId.trim();
   if (isLocalId(urlOrId)) return LOCAL_STORAGE_ID;
   const match = urlOrId.match(/\/spreadsheets\/d\/([a-zA-Z0-9-_]+)/);
   if (match) return match[1];

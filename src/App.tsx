@@ -12,6 +12,7 @@ import RepertoireList from './components/repertoire/RepertoireList';
 import PieceForm from './components/repertoire/PieceForm';
 import EvaluationsView from './components/evaluations/EvaluationsView';
 import StagePlanView from './components/stagePlan/StagePlanView';
+import ConnectSheetsModal from './components/layout/ConnectSheetsModal';
 import { useStudents } from './hooks/useStudents';
 import { useRepertoire } from './hooks/useRepertoire';
 import { useEvaluations } from './hooks/useEvaluations';
@@ -198,10 +199,11 @@ function SpreadsheetSetup() {
 
 function MainApp() {
   const { user, signOut } = useAuth();
-  const { config, sheetsMeta, disconnect } = useSheets();
+  const { config, sheetsMeta, disconnect, connect, connectLocal, isConnecting, isLocalMode } = useSheets();
   const [activeModule, setActiveModule] = useState<NavModule>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
   // Student modal state
   const [showStudentForm, setShowStudentForm] = useState(false);
@@ -399,8 +401,10 @@ function MainApp() {
           activeModule={activeModule}
           user={user}
           spreadsheetTitle={spreadsheetTitle}
+          isLocalMode={isLocalMode}
           onSync={handleSync}
           onDisconnect={disconnect}
+          onOpenConnect={() => setIsConnectModalOpen(true)}
           isSyncing={isSyncing}
         />
         <main className="flex-1 overflow-y-auto">{renderModule()}</main>
@@ -421,6 +425,14 @@ function MainApp() {
           onClose={() => setShowPieceForm(false)}
         />
       )}
+      <ConnectSheetsModal
+        isOpen={isConnectModalOpen}
+        onClose={() => setIsConnectModalOpen(false)}
+        onConnect={connect}
+        onConnectLocal={connectLocal}
+        currentId={config?.spreadsheetId}
+        isConnecting={isConnecting}
+      />
     </div>
   );
 }
