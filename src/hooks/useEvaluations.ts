@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { readRange, appendRows, deleteRow } from '../api/sheetsApi';
+import { readRange, appendRows, deleteRow, updateRange } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Evaluation, Criteria } from '../types';
 
@@ -101,12 +101,10 @@ export function useEvaluations() {
     if (!config) return;
     const evalRows = await readRange(config.spreadsheetId, `${EVAL_TAB}!A1:F1`);
     if (!evalRows.length || evalRows[0][0] !== 'Nome Aluno') {
-      const { updateRange } = await import('../api/sheetsApi');
       await updateRange(config.spreadsheetId, `${EVAL_TAB}!A1:F1`, [EVAL_HEADER]);
     }
     const critRows = await readRange(config.spreadsheetId, `${CRIT_TAB}!A1:C1`);
     if (!critRows.length || critRows[0][0] !== 'Nome do Critério') {
-      const { updateRange } = await import('../api/sheetsApi');
       await updateRange(config.spreadsheetId, `${CRIT_TAB}!A1:C1`, [CRIT_HEADER]);
     }
   }, [config]);
