@@ -157,29 +157,29 @@ function SpreadsheetSetup() {
             <div className="h-px flex-1 bg-gray-200 dark:bg-white/10" />
           </div>
 
-          {/* Opção Sheets */}
+          {/* Opção Sheets / Apps Script */}
           <form onSubmit={handleConnect} className="space-y-3">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Link ou ID da folha Google Sheets
+                Link do Apps Script ou Google Sheets
               </label>
               <input
                 type="text"
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
-                placeholder="https://docs.google.com/spreadsheets/d/ID..."
+                placeholder="https://script.google.com/macros/s/.../exec ou ID da folha"
                 className="w-full px-4 py-2.5 text-sm bg-gray-50 dark:bg-white/5 border border-gray-200 dark:border-white/20 rounded-xl text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
               />
               <p className="text-xs text-gray-400 mt-1">
-                Partilhada com a conta ({user?.email})
+                Cola o URL do Apps Script (terminado em /exec) para ligação direta sem Google Cloud
               </p>
             </div>
             <button
               type="submit"
               disabled={!input.trim() || isConnecting}
-              className="w-full py-2.5 px-4 bg-gray-100 dark:bg-white/10 text-gray-800 dark:text-white font-medium text-sm rounded-xl hover:bg-gray-200 dark:hover:bg-white/20 transition-all disabled:opacity-50"
+              className="w-full py-2.5 px-4 bg-orchestra-gold text-orchestra-navy font-semibold text-sm rounded-xl hover:bg-orchestra-gold-light transition-all shadow disabled:opacity-50"
             >
-              {isConnecting ? 'A conectar...' : 'Conectar ao Google Sheets'}
+              {isConnecting ? 'A conectar...' : 'Ligar ao Google Sheets'}
             </button>
           </form>
 
@@ -441,17 +441,13 @@ function MainApp() {
 
 function AppRouter() {
   const { isAuthenticated } = useAuth();
-  const { config, sheetsMeta, reconnect, connectLocal } = useSheets();
+  const { config, sheetsMeta, reconnect } = useSheets();
 
   React.useEffect(() => {
-    if (isAuthenticated) {
-      if (!config) {
-        connectLocal();
-      } else if (!sheetsMeta) {
-        reconnect();
-      }
+    if (isAuthenticated && config && !sheetsMeta) {
+      reconnect();
     }
-  }, [isAuthenticated, config, sheetsMeta, reconnect, connectLocal]);
+  }, [isAuthenticated, config, sheetsMeta, reconnect]);
 
   if (!isAuthenticated) return <LoginPage />;
   if (!config || !sheetsMeta) return <SpreadsheetSetup />;
