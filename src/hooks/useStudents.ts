@@ -17,16 +17,27 @@ const NON_STUDENT_TABS = new Set([
 ]);
 
 function detectMapping(headerRow: string[]) {
-  const mapping = { nome: 0, naipe: 1, email: 2, nivel: 3, ativo: 4 };
+  // Ordem predefinida: Nome, Chefes de Naipe, Grau, Naipe, Ativo
+  const mapping = { nome: 0, chefeNaipe: 1, grau: 2, naipe: 3, ativo: 4 };
   if (!headerRow || headerRow.length === 0) return mapping;
 
   headerRow.forEach((col, idx) => {
     const text = String(col).toLowerCase().trim();
-    if (/nome|aluno|estudante/i.test(text)) mapping.nome = idx;
-    else if (/naipe|instrumento|voz|se[cç][cç][aã]o/i.test(text)) mapping.naipe = idx;
-    else if (/email|e-mail|correio|contacto|contato/i.test(text)) mapping.email = idx;
-    else if (/n[ií]vel|grau|ano/i.test(text)) mapping.nivel = idx;
-    else if (/ativo|ativa|estado|status/i.test(text)) mapping.ativo = idx;
+    if (/chefe/i.test(text)) {
+      mapping.chefeNaipe = idx;
+    } else if (/grau|ano|classe|curso/i.test(text)) {
+      mapping.grau = idx;
+    } else if (/naipe|instrumento|se[cç][cç][aã]o/i.test(text)) {
+      mapping.naipe = idx;
+    } else if (/nome|aluno|estudante/i.test(text)) {
+      mapping.nome = idx;
+    } else if (/email|e-mail|correio|contacto/i.test(text)) {
+      mapping.grau = idx;
+    } else if (/n[ií]vel/i.test(text)) {
+      mapping.naipe = idx;
+    } else if (/ativo|ativa|estado|status/i.test(text)) {
+      mapping.ativo = idx;
+    }
   });
 
   return mapping;
@@ -36,14 +47,14 @@ function parseStudentRow(
   row: string[],
   rowIndex: number,
   tabName: string,
-  mapping: { nome: number; naipe: number; email: number; nivel: number; ativo: number }
+  mapping: { nome: number; chefeNaipe: number; grau: number; naipe: number; ativo: number }
 ): Student | null {
   const nome = row[mapping.nome] !== undefined ? String(row[mapping.nome]).trim() : '';
   if (!nome || nome.toLowerCase() === 'nome') return null;
 
+  const chefeNaipe = row[mapping.chefeNaipe] !== undefined ? String(row[mapping.chefeNaipe]).trim() : '';
+  const grau = row[mapping.grau] !== undefined ? String(row[mapping.grau]).trim() : '';
   const naipe = row[mapping.naipe] !== undefined ? String(row[mapping.naipe]).trim() : '';
-  const email = row[mapping.email] !== undefined ? String(row[mapping.email]).trim() : '';
-  const nivel = row[mapping.nivel] !== undefined ? String(row[mapping.nivel]).trim() : '';
   const ativoVal = row[mapping.ativo] !== undefined ? String(row[mapping.ativo]).toLowerCase().trim() : 'sim';
   const ativo = !['não', 'nao', 'inativo', 'false', '0', 'no'].includes(ativoVal);
 
@@ -51,16 +62,16 @@ function parseStudentRow(
     id: `student-${tabName}-${rowIndex}`,
     rowIndex,
     nome,
+    chefeNaipe,
+    grau,
     naipe,
-    email,
-    nivel,
     ativo,
     orquestra: tabName,
   };
 }
 
 function studentToRow(s: Omit<Student, 'id' | 'rowIndex'>): (string | boolean)[] {
-  return [s.nome, s.naipe, s.email, s.nivel, s.ativo ? 'sim' : 'não'];
+  return [s.nome, s.chefeNaipe, s.grau, s.naipe, s.ativo ? 'sim' : 'não'];
 }
 
 export function useStudents() {

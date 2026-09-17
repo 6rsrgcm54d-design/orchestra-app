@@ -16,6 +16,10 @@ export default function DraggableStudent({ student }: DraggableStudentProps) {
     transform: CSS.Translate.toString(transform),
   };
 
+  const isChefe =
+    !!student.chefeNaipe &&
+    !['não', 'nao', 'false', '0', '-'].includes(student.chefeNaipe.toLowerCase());
+
   return (
     <div
       ref={setNodeRef}
@@ -31,8 +35,17 @@ export default function DraggableStudent({ student }: DraggableStudentProps) {
         }
       `}
     >
-      <p className="font-medium text-gray-900 dark:text-white text-xs">{student.nome}</p>
-      <p className="text-gray-400 text-xs">{student.naipe}</p>
+      <div className="flex items-center justify-between gap-1">
+        <p className="font-medium text-gray-900 dark:text-white text-xs truncate">{student.nome}</p>
+        {isChefe && (
+          <span className="text-[10px] font-bold text-amber-500 bg-amber-100 dark:bg-amber-900/40 px-1 rounded flex-shrink-0" title="Chefe de Naipe">
+            ★ Chefe
+          </span>
+        )}
+      </div>
+      <p className="text-gray-400 text-[11px]">
+        {student.naipe || '—'} {student.grau ? `· ${student.grau}` : ''}
+      </p>
     </div>
   );
 }

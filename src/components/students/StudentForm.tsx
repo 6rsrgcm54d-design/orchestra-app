@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Student } from '../../types';
-import { NAIPES, NIVEIS } from '../../types';
+import { NAIPES } from '../../types';
 
 interface StudentFormProps {
   student?: Student;
@@ -12,9 +12,9 @@ interface StudentFormProps {
 
 const EMPTY: Omit<Student, 'id' | 'rowIndex'> = {
   nome: '',
+  chefeNaipe: '',
+  grau: '',
   naipe: '',
-  email: '',
-  nivel: '',
   ativo: true,
   orquestra: '',
 };
@@ -24,9 +24,9 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
     student
       ? {
           nome: student.nome,
-          naipe: student.naipe,
-          email: student.email,
-          nivel: student.nivel,
+          chefeNaipe: student.chefeNaipe || '',
+          grau: student.grau || '',
+          naipe: student.naipe || '',
           ativo: student.ativo,
           orquestra: student.orquestra || (orchestras && orchestras[0]) || '',
         }
@@ -106,7 +106,7 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Naipe / Instrumento *
+              Naipe *
             </label>
             <input
               type="text"
@@ -114,7 +114,7 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
               required
               value={form.naipe}
               onChange={(e) => setForm({ ...form, naipe: e.target.value })}
-              placeholder="Seleciona ou escreve o naipe..."
+              placeholder="Seleciona ou escreve o naipe (ex: Violinos I, Flautas...)"
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
             />
             <datalist id="naipes-list">
@@ -126,34 +126,28 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Email
+              Chefes de Naipe
             </label>
             <input
-              type="email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              type="text"
+              value={form.chefeNaipe}
+              onChange={(e) => setForm({ ...form, chefeNaipe: e.target.value })}
+              placeholder="ex: Sim, Chefe, Sub-chefe..."
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-              placeholder="ex: maria@escola.pt"
             />
           </div>
 
           <div>
             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-              Nível
+              Grau
             </label>
             <input
               type="text"
-              list="niveis-list"
-              value={form.nivel}
-              onChange={(e) => setForm({ ...form, nivel: e.target.value })}
-              placeholder="ex: Elementar, Intermédio..."
+              value={form.grau}
+              onChange={(e) => setForm({ ...form, grau: e.target.value })}
+              placeholder="ex: 1º Grau, 5º Grau..."
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
             />
-            <datalist id="niveis-list">
-              {NIVEIS.map((n) => (
-                <option key={n} value={n} />
-              ))}
-            </datalist>
           </div>
 
           <div className="flex items-center gap-3 pt-1">

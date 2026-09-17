@@ -32,9 +32,9 @@ export interface Student {
   id: string; // Gerado localmente (hash da linha ou índice)
   rowIndex: number; // Linha no Google Sheets (1-based, depois do header)
   nome: string;
-  naipe: string;
-  email: string;
-  nivel: string;
+  chefeNaipe: string; // "Chefes de Naipe"
+  grau: string; // "Grau" (antigo Email)
+  naipe: string; // "Naipe" (antigo Nível)
   ativo: boolean;
   orquestra?: string; // ex: "Académica", "Juvenil"
 }
