@@ -24,7 +24,6 @@ export default function StudentList({
   const [filterOrquestra, setFilterOrquestra] = useState('');
   const [filterNaipe, setFilterNaipe] = useState('');
   const [filterChefe, setFilterChefe] = useState('');
-  const [filterAtivo, setFilterAtivo] = useState('');
 
   const filtered = students.filter((s) => {
     const matchSearch =
@@ -42,10 +41,7 @@ export default function StudentList({
         ? !!s.chefeNaipe && !['não', 'nao', 'false', '0', '-'].includes(s.chefeNaipe.toLowerCase())
         : !s.chefeNaipe || ['não', 'nao', 'false', '0', '-'].includes(s.chefeNaipe.toLowerCase()));
 
-    const matchAtivo =
-      !filterAtivo || (filterAtivo === 'ativo' ? s.ativo : !s.ativo);
-
-    return matchSearch && matchOrquestra && matchNaipe && matchChefe && matchAtivo;
+    return matchSearch && matchOrquestra && matchNaipe && matchChefe;
   });
 
   const hasMultipleOrchestras = orchestras && orchestras.length > 1;
@@ -117,16 +113,6 @@ export default function StudentList({
             <option value="chefe">Apenas Chefes de Naipe</option>
           </select>
 
-          <select
-            value={filterAtivo}
-            onChange={(e) => setFilterAtivo(e.target.value)}
-            className="text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-          >
-            <option value="">Todos os estados</option>
-            <option value="ativo">Ativo</option>
-            <option value="inativo">Inativo</option>
-          </select>
-
           <button
             onClick={onAdd}
             className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-medium text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
@@ -150,16 +136,15 @@ export default function StudentList({
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Naipe</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Chefes de Naipe</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Grau</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Estado</th>
                 <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700">
               {isLoading ? (
-                [...Array(hasMultipleOrchestras ? 7 : 6)].map((_, i) => <SkeletonRow key={i} />)
+                [...Array(hasMultipleOrchestras ? 6 : 5)].map((_, i) => <SkeletonRow key={i} />)
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={hasMultipleOrchestras ? 7 : 6} className="px-4 py-10 text-center text-sm text-gray-400">
+                  <td colSpan={hasMultipleOrchestras ? 6 : 5} className="px-4 py-10 text-center text-sm text-gray-400">
                     {students.length === 0 ? 'Nenhum aluno registado. Clique em "Adicionar".' : 'Nenhum resultado para os filtros aplicados.'}
                   </td>
                 </tr>
@@ -212,22 +197,9 @@ export default function StudentList({
                         )}
                       </td>
 
-                      {/* Grau (antigo Email) */}
+                      {/* Grau */}
                       <td className="px-4 py-3 text-gray-700 dark:text-gray-300 font-medium">
                         {student.grau || '—'}
-                      </td>
-
-                      {/* Estado */}
-                      <td className="px-4 py-3">
-                        <span
-                          className={`px-2 py-0.5 rounded text-xs font-medium ${
-                            student.ativo
-                              ? 'bg-green-50 text-green-700 dark:bg-green-900/30 dark:text-green-300'
-                              : 'bg-gray-100 text-gray-500 dark:bg-gray-700 dark:text-gray-400'
-                          }`}
-                        >
-                          {student.ativo ? 'Ativo' : 'Inativo'}
-                        </span>
                       </td>
 
                       <td className="px-4 py-3 text-right">

@@ -33,9 +33,9 @@ export interface Student {
   rowIndex: number; // Linha no Google Sheets (1-based, depois do header)
   nome: string;
   chefeNaipe: string; // "Chefes de Naipe"
-  grau: string; // "Grau" (antigo Email)
-  naipe: string; // "Naipe" (antigo Nível)
-  ativo: boolean;
+  grau: string; // "Grau"
+  naipe: string; // "Naipe"
+  ativo?: boolean;
   orquestra?: string; // ex: "Académica", "Juvenil"
 }
 

@@ -52,7 +52,7 @@ export default function EvaluationForm({ students, criteria, onSave, onClose }: 
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
             >
               <option value="">Selecionar aluno...</option>
-              {students.filter(s => s.ativo).map((s) => (
+              {students.filter(s => s.ativo !== false).map((s) => (
                 <option key={s.id} value={s.nome}>{s.nome} — {s.naipe}</option>
               ))}
             </select>

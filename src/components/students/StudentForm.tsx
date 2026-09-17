@@ -150,19 +150,6 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
             />
           </div>
 
-          <div className="flex items-center gap-3 pt-1">
-            <input
-              type="checkbox"
-              id="ativo"
-              checked={form.ativo}
-              onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-              className="w-4 h-4 text-orchestra-gold rounded border-gray-300 focus:ring-orchestra-gold"
-            />
-            <label htmlFor="ativo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
-              Aluno ativo na orquestra
-            </label>
-          </div>
-
           <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
             <button
               type="button"

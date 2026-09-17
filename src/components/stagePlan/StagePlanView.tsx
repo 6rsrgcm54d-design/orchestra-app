@@ -1,5 +1,5 @@
-import React, { useState, useCallback } from 'react';
-import { Plus, Save, Trash2, ChevronDown } from 'lucide-react';
+import React, { useState, useCallback, useMemo } from 'react';
+import { Plus, Save, Trash2, ChevronDown, ArrowLeftRight, UserMinus, X, Check } from 'lucide-react';
 import {
   DndContext,
   DragOverlay,
@@ -7,6 +7,7 @@ import {
   PointerSensor,
   useSensor,
   useSensors,
+  useDroppable,
   type DragStartEvent,
   type DragEndEvent,
 } from '@dnd-kit/core';
@@ -24,10 +25,43 @@ interface StagePlanViewProps {
   onDelete: (planId: string) => void;
 }
 
+function DroppablePool({
+  count,
+  children,
+}: {
+  count: number;
+  children: React.ReactNode;
+}) {
+  const { isOver, setNodeRef } = useDroppable({ id: 'pool' });
+
+  return (
+    <div
+      ref={setNodeRef}
+      className={`bg-white dark:bg-gray-800 rounded-xl border p-4 sticky top-4 transition-all ${
+        isOver
+          ? 'border-amber-400 bg-amber-500/10 ring-2 ring-amber-400 shadow-md'
+          : 'border-gray-200 dark:border-gray-700'
+      }`}
+    >
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300">
+          Alunos disponíveis ({count})
+        </h3>
+      </div>
+      <p className="text-[11px] text-gray-400 dark:text-gray-500 mb-3">
+        Arrasta para o palco ou clica num lugar e escolhe o aluno.
+      </p>
+      <div className="space-y-2 max-h-[32rem] overflow-y-auto pr-1">
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function createEmptyStagePlan(students: Student[]): StagePlanData {
   // Group students by naipe
   const byNaipe = students.reduce((acc, s) => {
-    if (!s.naipe || !s.ativo) return acc;
+    if (!s.naipe) return acc;
     if (!acc[s.naipe]) acc[s.naipe] = [];
     acc[s.naipe].push(s);
     return acc;
@@ -61,6 +95,8 @@ export default function StagePlanView({
   const [planName, setPlanName] = useState('');
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
   const [filterOrchestra, setFilterOrchestra] = useState<string>('');
+  const [selectedSeatKey, setSelectedSeatKey] = useState<string | null>(null);
+  const [statusMessage, setStatusMessage] = useState<string | null>(null);
 
   const relevantStudents = React.useMemo(() => {
     if (!filterOrchestra) return students;
@@ -74,10 +110,160 @@ export default function StagePlanView({
   const selectedPlan = plans.find((p) => p.id === selectedPlanId);
   const currentData = editingData ?? selectedPlan?.data ?? null;
 
+  const showStatus = (msg: string) => {
+    setStatusMessage(msg);
+    setTimeout(() => {
+      setStatusMessage((curr) => (curr === msg ? null : curr));
+    }, 3500);
+  };
+
+  const selectedSeatInfo = useMemo(() => {
+    if (!selectedSeatKey || !currentData) return null;
+    const [naipe, standStr, place] = selectedSeatKey.split('::');
+    const standNum = parseInt(standStr, 10);
+    const section = currentData.sections.find((s) => s.naipe === naipe);
+    const stand = section?.stands.find((st) => st.number === standNum);
+    const seat = stand?.seats.find((se) => se.place === place);
+    if (!seat) return null;
+    return {
+      key: selectedSeatKey,
+      naipe,
+      standNumber: standNum,
+      place: place as 'A' | 'B',
+      studentId: seat.studentId,
+      studentName: seat.studentName,
+    };
+  }, [selectedSeatKey, currentData]);
+
+  const handleSeatClick = (naipe: string, standNumber: number, place: 'A' | 'B') => {
+    const clickedKey = `${naipe}::${standNumber}::${place}`;
+
+    if (!selectedSeatKey) {
+      setSelectedSeatKey(clickedKey);
+      return;
+    }
+
+    if (selectedSeatKey === clickedKey) {
+      setSelectedSeatKey(null);
+      return;
+    }
+
+    if (!currentData) return;
+    const [selNaipe, selStandStr, selPlace] = selectedSeatKey.split('::');
+    const selStandNum = parseInt(selStandStr, 10);
+
+    let seat1Data: { id: string | null; name: string | null } | null = null;
+    let seat2Data: { id: string | null; name: string | null } | null = null;
+
+    for (const section of currentData.sections) {
+      for (const stand of section.stands) {
+        for (const seat of stand.seats) {
+          if (section.naipe === selNaipe && stand.number === selStandNum && seat.place === selPlace) {
+            seat1Data = { id: seat.studentId, name: seat.studentName };
+          }
+          if (section.naipe === naipe && stand.number === standNumber && seat.place === place) {
+            seat2Data = { id: seat.studentId, name: seat.studentName };
+          }
+        }
+      }
+    }
+
+    if (!seat1Data || !seat2Data) return;
+
+    const newData: StagePlanData = {
+      sections: currentData.sections.map((section) => ({
+        ...section,
+        stands: section.stands.map((stand) => ({
+          ...stand,
+          seats: stand.seats.map((seat) => {
+            if (section.naipe === selNaipe && stand.number === selStandNum && seat.place === selPlace) {
+              return { ...seat, studentId: seat2Data!.id, studentName: seat2Data!.name };
+            }
+            if (section.naipe === naipe && stand.number === standNumber && seat.place === place) {
+              return { ...seat, studentId: seat1Data!.id, studentName: seat1Data!.name };
+            }
+            return seat;
+          }) as [typeof stand.seats[0], typeof stand.seats[1]],
+        })),
+      })),
+    };
+
+    setEditingData(newData);
+    setSelectedSeatKey(null);
+
+    if (seat1Data.name && seat2Data.name) {
+      showStatus(`Troca efetuada: ${seat1Data.name} ⇄ ${seat2Data.name}`);
+    } else if (seat1Data.name) {
+      showStatus(`${seat1Data.name} movido para ${naipe} Est. ${standNumber} Lugar ${place}`);
+    } else if (seat2Data.name) {
+      showStatus(`${seat2Data.name} movido para ${selNaipe} Est. ${selStandNum} Lugar ${selPlace}`);
+    } else {
+      showStatus('Lugares vazios trocados.');
+    }
+  };
+
+  const handleClearSeat = (naipe: string, standNumber: number, place: 'A' | 'B') => {
+    if (!currentData) return;
+    let removedName: string | null = null;
+
+    const newData: StagePlanData = {
+      sections: currentData.sections.map((section) => ({
+        ...section,
+        stands: section.stands.map((stand) => ({
+          ...stand,
+          seats: stand.seats.map((seat) => {
+            if (section.naipe === naipe && stand.number === standNumber && seat.place === place) {
+              removedName = seat.studentName;
+              return { ...seat, studentId: null, studentName: null };
+            }
+            return seat;
+          }) as [typeof stand.seats[0], typeof stand.seats[1]],
+        })),
+      })),
+    };
+
+    setEditingData(newData);
+    if (selectedSeatKey === `${naipe}::${standNumber}::${place}`) {
+      setSelectedSeatKey(null);
+    }
+    if (removedName) {
+      showStatus(`${removedName} retirado do lugar e disponível na lista.`);
+    }
+  };
+
+  const handleAssignStudentToSelectedSeat = (student: Student) => {
+    if (!selectedSeatKey || !currentData) return;
+    const [selNaipe, selStandStr, selPlace] = selectedSeatKey.split('::');
+    const selStandNum = parseInt(selStandStr, 10);
+
+    const newData: StagePlanData = {
+      sections: currentData.sections.map((section) => ({
+        ...section,
+        stands: section.stands.map((stand) => ({
+          ...stand,
+          seats: stand.seats.map((seat) => {
+            if (seat.studentId === student.id) {
+              return { ...seat, studentId: null, studentName: null };
+            }
+            if (section.naipe === selNaipe && stand.number === selStandNum && seat.place === selPlace) {
+              return { ...seat, studentId: student.id, studentName: student.nome };
+            }
+            return seat;
+          }) as [typeof stand.seats[0], typeof stand.seats[1]],
+        })),
+      })),
+    };
+
+    setEditingData(newData);
+    setSelectedSeatKey(null);
+    showStatus(`${student.nome} colocado em ${selNaipe} Est. ${selStandNum} Lugar ${selPlace}`);
+  };
+
   const startNewPlan = () => {
     const data = createEmptyStagePlan(relevantStudents);
     setEditingData(data);
     setSelectedPlanId(null);
+    setSelectedSeatKey(null);
     const prefix = filterOrchestra ? `${filterOrchestra} - ` : '';
     setPlanName(`${prefix}Concerto ${new Date().toLocaleDateString('pt-PT')}`);
   };
@@ -85,6 +271,7 @@ export default function StagePlanView({
   const handleSelectPlan = (planId: string) => {
     setSelectedPlanId(planId);
     setEditingData(null);
+    setSelectedSeatKey(null);
     setPlanName('');
   };
 
@@ -99,6 +286,8 @@ export default function StagePlanView({
     onSave(plan);
     setEditingData(null);
     setSelectedPlanId(plan.id);
+    setSelectedSeatKey(null);
+    showStatus('Plano de palco guardado com sucesso!');
   };
 
   const handleDragStart = (event: DragStartEvent) => {
@@ -110,8 +299,6 @@ export default function StagePlanView({
       setActiveStudentId(null);
       const { active, over } = event;
       if (!over || !currentData) return;
-
-      const [overNaipe, overStand, overPlace] = (over.id as string).split('::');
 
       // Find active student info
       let activeStudentName: string | null = null;
@@ -145,27 +332,81 @@ export default function StagePlanView({
 
       if (!activeStudentSourceId) return;
 
+      // Dropped onto pool
+      if (over.id === 'pool') {
+        if (activeStudentSourceNaipe) {
+          const newData: StagePlanData = {
+            sections: currentData.sections.map((section) => ({
+              ...section,
+              stands: section.stands.map((stand) => ({
+                ...stand,
+                seats: stand.seats.map((seat) => {
+                  if (
+                    activeStudentSourceNaipe === section.naipe &&
+                    activeStudentSourceStand === stand.number &&
+                    activeStudentSourcePlace === seat.place
+                  ) {
+                    return { ...seat, studentId: null, studentName: null };
+                  }
+                  return seat;
+                }) as [typeof stand.seats[0], typeof stand.seats[1]],
+              })),
+            })),
+          };
+          setEditingData(newData);
+          showStatus(`${activeStudentName} retirado do palco para a lista.`);
+        }
+        return;
+      }
+
+      // Dropped onto a seat
+      const [overNaipe, overStand, overPlace] = (over.id as string).split('::');
+      const overStandNum = parseInt(overStand, 10);
+
+      // Target seat occupant
+      let targetStudentId: string | null = null;
+      let targetStudentName: string | null = null;
+
+      for (const section of currentData.sections) {
+        for (const stand of section.stands) {
+          for (const seat of stand.seats) {
+            if (section.naipe === overNaipe && stand.number === overStandNum && seat.place === overPlace) {
+              targetStudentId = seat.studentId;
+              targetStudentName = seat.studentName;
+            }
+          }
+        }
+      }
+
       const newData: StagePlanData = {
         sections: currentData.sections.map((section) => ({
           ...section,
           stands: section.stands.map((stand) => ({
             ...stand,
             seats: stand.seats.map((seat) => {
-              // Clear source seat
+              // Clear or swap source seat
               if (
                 activeStudentSourceNaipe === section.naipe &&
                 activeStudentSourceStand === stand.number &&
                 activeStudentSourcePlace === seat.place
               ) {
-                return { ...seat, studentId: null, studentName: null };
+                return {
+                  ...seat,
+                  studentId: targetStudentId,
+                  studentName: targetStudentName,
+                };
               }
               // Set target seat
               if (
                 overNaipe === section.naipe &&
-                parseInt(overStand) === stand.number &&
+                overStandNum === stand.number &&
                 overPlace === seat.place
               ) {
-                return { ...seat, studentId: activeStudentSourceId, studentName: activeStudentName };
+                return {
+                  ...seat,
+                  studentId: activeStudentSourceId,
+                  studentName: activeStudentName,
+                };
               }
               return seat;
             }) as [typeof stand.seats[0], typeof stand.seats[1]],
@@ -174,6 +415,11 @@ export default function StagePlanView({
       };
 
       setEditingData(newData);
+      if (targetStudentName && activeStudentSourceNaipe) {
+        showStatus(`Troca efetuada: ${activeStudentName} ⇄ ${targetStudentName}`);
+      } else {
+        showStatus(`${activeStudentName} colocado em ${overNaipe} Est. ${overStandNum} Lugar ${overPlace}`);
+      }
     },
     [currentData, students]
   );
@@ -210,11 +456,11 @@ export default function StagePlanView({
 
   const activeStudent = relevantStudents.find((s) => s.id === activeStudentId);
 
-  // Pool: students not placed anywhere
+  // Pool: students not placed anywhere (remove s.ativo requirement)
   const placedIds = new Set(
     currentData?.sections.flatMap((s) => s.stands.flatMap((st) => st.seats.map((seat) => seat.studentId))) ?? []
   );
-  const poolStudents = relevantStudents.filter((s) => s.ativo && !placedIds.has(s.id));
+  const poolStudents = relevantStudents.filter((s) => !placedIds.has(s.id));
 
   if (isLoading) {
     return (
@@ -228,6 +474,78 @@ export default function StagePlanView({
 
   return (
     <div className="p-6 space-y-4">
+      {/* Status toast message */}
+      {statusMessage && (
+        <div className="bg-emerald-500/15 border border-emerald-500/40 text-emerald-800 dark:text-emerald-200 px-4 py-2 rounded-xl text-xs font-medium flex items-center justify-between shadow-sm animate-in fade-in">
+          <span className="flex items-center gap-1.5">
+            <Check size={14} className="text-emerald-500 flex-shrink-0" />
+            {statusMessage}
+          </span>
+          <button
+            onClick={() => setStatusMessage(null)}
+            className="text-emerald-600 dark:text-emerald-400 hover:text-emerald-900 dark:hover:text-white ml-2 text-sm leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {/* Selected Seat Floating Action Bar */}
+      {selectedSeatInfo && (
+        <div className="bg-gradient-to-r from-amber-500/20 via-amber-500/15 to-transparent border-2 border-amber-400 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 shadow-lg backdrop-blur-sm animate-in fade-in slide-in-from-top-2">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-amber-400 text-orchestra-navy flex items-center justify-center font-bold text-sm shadow-sm flex-shrink-0">
+              {selectedSeatInfo.place}
+            </div>
+            <div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-bold text-amber-950 dark:text-amber-100 uppercase tracking-wide">
+                  Lugar Selecionado: {selectedSeatInfo.naipe} · Estante {selectedSeatInfo.standNumber}, Lugar {selectedSeatInfo.place}
+                </span>
+                {selectedSeatInfo.studentName ? (
+                  <span className="px-2 py-0.5 bg-amber-200/80 dark:bg-amber-800/60 text-amber-900 dark:text-amber-100 rounded text-xs font-semibold">
+                    {selectedSeatInfo.studentName}
+                  </span>
+                ) : (
+                  <span className="text-xs text-gray-400 italic">(vazio)</span>
+                )}
+              </div>
+              <p className="text-[11px] text-amber-800/90 dark:text-amber-300/90 mt-0.5 flex items-center gap-1">
+                <ArrowLeftRight size={12} className="inline flex-shrink-0 text-amber-600 dark:text-amber-400" />
+                Clica noutro lugar para <strong>trocar de posição</strong>, ou clica num aluno disponível à direita para o sentar aqui.
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {selectedSeatInfo.studentId && (
+              <button
+                type="button"
+                onClick={() =>
+                  handleClearSeat(
+                    selectedSeatInfo.naipe,
+                    selectedSeatInfo.standNumber,
+                    selectedSeatInfo.place
+                  )
+                }
+                className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-800 rounded-lg hover:bg-red-100 dark:hover:bg-red-900/40 transition-all shadow-sm"
+              >
+                <UserMinus size={13} />
+                Desocupar Lugar
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setSelectedSeatKey(null)}
+              className="flex items-center gap-1 px-3 py-1.5 text-xs font-semibold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-600 transition-all shadow-sm"
+            >
+              <X size={13} />
+              Cancelar Seleção
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
         {hasMultipleOrchestras && (
@@ -285,7 +603,7 @@ export default function StagePlanView({
             )}
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-medium text-sm rounded-lg hover:bg-orchestra-gold-light transition-all"
+              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-medium text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow-sm"
             >
               <Save size={15} />
               Guardar Plano
@@ -349,14 +667,29 @@ export default function StagePlanView({
                         {section.stands.map((stand) => (
                           <div key={stand.number} className="relative">
                             <div className="text-center text-white/40 text-xs mb-1">Est. {stand.number}</div>
-                            <div className="flex gap-1">
-                              {stand.seats.map((seat) => (
-                                <DroppableSeat
-                                  key={`${section.naipe}::${stand.number}::${seat.place}`}
-                                  id={`${section.naipe}::${stand.number}::${seat.place}`}
-                                  seat={seat}
-                                />
-                              ))}
+                            <div className="flex gap-1.5">
+                              {stand.seats.map((seat) => {
+                                const seatStudent = students.find((s) => s.id === seat.studentId);
+                                const isChefe =
+                                  !!seatStudent?.chefeNaipe &&
+                                  !['não', 'nao', 'false', '0', '-'].includes(seatStudent.chefeNaipe.toLowerCase());
+                                const seatKey = `${section.naipe}::${stand.number}::${seat.place}`;
+                                const isSelected = selectedSeatKey === seatKey;
+                                const isPendingTarget = !!selectedSeatKey && !isSelected;
+
+                                return (
+                                  <DroppableSeat
+                                    key={seatKey}
+                                    id={seatKey}
+                                    seat={seat}
+                                    isSelected={isSelected}
+                                    isPendingTarget={isPendingTarget}
+                                    isChefe={isChefe}
+                                    onClick={() => handleSeatClick(section.naipe, stand.number, seat.place)}
+                                    onClear={() => handleClearSeat(section.naipe, stand.number, seat.place)}
+                                  />
+                                );
+                              })}
                             </div>
                             {section.stands.length > 1 && (
                               <button
@@ -384,21 +717,21 @@ export default function StagePlanView({
             </div>
 
             {/* Pool of unplaced students */}
-            <div className="w-56 flex-shrink-0">
-              <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-4 sticky top-4">
-                <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">
-                  Alunos disponíveis ({poolStudents.length})
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {poolStudents.length === 0 ? (
-                    <p className="text-xs text-gray-400">Todos os alunos estão colocados.</p>
-                  ) : (
-                    poolStudents.map((s) => (
-                      <DraggableStudent key={s.id} student={s} />
-                    ))
-                  )}
-                </div>
-              </div>
+            <div className="w-64 flex-shrink-0">
+              <DroppablePool count={poolStudents.length}>
+                {poolStudents.length === 0 ? (
+                  <p className="text-xs text-gray-400">Todos os alunos estão colocados.</p>
+                ) : (
+                  poolStudents.map((s) => (
+                    <DraggableStudent
+                      key={s.id}
+                      student={s}
+                      isSelectedSeatActive={!!selectedSeatKey}
+                      onAssignToSelectedSeat={() => handleAssignStudentToSelectedSeat(s)}
+                    />
+                  ))
+                )}
+              </DroppablePool>
             </div>
           </div>
 
