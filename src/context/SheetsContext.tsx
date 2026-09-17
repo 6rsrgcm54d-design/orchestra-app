@@ -1,13 +1,21 @@
 import React, { createContext, useContext, useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { getSpreadsheetMeta, ensureSheetExists, extractSpreadsheetId } from '../api/sheetsApi';
+import {
+  getSpreadsheetMeta,
+  ensureSheetExists,
+  extractSpreadsheetId,
+  LOCAL_STORAGE_ID,
+  isLocalId,
+} from '../api/sheetsApi';
 import type { SheetsConfig } from '../types';
 
 interface SheetsContextValue {
   config: SheetsConfig | null;
   sheetsMeta: SheetsMeta | null;
   isConnecting: boolean;
+  isLocalMode: boolean;
   connect: (urlOrId: string) => Promise<void>;
+  connectLocal: () => Promise<void>;
   reconnect: () => Promise<void>;
   disconnect: () => void;
   getSheetId: (tabName: string) => number | undefined;
@@ -38,9 +46,11 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       const id = extractSpreadsheetId(urlOrId);
       const meta = await getSpreadsheetMeta(id);
 
-      // Garante que todas as abas necessárias existem
-      for (const tab of REQUIRED_TABS) {
-        await ensureSheetExists(id, meta.sheets, tab);
+      // Garante que todas as abas necessárias existem (se for Sheets real)
+      if (!isLocalId(id)) {
+        for (const tab of REQUIRED_TABS) {
+          await ensureSheetExists(id, meta.sheets, tab);
+        }
       }
 
       // Re-fetcha meta depois de criar abas
@@ -49,7 +59,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       setConfig({ spreadsheetId: id });
       setSheetsMeta(updatedMeta);
       localStorage.setItem(STORAGE_KEY, id);
-      toast.success(`Conectado a: ${updatedMeta.title}`);
+      toast.success(`Conectado: ${updatedMeta.title}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
       toast.error(`Erro ao conectar: ${msg}`);
@@ -58,16 +68,23 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
-  // Reconnect using the saved spreadsheetId (called after login when ID already exists)
+  const connectLocal = useCallback(async () => {
+    await connect(LOCAL_STORAGE_ID);
+  }, [connect]);
+
   const reconnect = useCallback(async () => {
-    const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved || sheetsMeta) return;
+    const saved = localStorage.getItem(STORAGE_KEY) || LOCAL_STORAGE_ID;
+    if (sheetsMeta) return;
     setIsConnecting(true);
     try {
       const meta = await getSpreadsheetMeta(saved);
+      setConfig({ spreadsheetId: saved });
       setSheetsMeta(meta);
     } catch {
-      // Silently fail — user will see the connect screen
+      // fallback to local
+      const meta = await getSpreadsheetMeta(LOCAL_STORAGE_ID);
+      setConfig({ spreadsheetId: LOCAL_STORAGE_ID });
+      setSheetsMeta(meta);
     } finally {
       setIsConnecting(false);
     }
@@ -77,7 +94,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     setConfig(null);
     setSheetsMeta(null);
     localStorage.removeItem(STORAGE_KEY);
-    toast.success('Desconectado do Spreadsheet');
+    toast.success('Desconectado');
   }, []);
 
   const getSheetId = useCallback(
@@ -87,8 +104,22 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     [sheetsMeta]
   );
 
+  const isLocalMode = config ? isLocalId(config.spreadsheetId) : false;
+
   return (
-    <SheetsContext.Provider value={{ config, sheetsMeta, isConnecting, connect, reconnect, disconnect, getSheetId }}>
+    <SheetsContext.Provider
+      value={{
+        config,
+        sheetsMeta,
+        isConnecting,
+        isLocalMode,
+        connect,
+        connectLocal,
+        reconnect,
+        disconnect,
+        getSheetId,
+      }}
+    >
       {children}
     </SheetsContext.Provider>
   );

@@ -16,6 +16,7 @@ interface AuthContextValue {
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: () => void;
+  signInGuest: () => void;
   signOut: () => void;
   refreshToken: () => void;
 }
@@ -23,14 +24,28 @@ interface AuthContextValue {
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
+const GUEST_KEY = 'orchestra_guest_user';
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<GoogleUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
+  const [user, setUser] = useState<GoogleUser | null>(() => {
+    const saved = localStorage.getItem(GUEST_KEY);
+    if (saved) {
+      try {
+        return JSON.parse(saved);
+      } catch {
+        return null;
+      }
+    }
+    return null;
+  });
+
+  const [accessToken, setAccessToken] = useState<string | null>(() => {
+    return localStorage.getItem(GUEST_KEY) ? 'guest-token' : null;
+  });
+
   const [isLoading, setIsLoading] = useState(false);
   const gsiReady = useRef(false);
 
-  // Injeta o script GSI dinamicamente
   useEffect(() => {
     if (isGsiLoaded()) {
       setupClient();
@@ -41,64 +56,84 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     script.async = true;
     script.defer = true;
     script.onload = () => setupClient();
-    script.onerror = () => toast.error('Falha ao carregar Google Identity Services');
     document.head.appendChild(script);
   }, []);
 
   const setupClient = useCallback(() => {
-    if (gsiReady.current) return;
-    if (!CLIENT_ID) {
-      toast.error('VITE_GOOGLE_CLIENT_ID não configurado. Cria o ficheiro .env');
-      return;
-    }
-    initTokenClient(
-      CLIENT_ID,
-      async (tokenResponse) => {
-        const token = tokenResponse.access_token;
-        setAccessToken(token);
-        try {
-          const userInfo = await fetchUserInfo(token);
-          setUser(userInfo);
-          toast.success(`Bem-vindo, ${userInfo.name}!`);
-        } catch {
-          toast.error('Erro ao obter informações do utilizador');
-        } finally {
+    if (gsiReady.current || !CLIENT_ID) return;
+    try {
+      initTokenClient(
+        CLIENT_ID,
+        async (tokenResponse) => {
+          const token = tokenResponse.access_token;
+          setAccessToken(token);
+          try {
+            const userInfo = await fetchUserInfo(token);
+            setUser(userInfo);
+            localStorage.removeItem(GUEST_KEY);
+            toast.success(`Bem-vindo, ${userInfo.name}!`);
+          } catch {
+            toast.error('Erro ao obter informações do utilizador');
+          } finally {
+            setIsLoading(false);
+          }
+        },
+        () => {
+          toast.error('Autenticação Google falhou');
           setIsLoading(false);
         }
-      },
-      () => {
-        toast.error('Autenticação Google falhou');
-        setIsLoading(false);
-      }
-    );
-    gsiReady.current = true;
+      );
+      gsiReady.current = true;
+    } catch {
+      // client setup fail
+    }
   }, []);
 
   const signIn = useCallback(() => {
+    if (!CLIENT_ID) {
+      toast.error('VITE_GOOGLE_CLIENT_ID não configurado. Podes usar o Modo Autónomo sem configuração!');
+      return;
+    }
     setIsLoading(true);
     if (!gsiReady.current) {
       setupClient();
     }
     try {
       requestAccessToken();
-    } catch (e) {
-      toast.error('Erro ao iniciar login. Verifica se a Client ID está correta.');
+    } catch {
+      toast.error('Erro ao iniciar login Google.');
       setIsLoading(false);
     }
   }, [setupClient]);
 
-  const signOut = useCallback(() => {
-    revokeToken();
-    setUser(null);
-    setAccessToken(null);
-    toast.success('Sessão terminada');
+  const signInGuest = useCallback(() => {
+    const guestUser: GoogleUser = {
+      name: 'Direção Artística / Maestro',
+      email: 'orquestra@bomfim.pt',
+      picture: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80',
+    };
+    setUser(guestUser);
+    setAccessToken('guest-token');
+    localStorage.setItem(GUEST_KEY, JSON.stringify(guestUser));
+    toast.success('Bem-vindo à OrquestraApp!');
   }, []);
 
+  const signOut = useCallback(() => {
+    if (accessToken && accessToken !== 'guest-token') {
+      revokeToken();
+    }
+    setUser(null);
+    setAccessToken(null);
+    localStorage.removeItem(GUEST_KEY);
+    toast.success('Sessão terminada');
+  }, [accessToken]);
+
   const refreshToken = useCallback(() => {
+    if (accessToken === 'guest-token') return;
     if (!getAccessToken()) {
       requestAccessToken();
     }
-  }, []);
+  }, [accessToken]);
 
   return (
     <AuthContext.Provider
@@ -108,6 +143,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: !!user && !!accessToken,
         signIn,
+        signInGuest,
         signOut,
         refreshToken,
       }}
