@@ -215,6 +215,7 @@ function MainApp() {
 
   const {
     students,
+    orchestras,
     isLoading: studentsLoading,
     load: loadStudents,
     add: addStudent,
@@ -344,6 +345,7 @@ function MainApp() {
         return (
           <StudentList
             students={students}
+            orchestras={orchestras}
             isLoading={studentsLoading}
             onAdd={handleAddStudent}
             onEdit={handleEditStudent}
@@ -376,6 +378,7 @@ function MainApp() {
           <StagePlanView
             plans={plans}
             students={students}
+            orchestras={orchestras}
             isLoading={plansLoading}
             onSave={savePlan}
             onDelete={deletePlan}
@@ -414,6 +417,7 @@ function MainApp() {
       {showStudentForm && (
         <StudentForm
           student={editingStudent}
+          orchestras={orchestras}
           onSave={handleSaveStudent}
           onClose={() => setShowStudentForm(false)}
         />

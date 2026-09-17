@@ -1,21 +1,61 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
 import { readRange, appendRows, updateRange, deleteRow } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Student } from '../types';
 
-const TAB = 'Alunos';
-const HEADER = ['Nome', 'Naipe', 'Email', 'Nível', 'Ativo'];
+const NON_STUDENT_TABS = new Set([
+  'repertório',
+  'repertorio',
+  'avaliações',
+  'avaliacoes',
+  'critérios',
+  'criterios',
+  'planospalco',
+  'planos palco',
+  'planos',
+]);
 
-function rowToStudent(row: string[], rowIndex: number): Student {
+function detectMapping(headerRow: string[]) {
+  const mapping = { nome: 0, naipe: 1, email: 2, nivel: 3, ativo: 4 };
+  if (!headerRow || headerRow.length === 0) return mapping;
+
+  headerRow.forEach((col, idx) => {
+    const text = String(col).toLowerCase().trim();
+    if (/nome|aluno|estudante/i.test(text)) mapping.nome = idx;
+    else if (/naipe|instrumento|voz|se[cç][cç][aã]o/i.test(text)) mapping.naipe = idx;
+    else if (/email|e-mail|correio|contacto|contato/i.test(text)) mapping.email = idx;
+    else if (/n[ií]vel|grau|ano/i.test(text)) mapping.nivel = idx;
+    else if (/ativo|ativa|estado|status/i.test(text)) mapping.ativo = idx;
+  });
+
+  return mapping;
+}
+
+function parseStudentRow(
+  row: string[],
+  rowIndex: number,
+  tabName: string,
+  mapping: { nome: number; naipe: number; email: number; nivel: number; ativo: number }
+): Student | null {
+  const nome = row[mapping.nome] !== undefined ? String(row[mapping.nome]).trim() : '';
+  if (!nome || nome.toLowerCase() === 'nome') return null;
+
+  const naipe = row[mapping.naipe] !== undefined ? String(row[mapping.naipe]).trim() : '';
+  const email = row[mapping.email] !== undefined ? String(row[mapping.email]).trim() : '';
+  const nivel = row[mapping.nivel] !== undefined ? String(row[mapping.nivel]).trim() : '';
+  const ativoVal = row[mapping.ativo] !== undefined ? String(row[mapping.ativo]).toLowerCase().trim() : 'sim';
+  const ativo = !['não', 'nao', 'inativo', 'false', '0', 'no'].includes(ativoVal);
+
   return {
-    id: `student-${rowIndex}`,
+    id: `student-${tabName}-${rowIndex}`,
     rowIndex,
-    nome: row[0] ?? '',
-    naipe: row[1] ?? '',
-    email: row[2] ?? '',
-    nivel: row[3] ?? '',
-    ativo: (row[4] ?? 'sim').toLowerCase() === 'sim',
+    nome,
+    naipe,
+    email,
+    nivel,
+    ativo,
+    orquestra: tabName,
   };
 }
 
@@ -24,46 +64,76 @@ function studentToRow(s: Omit<Student, 'id' | 'rowIndex'>): (string | boolean)[]
 }
 
 export function useStudents() {
-  const { config, getSheetId } = useSheets();
+  const { config, sheetsMeta, getSheetId } = useSheets();
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  // Detect which tabs contain students (e.g. "Académica", "Juvenil", or "Alunos")
+  const studentTabs = useMemo(() => {
+    if (!sheetsMeta?.sheets || sheetsMeta.sheets.length === 0) {
+      return ['Alunos'];
+    }
+    const filtered = sheetsMeta.sheets
+      .map((s) => s.properties.title)
+      .filter((title) => !NON_STUDENT_TABS.has(title.toLowerCase().trim()));
+
+    return filtered.length > 0 ? filtered : ['Alunos'];
+  }, [sheetsMeta]);
 
   const load = useCallback(async () => {
     if (!config) return;
     setIsLoading(true);
     try {
-      const rows = await readRange(config.spreadsheetId, `${TAB}!A:E`);
-      // Skip header row (index 0)
-      const data = rows.slice(1).map((row, i) => rowToStudent(row, i + 2)); // +2: header=row1, data starts row2
-      setStudents(data);
+      const allLoaded: Student[] = [];
+
+      for (const tab of studentTabs) {
+        try {
+          const rows = await readRange(config.spreadsheetId, `${tab}!A:Z`);
+          if (rows && rows.length > 0) {
+            const header = rows[0];
+            const mapping = detectMapping(header);
+            const dataRows = rows.slice(1);
+            dataRows.forEach((row, i) => {
+              const student = parseStudentRow(row, i + 2, tab, mapping);
+              if (student) allLoaded.push(student);
+            });
+          }
+        } catch {
+          // ignore individual tab errors
+        }
+      }
+
+      setStudents(allLoaded);
     } catch (err) {
       toast.error(`Erro ao carregar alunos: ${err instanceof Error ? err.message : 'Erro'}`);
     } finally {
       setIsLoading(false);
     }
-  }, [config]);
+  }, [config, studentTabs]);
 
   const add = useCallback(
     async (student: Omit<Student, 'id' | 'rowIndex'>) => {
       if (!config) return;
-      const toastId = toast.loading('A adicionar aluno...');
+      const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
+      const toastId = toast.loading(`A adicionar aluno em ${targetTab}...`);
       try {
-        await appendRows(config.spreadsheetId, `${TAB}!A:E`, [studentToRow(student)]);
-        toast.success('Aluno adicionado!', { id: toastId });
+        await appendRows(config.spreadsheetId, `${targetTab}!A:E`, [studentToRow(student)]);
+        toast.success(`Aluno adicionado a ${targetTab}!`, { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
       }
     },
-    [config, load]
+    [config, studentTabs, load]
   );
 
   const update = useCallback(
     async (student: Student) => {
       if (!config) return;
+      const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
       const toastId = toast.loading('A guardar...');
       try {
-        const range = `${TAB}!A${student.rowIndex}:E${student.rowIndex}`;
+        const range = `${targetTab}!A${student.rowIndex}:E${student.rowIndex}`;
         await updateRange(config.spreadsheetId, range, [studentToRow(student)]);
         toast.success('Aluno atualizado!', { id: toastId });
         await load();
@@ -71,20 +141,16 @@ export function useStudents() {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
       }
     },
-    [config, load]
+    [config, studentTabs, load]
   );
 
   const remove = useCallback(
     async (student: Student) => {
       if (!config) return;
-      const sheetId = getSheetId(TAB);
-      if (sheetId === undefined) {
-        toast.error('Aba "Alunos" não encontrada');
-        return;
-      }
+      const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
+      const sheetId = getSheetId(targetTab) ?? 0;
       const toastId = toast.loading('A eliminar...');
       try {
-        // rowIndex is 1-based (Sheets row), deleteRow expects 0-based index
         await deleteRow(config.spreadsheetId, sheetId, student.rowIndex - 1);
         toast.success('Aluno eliminado!', { id: toastId });
         await load();
@@ -92,16 +158,21 @@ export function useStudents() {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
       }
     },
-    [config, getSheetId, load]
+    [config, studentTabs, getSheetId, load]
   );
 
   const ensureHeader = useCallback(async () => {
-    if (!config) return;
-    const rows = await readRange(config.spreadsheetId, `${TAB}!A1:E1`);
-    if (!rows.length || rows[0][0] !== 'Nome') {
-      await updateRange(config.spreadsheetId, `${TAB}!A1:E1`, [HEADER]);
-    }
-  }, [config]);
+    // Handled dynamically per tab
+  }, []);
 
-  return { students, isLoading, load, add, update, remove, ensureHeader };
+  return {
+    students,
+    orchestras: studentTabs,
+    isLoading,
+    load,
+    add,
+    update,
+    remove,
+    ensureHeader,
+  };
 }

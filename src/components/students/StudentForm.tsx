@@ -5,6 +5,7 @@ import { NAIPES, NIVEIS } from '../../types';
 
 interface StudentFormProps {
   student?: Student;
+  orchestras?: string[];
   onSave: (data: Omit<Student, 'id' | 'rowIndex'>) => void;
   onClose: () => void;
 }
@@ -15,16 +16,30 @@ const EMPTY: Omit<Student, 'id' | 'rowIndex'> = {
   email: '',
   nivel: '',
   ativo: true,
+  orquestra: '',
 };
 
-export default function StudentForm({ student, onSave, onClose }: StudentFormProps) {
+export default function StudentForm({ student, orchestras, onSave, onClose }: StudentFormProps) {
   const [form, setForm] = useState<Omit<Student, 'id' | 'rowIndex'>>(
-    student ? { nome: student.nome, naipe: student.naipe, email: student.email, nivel: student.nivel, ativo: student.ativo }
-    : EMPTY
+    student
+      ? {
+          nome: student.nome,
+          naipe: student.naipe,
+          email: student.email,
+          nivel: student.nivel,
+          ativo: student.ativo,
+          orquestra: student.orquestra || (orchestras && orchestras[0]) || '',
+        }
+      : {
+          ...EMPTY,
+          orquestra: (orchestras && orchestras[0]) || '',
+        }
   );
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
     window.addEventListener('keydown', handler);
     return () => window.removeEventListener('keydown', handler);
   }, [onClose]);
@@ -36,6 +51,8 @@ export default function StudentForm({ student, onSave, onClose }: StudentFormPro
     onClose();
   };
 
+  const hasMultipleOrchestras = orchestras && orchestras.length > 1;
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
@@ -44,85 +61,127 @@ export default function StudentForm({ student, onSave, onClose }: StudentFormPro
           <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
             {student ? 'Editar Aluno' : 'Novo Aluno'}
           </h2>
-          <button onClick={onClose} className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all">
+          <button
+            onClick={onClose}
+            className="p-2 text-gray-400 hover:text-gray-700 dark:hover:text-gray-200 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-all"
+          >
             <X size={18} />
           </button>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
+          {hasMultipleOrchestras && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Orquestra *
+              </label>
+              <select
+                required
+                value={form.orquestra || orchestras[0]}
+                onChange={(e) => setForm({ ...form, orquestra: e.target.value })}
+                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
+              >
+                {orchestras.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nome *</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Nome *
+            </label>
             <input
               type="text"
               required
               value={form.nome}
               onChange={(e) => setForm({ ...form, nome: e.target.value })}
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-              placeholder="Nome completo"
+              placeholder="ex: Maria Silva"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Naipe</label>
-            <select
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Naipe / Instrumento *
+            </label>
+            <input
+              type="text"
+              list="naipes-list"
+              required
               value={form.naipe}
               onChange={(e) => setForm({ ...form, naipe: e.target.value })}
+              placeholder="Seleciona ou escreve o naipe..."
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-            >
-              <option value="">Selecionar naipe...</option>
-              {NAIPES.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            />
+            <datalist id="naipes-list">
+              {NAIPES.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Email</label>
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Email
+            </label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-              placeholder="email@exemplo.com"
+              placeholder="ex: maria@escola.pt"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nível</label>
-            <select
+            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+              Nível
+            </label>
+            <input
+              type="text"
+              list="niveis-list"
               value={form.nivel}
               onChange={(e) => setForm({ ...form, nivel: e.target.value })}
+              placeholder="ex: Elementar, Intermédio..."
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-            >
-              <option value="">Selecionar nível...</option>
-              {NIVEIS.map((n) => <option key={n} value={n}>{n}</option>)}
-            </select>
+            />
+            <datalist id="niveis-list">
+              {NIVEIS.map((n) => (
+                <option key={n} value={n} />
+              ))}
+            </datalist>
           </div>
 
-          <div className="flex items-center gap-3">
-            <label className="relative inline-flex items-center cursor-pointer">
-              <input
-                type="checkbox"
-                checked={form.ativo}
-                onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-2 peer-focus:ring-orchestra-gold rounded-full peer dark:bg-gray-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-orchestra-gold"></div>
+          <div className="flex items-center gap-3 pt-1">
+            <input
+              type="checkbox"
+              id="ativo"
+              checked={form.ativo}
+              onChange={(e) => setForm({ ...form, ativo: e.target.checked })}
+              className="w-4 h-4 text-orchestra-gold rounded border-gray-300 focus:ring-orchestra-gold"
+            />
+            <label htmlFor="ativo" className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Aluno ativo na orquestra
             </label>
-            <span className="text-sm text-gray-700 dark:text-gray-300">Aluno Ativo</span>
           </div>
 
-          <div className="flex gap-3 pt-2">
+          <div className="flex items-center justify-end gap-3 pt-3 border-t border-gray-100 dark:border-gray-700">
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2 px-4 text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition-all"
+              className="px-4 py-2 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-lg transition-all"
             >
               Cancelar
             </button>
             <button
               type="submit"
-              className="flex-1 py-2 px-4 text-sm font-medium text-orchestra-navy bg-orchestra-gold rounded-lg hover:bg-orchestra-gold-light transition-all"
+              className="px-5 py-2 bg-orchestra-gold text-orchestra-navy font-semibold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
             >
-              {student ? 'Guardar' : 'Adicionar'}
+              {student ? 'Guardar Alterações' : 'Adicionar Aluno'}
             </button>
           </div>
         </form>

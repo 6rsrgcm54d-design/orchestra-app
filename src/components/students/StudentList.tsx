@@ -5,14 +5,23 @@ import { NAIPES, NIVEIS } from '../../types';
 
 interface StudentListProps {
   students: Student[];
+  orchestras?: string[];
   isLoading: boolean;
   onAdd: () => void;
   onEdit: (student: Student) => void;
   onDelete: (student: Student) => void;
 }
 
-export default function StudentList({ students, isLoading, onAdd, onEdit, onDelete }: StudentListProps) {
+export default function StudentList({
+  students,
+  orchestras,
+  isLoading,
+  onAdd,
+  onEdit,
+  onDelete,
+}: StudentListProps) {
   const [search, setSearch] = useState('');
+  const [filterOrquestra, setFilterOrquestra] = useState('');
   const [filterNaipe, setFilterNaipe] = useState('');
   const [filterNivel, setFilterNivel] = useState('');
   const [filterAtivo, setFilterAtivo] = useState('');
@@ -22,17 +31,20 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
       !search ||
       s.nome.toLowerCase().includes(search.toLowerCase()) ||
       s.email.toLowerCase().includes(search.toLowerCase());
+    const matchOrquestra = !filterOrquestra || s.orquestra === filterOrquestra;
     const matchNaipe = !filterNaipe || s.naipe === filterNaipe;
     const matchNivel = !filterNivel || s.nivel === filterNivel;
     const matchAtivo =
       !filterAtivo ||
       (filterAtivo === 'ativo' ? s.ativo : !s.ativo);
-    return matchSearch && matchNaipe && matchNivel && matchAtivo;
+    return matchSearch && matchOrquestra && matchNaipe && matchNivel && matchAtivo;
   });
+
+  const hasMultipleOrchestras = orchestras && orchestras.length > 1;
 
   const SkeletonRow = () => (
     <tr className="animate-pulse">
-      {[...Array(5)].map((_, i) => (
+      {[...Array(hasMultipleOrchestras ? 7 : 6)].map((_, i) => (
         <td key={i} className="px-4 py-3">
           <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4" />
         </td>
@@ -57,6 +69,20 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
 
         <div className="flex items-center gap-2 flex-wrap">
           <Filter size={15} className="text-gray-400" />
+
+          {/* Filtro de Orquestras */}
+          {hasMultipleOrchestras && (
+            <select
+              value={filterOrquestra}
+              onChange={(e) => setFilterOrquestra(e.target.value)}
+              className="text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
+            >
+              <option value="">Todas as Orquestras</option>
+              {orchestras.map((o) => (
+                <option key={o} value={o}>{o}</option>
+              ))}
+            </select>
+          )}
 
           <select
             value={filterNaipe}
@@ -88,7 +114,7 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
 
           <button
             onClick={onAdd}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-medium text-sm rounded-lg hover:bg-orchestra-gold-light transition-all"
+            className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-medium text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
           >
             <Plus size={16} />
             Adicionar
@@ -103,6 +129,9 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
             <thead>
               <tr className="bg-gray-50 dark:bg-gray-900/50 border-b border-gray-200 dark:border-gray-700">
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nome</th>
+                {hasMultipleOrchestras && (
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Orquestra</th>
+                )}
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Naipe</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Email</th>
                 <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">Nível</th>
@@ -115,7 +144,7 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
                 [...Array(5)].map((_, i) => <SkeletonRow key={i} />)
               ) : filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-4 py-10 text-center text-sm text-gray-400">
+                  <td colSpan={hasMultipleOrchestras ? 7 : 6} className="px-4 py-10 text-center text-sm text-gray-400">
                     {students.length === 0 ? 'Nenhum aluno registado. Clique em "Adicionar".' : 'Nenhum resultado para os filtros aplicados.'}
                   </td>
                 </tr>
@@ -123,13 +152,20 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
                 filtered.map((student) => (
                   <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
                     <td className="px-4 py-3 font-medium text-gray-900 dark:text-white">{student.nome}</td>
+                    {hasMultipleOrchestras && (
+                      <td className="px-4 py-3">
+                        <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold">
+                          {student.orquestra || 'Geral'}
+                        </span>
+                      </td>
+                    )}
                     <td className="px-4 py-3 text-gray-600 dark:text-gray-400">
                       <span className="px-2 py-0.5 bg-blue-50 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 rounded text-xs">
-                        {student.naipe}
+                        {student.naipe || '—'}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{student.email}</td>
-                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{student.nivel}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{student.email || '—'}</td>
+                    <td className="px-4 py-3 text-gray-600 dark:text-gray-400">{student.nivel || '—'}</td>
                     <td className="px-4 py-3">
                       <span
                         className={`px-2 py-0.5 rounded text-xs font-medium ${
@@ -166,8 +202,13 @@ export default function StudentList({ students, isLoading, onAdd, onEdit, onDele
           </table>
         </div>
         {!isLoading && filtered.length > 0 && (
-          <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700">
+          <div className="px-4 py-2 bg-gray-50 dark:bg-gray-900/50 border-t border-gray-200 dark:border-gray-700 flex justify-between items-center">
             <p className="text-xs text-gray-400">{filtered.length} de {students.length} aluno(s)</p>
+            {hasMultipleOrchestras && (
+              <p className="text-xs text-gray-400">
+                {orchestras.map((o) => `${o}: ${students.filter(s => s.orquestra === o).length}`).join(' · ')}
+              </p>
+            )}
           </div>
         )}
       </div>

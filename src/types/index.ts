@@ -36,6 +36,7 @@ export interface Student {
   email: string;
   nivel: string;
   ativo: boolean;
+  orquestra?: string; // ex: "Académica", "Juvenil"
 }
 
 // ─── Repertoire ──────────────────────────────────────────────────────────────

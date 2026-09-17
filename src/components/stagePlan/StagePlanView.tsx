@@ -18,6 +18,7 @@ import DraggableStudent from './DraggableStudent';
 interface StagePlanViewProps {
   plans: StagePlan[];
   students: Student[];
+  orchestras?: string[];
   isLoading: boolean;
   onSave: (plan: StagePlan) => void;
   onDelete: (planId: string) => void;
@@ -47,11 +48,24 @@ function createEmptyStagePlan(students: Student[]): StagePlanData {
   return { sections };
 }
 
-export default function StagePlanView({ plans, students, isLoading, onSave, onDelete }: StagePlanViewProps) {
+export default function StagePlanView({
+  plans,
+  students,
+  orchestras,
+  isLoading,
+  onSave,
+  onDelete,
+}: StagePlanViewProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(plans[0]?.id ?? null);
   const [editingData, setEditingData] = useState<StagePlanData | null>(null);
   const [planName, setPlanName] = useState('');
   const [activeStudentId, setActiveStudentId] = useState<string | null>(null);
+  const [filterOrchestra, setFilterOrchestra] = useState<string>('');
+
+  const relevantStudents = React.useMemo(() => {
+    if (!filterOrchestra) return students;
+    return students.filter((s) => s.orquestra === filterOrchestra);
+  }, [students, filterOrchestra]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 8 } })
@@ -61,10 +75,11 @@ export default function StagePlanView({ plans, students, isLoading, onSave, onDe
   const currentData = editingData ?? selectedPlan?.data ?? null;
 
   const startNewPlan = () => {
-    const data = createEmptyStagePlan(students);
+    const data = createEmptyStagePlan(relevantStudents);
     setEditingData(data);
     setSelectedPlanId(null);
-    setPlanName(`Concerto ${new Date().toLocaleDateString('pt-PT')}`);
+    const prefix = filterOrchestra ? `${filterOrchestra} - ` : '';
+    setPlanName(`${prefix}Concerto ${new Date().toLocaleDateString('pt-PT')}`);
   };
 
   const handleSelectPlan = (planId: string) => {
@@ -193,13 +208,13 @@ export default function StagePlanView({ plans, students, isLoading, onSave, onDe
     });
   };
 
-  const activeStudent = students.find((s) => s.id === activeStudentId);
+  const activeStudent = relevantStudents.find((s) => s.id === activeStudentId);
 
   // Pool: students not placed anywhere
   const placedIds = new Set(
     currentData?.sections.flatMap((s) => s.stands.flatMap((st) => st.seats.map((seat) => seat.studentId))) ?? []
   );
-  const poolStudents = students.filter((s) => s.ativo && !placedIds.has(s.id));
+  const poolStudents = relevantStudents.filter((s) => s.ativo && !placedIds.has(s.id));
 
   if (isLoading) {
     return (
@@ -209,10 +224,30 @@ export default function StagePlanView({ plans, students, isLoading, onSave, onDe
     );
   }
 
+  const hasMultipleOrchestras = orchestras && orchestras.length > 1;
+
   return (
     <div className="p-6 space-y-4">
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-3">
+        {hasMultipleOrchestras && (
+          <div className="relative">
+            <select
+              value={filterOrchestra}
+              onChange={(e) => setFilterOrchestra(e.target.value)}
+              className="appearance-none pl-3 pr-8 py-2 text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
+            >
+              <option value="">Todas as Orquestras</option>
+              {orchestras.map((o) => (
+                <option key={o} value={o}>
+                  {o}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={14} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          </div>
+        )}
+
         <div className="relative">
           <select
             value={selectedPlanId ?? ''}
