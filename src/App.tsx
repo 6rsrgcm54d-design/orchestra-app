@@ -19,6 +19,7 @@ import { useEvaluations } from './hooks/useEvaluations';
 import { useStagePlans } from './hooks/useStagePlans';
 import type { Student, Piece, NavModule } from './types';
 import { Music2, Link2, Sparkles, HardDrive } from 'lucide-react';
+import { safeStorage } from './utils/storage';
 
 // ─── Login Page ───────────────────────────────────────────────────────────────
 
@@ -256,14 +257,14 @@ function MainApp() {
   } = useStagePlans();
 
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
-    return localStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
+    return safeStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
   });
 
   const recordSyncSuccess = useCallback(() => {
     const now = new Date();
     const timeStr = `Sincronizado às ${now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`;
     setLastSyncTime(timeStr);
-    localStorage.setItem('orchestra_last_sync_time', timeStr);
+    safeStorage.setItem('orchestra_last_sync_time', timeStr);
   }, []);
 
   const syncAll = useCallback(async () => {

@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { readRange, appendRows, updateRange, deleteRow } from '../api/sheetsApi';
+import { readRange, appendRows, updateRange, deleteRow, INITIAL_LOCAL_DATA } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Piece, EstadoRepertorio } from '../types';
+import { safeStorage } from '../utils/storage';
 
 const TAB = 'Repertório';
 const HEADER = ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'];
@@ -26,18 +27,26 @@ function pieceToRow(p: Omit<Piece, 'id' | 'rowIndex'>): string[] {
 
 const CACHE_KEY = 'orchestra_cache_pieces';
 
+function getInitialPieces(): Piece[] {
+  const saved = safeStorage.getItem(CACHE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  const raw = INITIAL_LOCAL_DATA['Repertório'] || [];
+  if (raw.length > 1) {
+    const list = raw.slice(1).map((row, i) => rowToPiece(row, i + 2));
+    safeStorage.setItem(CACHE_KEY, JSON.stringify(list));
+    return list;
+  }
+  return [];
+}
+
 export function useRepertoire() {
   const { config, getSheetId } = useSheets();
-  const [pieces, setPieces] = useState<Piece[]>(() => {
-    const saved = localStorage.getItem(CACHE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
-  });
+  const [pieces, setPieces] = useState<Piece[]>(getInitialPieces);
   const [isLoading, setIsLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -48,7 +57,7 @@ export function useRepertoire() {
       const loaded = rows.slice(1).map((row, i) => rowToPiece(row, i + 2));
       setPieces(loaded);
       if (loaded.length > 0) {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
       }
     } catch (err) {
       toast.error(`Erro ao carregar repertório: ${err instanceof Error ? err.message : 'Erro'}`);

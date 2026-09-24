@@ -1,8 +1,9 @@
 import { useState, useCallback, useMemo } from 'react';
 import toast from 'react-hot-toast';
-import { readRange, appendRows, updateRange, deleteRow } from '../api/sheetsApi';
+import { readRange, appendRows, updateRange, deleteRow, INITIAL_LOCAL_DATA } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Student } from '../types';
+import { safeStorage } from '../utils/storage';
 
 const NON_STUDENT_TABS = new Set([
   'repertório',
@@ -82,18 +83,36 @@ function studentToRow(s: Omit<Student, 'id' | 'rowIndex'>): (string | boolean)[]
 
 const CACHE_KEY = 'orchestra_cache_students';
 
+function getInitialStudents(): Student[] {
+  const saved = safeStorage.getItem(CACHE_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  // Se ainda não houver cache guardado, inicializa logo com os dados das 3 orquestras
+  const initialList: Student[] = [];
+  ['Académica', 'Juvenil', 'Artave'].forEach((tab) => {
+    const raw = INITIAL_LOCAL_DATA[tab];
+    if (raw && raw.length > 1) {
+      const header = raw[0];
+      const mapping = detectMapping(header);
+      raw.slice(1).forEach((row, i) => {
+        const student = parseStudentRow(row, i + 2, tab, mapping);
+        if (student) initialList.push(student);
+      });
+    }
+  });
+  if (initialList.length > 0) {
+    safeStorage.setItem(CACHE_KEY, JSON.stringify(initialList));
+  }
+  return initialList;
+}
+
 export function useStudents() {
   const { config, sheetsMeta, getSheetId } = useSheets();
-  const [students, setStudents] = useState<Student[]>(() => {
-    const saved = localStorage.getItem(CACHE_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
-  });
+  const [students, setStudents] = useState<Student[]>(getInitialStudents);
   const [isLoading, setIsLoading] = useState(false);
 
   // Detect which tabs contain students (e.g. "Académica", "Juvenil", "Artave")
@@ -154,7 +173,7 @@ export function useStudents() {
 
       setStudents(allLoaded);
       if (allLoaded.length > 0) {
-        localStorage.setItem(CACHE_KEY, JSON.stringify(allLoaded));
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(allLoaded));
       }
     } catch (err) {
       toast.error(`Erro ao carregar alunos: ${err instanceof Error ? err.message : 'Erro'}`);

@@ -9,6 +9,7 @@ import {
   fetchUserInfo,
 } from '../api/googleAuth';
 import type { GoogleUser } from '../types';
+import { safeStorage } from '../utils/storage';
 
 interface AuthContextValue {
   user: GoogleUser | null;
@@ -34,14 +35,14 @@ const DEFAULT_GUEST_USER: GoogleUser = {
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(() => {
-    const saved = localStorage.getItem(GUEST_KEY);
+    const saved = safeStorage.getItem(GUEST_KEY);
     if (saved) {
       try {
         const u = JSON.parse(saved);
         if (u.name === 'Direção Artística / Maestro' || u.email === 'orquestra@bomfim.pt') {
           u.name = 'Maestro: Luís Machado';
           u.email = 'luismachado78@gmail.com';
-          localStorage.setItem(GUEST_KEY, JSON.stringify(u));
+          safeStorage.setItem(GUEST_KEY, JSON.stringify(u));
         }
         return u;
       } catch {
@@ -49,7 +50,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     }
     // Entra sempre diretamente para a app abrir de imediato
-    localStorage.setItem(GUEST_KEY, JSON.stringify(DEFAULT_GUEST_USER));
+    safeStorage.setItem(GUEST_KEY, JSON.stringify(DEFAULT_GUEST_USER));
     return DEFAULT_GUEST_USER;
   });
 
@@ -84,7 +85,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           try {
             const userInfo = await fetchUserInfo(token);
             setUser(userInfo);
-            localStorage.removeItem(GUEST_KEY);
+            safeStorage.removeItem(GUEST_KEY);
             toast.success(`Bem-vindo, ${userInfo.name}!`);
           } catch {
             toast.error('Erro ao obter informações do utilizador');
@@ -128,7 +129,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
     setUser(guestUser);
     setAccessToken('guest-token');
-    localStorage.setItem(GUEST_KEY, JSON.stringify(guestUser));
+    safeStorage.setItem(GUEST_KEY, JSON.stringify(guestUser));
     toast.success('Bem-vindo, Maestro Luís Machado!');
   }, []);
 
@@ -138,7 +139,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
     setUser(null);
     setAccessToken(null);
-    localStorage.removeItem(GUEST_KEY);
+    safeStorage.removeItem(GUEST_KEY);
     toast.success('Sessão terminada');
   }, [accessToken]);
 

@@ -8,6 +8,7 @@ import {
   isLocalId,
 } from '../api/sheetsApi';
 import type { SheetsConfig } from '../types';
+import { safeStorage } from '../utils/storage';
 
 interface SheetsContextValue {
   config: SheetsConfig | null;
@@ -48,13 +49,13 @@ const DEFAULT_SHEETS_META: SheetsMeta = {
 
 export function SheetsProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<SheetsConfig | null>(() => {
-    const saved = localStorage.getItem(STORAGE_KEY);
+    const saved = safeStorage.getItem(STORAGE_KEY);
     if (saved) return { spreadsheetId: saved };
-    localStorage.setItem(STORAGE_KEY, LOCAL_STORAGE_ID);
+    safeStorage.setItem(STORAGE_KEY, LOCAL_STORAGE_ID);
     return { spreadsheetId: LOCAL_STORAGE_ID };
   });
   const [sheetsMeta, setSheetsMeta] = useState<SheetsMeta | null>(() => {
-    const savedMeta = localStorage.getItem('orchestra_cache_sheets_meta');
+    const savedMeta = safeStorage.getItem('orchestra_cache_sheets_meta');
     if (savedMeta) {
       try {
         return JSON.parse(savedMeta);
@@ -82,8 +83,8 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
 
       setConfig({ spreadsheetId: id });
       setSheetsMeta(updatedMeta);
-      localStorage.setItem(STORAGE_KEY, id);
-      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(updatedMeta));
+      safeStorage.setItem(STORAGE_KEY, id);
+      safeStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(updatedMeta));
       toast.success(`Conectado: ${updatedMeta.title}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -98,14 +99,14 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     const params = new URLSearchParams(window.location.search);
     const syncParam = params.get('sync') || params.get('sheet');
     if (syncParam) {
-      if (!localStorage.getItem('orchestra_guest_user')) {
+      if (!safeStorage.getItem('orchestra_guest_user')) {
         const guestUser = {
           id: 'maestro-luis',
           name: 'Maestro: Luís Machado',
           email: 'luismachado78@gmail.com',
           picture: '',
         };
-        localStorage.setItem('orchestra_guest_user', JSON.stringify(guestUser));
+        safeStorage.setItem('orchestra_guest_user', JSON.stringify(guestUser));
       }
       connect(syncParam).then(() => {
         const cleanUrl = window.location.protocol === 'file:'
@@ -122,20 +123,20 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
   }, [connect]);
 
   const reconnect = useCallback(async () => {
-    const saved = localStorage.getItem(STORAGE_KEY) || LOCAL_STORAGE_ID;
+    const saved = safeStorage.getItem(STORAGE_KEY) || LOCAL_STORAGE_ID;
     if (sheetsMeta) return;
     setIsConnecting(true);
     try {
       const meta = await getSpreadsheetMeta(saved);
       setConfig({ spreadsheetId: saved });
       setSheetsMeta(meta);
-      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
+      safeStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
     } catch {
       // fallback to local
       const meta = await getSpreadsheetMeta(LOCAL_STORAGE_ID);
       setConfig({ spreadsheetId: LOCAL_STORAGE_ID });
       setSheetsMeta(meta);
-      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
+      safeStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
     } finally {
       setIsConnecting(false);
     }
@@ -146,7 +147,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     try {
       const meta = await getSpreadsheetMeta(config.spreadsheetId);
       setSheetsMeta(meta);
-      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
+      safeStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
     } catch (err) {
       console.warn('Erro ao atualizar abas:', err);
     }
@@ -155,7 +156,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
   const disconnect = useCallback(() => {
     setConfig(null);
     setSheetsMeta(null);
-    localStorage.removeItem(STORAGE_KEY);
+    safeStorage.removeItem(STORAGE_KEY);
     toast.success('Desconectado');
   }, []);
 

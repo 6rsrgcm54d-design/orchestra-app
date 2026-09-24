@@ -3,6 +3,7 @@
  */
 
 import { getAccessToken } from './googleAuth';
+import { safeStorage } from '../utils/storage';
 
 const BASE_URL = 'https://sheets.googleapis.com/v4/spreadsheets';
 
@@ -151,7 +152,7 @@ function jsonResponse(obj) {
 
 // ─── Dados Iniciais da Orquestra (Modo Local) ──────────────────────────────────
 
-const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
+export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
   Académica: [
     ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     ['Mariana Costa', 'Chefe', '5º Grau', 'Violinos I', 'sim'],
@@ -420,7 +421,7 @@ function getLocalTab(tabName: string): string[][] {
   ) || tabName;
 
   const key = `orchestra_db_${normalizedKey}`;
-  const saved = localStorage.getItem(key);
+  const saved = safeStorage.getItem(key);
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
@@ -433,14 +434,14 @@ function getLocalTab(tabName: string): string[][] {
   }
   const initial = INITIAL_LOCAL_DATA[normalizedKey] || INITIAL_LOCAL_DATA[tabName] || [];
   if (initial.length > 0) {
-    localStorage.setItem(key, JSON.stringify(initial));
+    safeStorage.setItem(key, JSON.stringify(initial));
   }
   return initial;
 }
 
 function setLocalTab(tabName: string, data: string[][]): void {
   const key = `orchestra_db_${tabName}`;
-  localStorage.setItem(key, JSON.stringify(data));
+  safeStorage.setItem(key, JSON.stringify(data));
 }
 
 function parseTabFromRange(range: string): string {

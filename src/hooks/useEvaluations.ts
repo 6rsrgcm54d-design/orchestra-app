@@ -1,8 +1,9 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { readRange, appendRows, deleteRow, updateRange } from '../api/sheetsApi';
+import { readRange, appendRows, deleteRow, updateRange, INITIAL_LOCAL_DATA } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Evaluation, Criteria } from '../types';
+import { safeStorage } from '../utils/storage';
 
 const EVAL_TAB = 'Avaliações';
 const CRIT_TAB = 'Critérios';
@@ -36,28 +37,44 @@ function rowToCriteria(row: string[], rowIndex: number): Criteria {
 const CACHE_EVALS_KEY = 'orchestra_cache_evaluations';
 const CACHE_CRIT_KEY = 'orchestra_cache_criteria';
 
+function getInitialEvaluations(): Evaluation[] {
+  const saved = safeStorage.getItem(CACHE_EVALS_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  const raw = INITIAL_LOCAL_DATA['Avaliações'] || [];
+  if (raw.length > 1) {
+    const list = raw.slice(1).map((row, i) => rowToEvaluation(row, i + 2));
+    safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(list));
+    return list;
+  }
+  return [];
+}
+
+function getInitialCriteria(): Criteria[] {
+  const saved = safeStorage.getItem(CACHE_CRIT_KEY);
+  if (saved) {
+    try {
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    } catch {}
+  }
+  const raw = INITIAL_LOCAL_DATA['Critérios'] || [];
+  if (raw.length > 1) {
+    const list = raw.slice(1).map((row, i) => rowToCriteria(row, i + 2));
+    safeStorage.setItem(CACHE_CRIT_KEY, JSON.stringify(list));
+    return list;
+  }
+  return [];
+}
+
 export function useEvaluations() {
   const { config, getSheetId } = useSheets();
-  const [evaluations, setEvaluations] = useState<Evaluation[]>(() => {
-    const saved = localStorage.getItem(CACHE_EVALS_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
-  });
-  const [criteria, setCriteria] = useState<Criteria[]>(() => {
-    const saved = localStorage.getItem(CACHE_CRIT_KEY);
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
-      } catch {}
-    }
-    return [];
-  });
+  const [evaluations, setEvaluations] = useState<Evaluation[]>(getInitialEvaluations);
+  const [criteria, setCriteria] = useState<Criteria[]>(getInitialCriteria);
   const [isLoading, setIsLoading] = useState(false);
 
   const loadCriteria = useCallback(async () => {
@@ -67,7 +84,7 @@ export function useEvaluations() {
       const loaded = rows.slice(1).map((row, i) => rowToCriteria(row, i + 2));
       setCriteria(loaded);
       if (loaded.length > 0) {
-        localStorage.setItem(CACHE_CRIT_KEY, JSON.stringify(loaded));
+        safeStorage.setItem(CACHE_CRIT_KEY, JSON.stringify(loaded));
       }
     } catch (err) {
       toast.error(`Erro ao carregar critérios: ${err instanceof Error ? err.message : 'Erro'}`);
@@ -82,7 +99,7 @@ export function useEvaluations() {
       const loaded = rows.slice(1).map((row, i) => rowToEvaluation(row, i + 2));
       setEvaluations(loaded);
       if (loaded.length > 0) {
-        localStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(loaded));
+        safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(loaded));
       }
       await loadCriteria();
     } catch (err) {

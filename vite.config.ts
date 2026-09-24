@@ -55,9 +55,13 @@ function singleFileBundlePlugin() {
       }
 
       // 6. Inject the JavaScript at the very end of <body>, guaranteeing <div id="root"> exists
+      // CRITICAL: We use substring slicing instead of html.replace('</body>', ...)
+      // because String.prototype.replace treats '$' ($', $&, $1, etc.) as substitution tokens,
+      // which corrupts minified JavaScript containing '$' variables!
       if (scriptTags) {
-        if (html.includes('</body>')) {
-          html = html.replace('</body>', `${scriptTags}\n</body>`)
+        const bodyCloseIndex = html.lastIndexOf('</body>')
+        if (bodyCloseIndex !== -1) {
+          html = html.slice(0, bodyCloseIndex) + scriptTags + '\n' + html.slice(bodyCloseIndex)
         } else {
           html += `\n${scriptTags}`
         }
