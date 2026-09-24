@@ -70,10 +70,14 @@ function detectMapping(headerRow: string[]): ColumnMapping {
 
   // Fallbacks inteligentes se não identificados por cabeçalho
   if (mapping.nome === -1) {
-    if (mapping.numero === 0) {
+    if (mapping.chefeNaipe !== -1 && mapping.chefeNaipe !== mapping.naipe && mapping.chefeNaipe !== mapping.numero) {
+      mapping.nome = mapping.chefeNaipe;
+    } else if (mapping.numero === 0) {
       mapping.nome = 1;
     } else {
-      mapping.nome = 0;
+      const taken = new Set([mapping.numero, mapping.naipe, mapping.grau, mapping.ativo, mapping.orquestra]);
+      const available = [0, 1, 2, 3, 4].find((idx) => !taken.has(idx) && idx !== -1);
+      mapping.nome = available !== undefined ? available : 0;
     }
   }
   if (mapping.naipe === -1) mapping.naipe = 3;
@@ -119,9 +123,18 @@ function parseStudentRow(
     rawChefe = '';
   }
 
+  // Se rawNome estiver vazio mas rawChefe contiver o nome
+  if (!rawNome && rawChefe) {
+    rawNome = rawChefe;
+    rawChefe = '';
+  }
+
+  const isChefesTab = /chefe/i.test(tabName);
+  const isAlunosTab = /^alunos?$/i.test(tabName.trim());
+
   // Se o campo chefe não contiver palavras-chave de chefe (ex: "chefe", "sim", "1º"), mas contiver nome próprio, limpa-o
   const isRealChefeKeyword = /^(chefe|sim|true|solista|l[ií]der|sub-?chefe|1[ºª]?|x)$/i.test(rawChefe);
-  const chefeNaipe = isRealChefeKeyword ? rawChefe : '';
+  const chefeNaipe = isRealChefeKeyword ? rawChefe : (isChefesTab ? 'Chefe' : '');
 
   // Normaliza o naipe para o nome canónico (1 -> "Violino I", 2 -> "Violino II", 3 -> "Viola d'arco", etc.)
   const naipe = formatNaipe(rawNaipe);
@@ -129,6 +142,23 @@ function parseStudentRow(
   // Normaliza o grau se tiver vindo no campo chefe por engano
   if (!grau && rawChefe && !isRealChefeKeyword && /grau|curso/i.test(rawChefe)) {
     grau = rawChefe;
+  }
+
+  // Verifica se o naipe está definido nesta aba
+  const hasNaipeDefined = Boolean(
+    rawNaipe &&
+    rawNaipe.trim() !== '' &&
+    !/^[-–—\s]+$/.test(rawNaipe.trim()) &&
+    !/^(n\/?a|nenhum|sem\s*naipe|sem|nd|null|undefined|0)$/i.test(rawNaipe.trim()) &&
+    naipe &&
+    naipe !== '—' &&
+    naipe !== '-'
+  );
+
+  // REGRA DO UTILIZADOR:
+  // "na aba alunos e na aba chefes de naipe deveria aparecer aqueles que no ficheiro sheets tem o naipe definido nessa aba"
+  if ((isAlunosTab || isChefesTab) && !hasNaipeDefined) {
+    return null;
   }
 
   const ativoVal = mapping.ativo !== -1 && row[mapping.ativo] !== undefined ? String(row[mapping.ativo]).toLowerCase().trim() : 'sim';
@@ -147,7 +177,7 @@ function parseStudentRow(
     nome: rawNome,
     chefeNaipe,
     grau,
-    naipe,
+    naipe: naipe || rawNaipe,
     ativo,
     orquestra: orquestraVal || tabName,
   };
@@ -164,9 +194,12 @@ function sanitizeStudent(s: any, idx: number): Student {
     chefeNaipe = '';
   }
 
+  const isChefesTab = s.orquestra && /chefe/i.test(s.orquestra);
   const isRealChefeKeyword = /^(chefe|sim|true|solista|l[ií]der|sub-?chefe|1[ºª]?|x)$/i.test(chefeNaipe);
-  if (!isRealChefeKeyword) {
+  if (!isRealChefeKeyword && !isChefesTab) {
     chefeNaipe = '';
+  } else if (isChefesTab && !chefeNaipe) {
+    chefeNaipe = 'Chefe';
   }
 
   const naipe = formatNaipe(s.naipe);
@@ -193,15 +226,26 @@ function getInitialStudents(): Student[] {
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
-        const sanitized = parsed.map((s, idx) => sanitizeStudent(s, idx));
+        const sanitized = parsed
+          .map((s, idx) => sanitizeStudent(s, idx))
+          .filter((s) => {
+            const isAlunosOrChefes =
+              s.orquestra &&
+              (/^alunos?$/i.test(s.orquestra.trim()) || /chefe/i.test(s.orquestra.trim()));
+            if (isAlunosOrChefes) {
+              const formatted = formatNaipe(s.naipe);
+              return !!formatted && formatted !== '—' && formatted !== '-' && formatted.trim() !== '';
+            }
+            return true;
+          });
         safeStorage.setItem(CACHE_KEY, JSON.stringify(sanitized));
         return sanitized;
       }
     } catch {}
   }
-  // Se ainda não houver cache guardado, inicializa logo com os dados das 3 orquestras
+  // Se ainda não houver cache guardado, inicializa logo com os dados das orquestras/abas
   const initialList: Student[] = [];
-  ['Académica', 'Juvenil', 'Artave'].forEach((tab) => {
+  ['Académica', 'Juvenil', 'Artave', 'Alunos', 'Chefes de Naipe'].forEach((tab) => {
     const raw = INITIAL_LOCAL_DATA[tab];
     if (raw && raw.length > 1) {
       const header = raw[0];
@@ -223,21 +267,17 @@ export function useStudents() {
   const [students, setStudents] = useState<Student[]>(getInitialStudents);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Detect which tabs contain students (e.g. "Académica", "Juvenil", "Artave")
+  // Detect which tabs contain students (e.g. "Académica", "Juvenil", "Artave", "Alunos", "Chefes de Naipe")
   const studentTabs = useMemo(() => {
+    const DEFAULT_TABS = ['Académica', 'Juvenil', 'Artave', 'Alunos', 'Chefes de Naipe'];
     if (!sheetsMeta?.sheets || sheetsMeta.sheets.length === 0) {
-      return ['Académica', 'Juvenil', 'Artave'];
+      return DEFAULT_TABS;
     }
     const filtered = sheetsMeta.sheets
       .map((s) => s.properties.title)
       .filter((title) => !NON_STUDENT_TABS.has(title.toLowerCase().trim()));
 
-    // Se só tiver Alunos genérico ou vazio, disponibiliza as 3 orquestras principais
-    if (filtered.length === 1 && filtered[0].toLowerCase() === 'alunos') {
-      return ['Académica', 'Juvenil', 'Artave'];
-    }
-
-    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+    return filtered.length > 0 ? filtered : DEFAULT_TABS;
   }, [sheetsMeta]);
 
   const load = useCallback(async () => {

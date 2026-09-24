@@ -27,6 +27,22 @@ export default function StudentList({
 
   const filtered = students.filter((s) => {
     const formattedNaipe = formatNaipe(s.naipe);
+    const hasValidNaipe =
+      !!formattedNaipe &&
+      formattedNaipe !== '—' &&
+      formattedNaipe !== '-' &&
+      formattedNaipe.trim() !== '';
+
+    // REGRA DO UTILIZADOR:
+    // Na aba alunos e na aba chefes de naipe, só aparecem aqueles que têm naipe definido nessa aba
+    const isFromAlunosOrChefesTab =
+      s.orquestra &&
+      (/^alunos?$/i.test(s.orquestra.trim()) || /chefe/i.test(s.orquestra.trim()));
+
+    if (isFromAlunosOrChefesTab && !hasValidNaipe) {
+      return false;
+    }
+
     const matchSearch =
       !search ||
       s.nome.toLowerCase().includes(search.toLowerCase()) ||
@@ -38,9 +54,10 @@ export default function StudentList({
     const matchOrquestra = !filterOrquestra || s.orquestra === filterOrquestra;
     const matchNaipe = !filterNaipe || formattedNaipe === filterNaipe;
     const isChefe =
-      !!s.chefeNaipe && !['não', 'nao', 'false', '0', '-'].includes(s.chefeNaipe.toLowerCase());
+      (!!s.chefeNaipe && !['não', 'nao', 'false', '0', '-'].includes(s.chefeNaipe.toLowerCase())) ||
+      (s.orquestra && /chefe/i.test(s.orquestra));
     const matchChefe =
-      !filterChefe || (filterChefe === 'chefe' ? isChefe : !isChefe);
+      !filterChefe || (filterChefe === 'chefe' ? isChefe && hasValidNaipe : !isChefe);
 
     return matchSearch && matchOrquestra && matchNaipe && matchChefe;
   });
@@ -64,6 +81,73 @@ export default function StudentList({
 
   return (
     <div className="p-6 space-y-4">
+      {/* Abas / Orquestras (Navegação Rápida entre Abas do Google Sheets) */}
+      {hasMultipleOrchestras && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-gray-200 dark:border-gray-700">
+          <button
+            type="button"
+            onClick={() => setFilterOrquestra('')}
+            className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+              !filterOrquestra
+                ? 'bg-orchestra-gold text-orchestra-navy shadow-sm font-bold'
+                : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+            }`}
+          >
+            <span>Todas as Abas</span>
+            <span
+              className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                !filterOrquestra
+                  ? 'bg-orchestra-navy/20 text-orchestra-navy font-bold'
+                  : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+              }`}
+            >
+              {students.filter((s) => {
+                const isSpecial =
+                  s.orquestra &&
+                  (/^alunos?$/i.test(s.orquestra.trim()) || /chefe/i.test(s.orquestra.trim()));
+                const n = formatNaipe(s.naipe);
+                return !isSpecial || (n && n !== '—' && n !== '-');
+              }).length}
+            </span>
+          </button>
+          {orchestras.map((o) => {
+            const isSpecial = /^alunos?$/i.test(o.trim()) || /chefe/i.test(o.trim());
+            const count = students.filter((s) => {
+              if (s.orquestra !== o) return false;
+              if (isSpecial) {
+                const n = formatNaipe(s.naipe);
+                return !!n && n !== '—' && n !== '-';
+              }
+              return true;
+            }).length;
+            const isSelected = filterOrquestra === o;
+            return (
+              <button
+                key={o}
+                type="button"
+                onClick={() => setFilterOrquestra(o)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-all flex items-center gap-1.5 ${
+                  isSelected
+                    ? 'bg-orchestra-gold text-orchestra-navy shadow-sm font-bold'
+                    : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
+                }`}
+              >
+                <span>{o}</span>
+                <span
+                  className={`text-[10px] px-1.5 py-0.2 rounded-full ${
+                    isSelected
+                      ? 'bg-orchestra-navy/20 text-orchestra-navy font-bold'
+                      : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
+                  }`}
+                >
+                  {count}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
         <div className="relative flex-1 max-w-xs">
@@ -80,14 +164,14 @@ export default function StudentList({
         <div className="flex items-center gap-2 flex-wrap">
           <Filter size={15} className="text-gray-400" />
 
-          {/* Filtro de Orquestras */}
+          {/* Filtro de Orquestras / Abas */}
           {hasMultipleOrchestras && (
             <select
               value={filterOrquestra}
               onChange={(e) => setFilterOrquestra(e.target.value)}
               className="text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
             >
-              <option value="">Todas as Orquestras</option>
+              <option value="">Todas as Abas / Orquestras</option>
               {orchestras.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
@@ -152,8 +236,9 @@ export default function StudentList({
               ) : (
                 filtered.map((student) => {
                   const isChefe =
-                    !!student.chefeNaipe &&
-                    !['não', 'nao', 'false', '0', '-'].includes(student.chefeNaipe.toLowerCase());
+                    (!!student.chefeNaipe &&
+                      !['não', 'nao', 'false', '0', '-'].includes(student.chefeNaipe.toLowerCase())) ||
+                    (student.orquestra && /chefe/i.test(student.orquestra));
 
                   return (
                     <tr key={student.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50 transition-colors">
