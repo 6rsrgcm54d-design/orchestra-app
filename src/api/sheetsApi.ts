@@ -47,7 +47,7 @@ function doGet(e) {
   }
 
   if (sheetName) {
-    var sheet = ss.getSheetByName(sheetName);
+    var sheet = findSheet(ss, sheetName);
     if (!sheet) {
       sheet = initDefaultSheet(ss, sheetName);
     }
@@ -75,7 +75,7 @@ function doPost(e) {
   var data = JSON.parse(e.postData.contents);
   var action = data.action;
   var sheetName = data.sheet;
-  var sheet = ss.getSheetByName(sheetName);
+  var sheet = findSheet(ss, sheetName);
 
   if (!sheet) {
     sheet = initDefaultSheet(ss, sheetName);
@@ -111,10 +111,28 @@ function doPost(e) {
   return jsonResponse({ success: false, error: 'Unknown action' });
 }
 
+function findSheet(ss, name) {
+  if (!name) return null;
+  var direct = ss.getSheetByName(name);
+  if (direct) return direct;
+  var clean = String(name).trim().toLowerCase();
+  var sheets = ss.getSheets();
+  for (var i = 0; i < sheets.length; i++) {
+    var cur = sheets[i].getName().trim().toLowerCase();
+    if (cur === clean || cur.indexOf(clean) !== -1 || clean.indexOf(cur) !== -1) {
+      return sheets[i];
+    }
+  }
+  return null;
+}
+
 function initDefaultSheet(ss, name) {
   var sheet = ss.insertSheet(name);
   var headers = {
-    'Alunos': ['Nome', 'Naipe', 'Email', 'Nível', 'Ativo'],
+    'Académica': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    'Juvenil': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    'Artave': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    'Alunos': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Repertório': ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'],
     'Avaliações': ['Nome Aluno', 'Naipe', 'Critério', 'Pontuação', 'Data', 'Observações'],
     'Critérios': ['Nome do Critério', 'Descrição', 'Peso'],
@@ -134,24 +152,91 @@ function jsonResponse(obj) {
 // ─── Dados Iniciais da Orquestra (Modo Local) ──────────────────────────────────
 
 const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
+  Académica: [
+    ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    ['Mariana Costa', 'Chefe', '5º Grau', 'Violinos I', 'sim'],
+    ['Tomás Fernandes', '', '4º Grau', 'Violinos I', 'sim'],
+    ['Leonor Gonçalves', '', '5º Grau', 'Violinos I', 'sim'],
+    ['Afonso Ramos', 'Chefe', '4º Grau', 'Violinos II', 'sim'],
+    ['Matilde Lopes', '', '3º Grau', 'Violinos II', 'sim'],
+    ['Rodrigo Martins', '', '3º Grau', 'Violinos II', 'sim'],
+    ['Francisca Neves', 'Chefe', '4º Grau', 'Violas', 'sim'],
+    ['Guilherme Silva', '', '3º Grau', 'Violas', 'sim'],
+    ['Alice Ferreira', 'Chefe', '5º Grau', 'Violoncelos', 'sim'],
+    ['Duarte Carvalho', '', '4º Grau', 'Violoncelos', 'sim'],
+    ['Simão Ribeiro', 'Chefe', '4º Grau', 'Contrabaixos', 'sim'],
+    ['Diana Moreira', 'Chefe', '5º Grau', 'Flautas', 'sim'],
+    ['Lourenço Pinto', 'Chefe', '4º Grau', 'Clarinetes', 'sim'],
+    ['Martim Castro', 'Chefe', '4º Grau', 'Trompetes', 'sim'],
+  ],
+  Juvenil: [
+    ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    ['Inês Costa', 'Chefe', '3º Grau', 'Violinos I', 'sim'],
+    ['Tiago Silva', '', '2º Grau', 'Violinos I', 'sim'],
+    ['Clara Marques', '', '2º Grau', 'Violinos I', 'sim'],
+    ['Lucas Pereira', 'Chefe', '2º Grau', 'Violinos II', 'sim'],
+    ['Eva Mendes', '', '1º Grau', 'Violinos II', 'sim'],
+    ['David Barbosa', '', '2º Grau', 'Violinos II', 'sim'],
+    ['Margarida Dias', 'Chefe', '2º Grau', 'Violas', 'sim'],
+    ['Bernardo Santos', '', '1º Grau', 'Violas', 'sim'],
+    ['Diogo Gomes', 'Chefe', '3º Grau', 'Violoncelos', 'sim'],
+    ['Laura Pires', '', '2º Grau', 'Violoncelos', 'sim'],
+    ['Gonçalo Pinto', 'Chefe', '2º Grau', 'Contrabaixos', 'sim'],
+    ['Carolina Vale', 'Chefe', '3º Grau', 'Flautas', 'sim'],
+    ['Pedro Nogueira', 'Chefe', '2º Grau', 'Oboés', 'sim'],
+    ['Gabriel Fonseca', 'Chefe', '2º Grau', 'Percussão', 'sim'],
+  ],
+  Artave: [
+    ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    ['Maria Santos', 'Chefe', '8º Grau', 'Violinos I', 'sim'],
+    ['João Ferreira', '', '7º Grau', 'Violinos I', 'sim'],
+    ['Ana Rodrigues', '', '8º Grau', 'Violinos I', 'sim'],
+    ['Miguel Soares', '', '7º Grau', 'Violinos I', 'sim'],
+    ['Pedro Oliveira', 'Chefe', '7º Grau', 'Violinos II', 'sim'],
+    ['Beatriz Martins', '', '6º Grau', 'Violinos II', 'sim'],
+    ['Rita Antunes', '', '7º Grau', 'Violinos II', 'sim'],
+    ['Carolina Sousa', 'Chefe', '8º Grau', 'Violas', 'sim'],
+    ['Gabriel Moreira', '', '7º Grau', 'Violas', 'sim'],
+    ['Teresa Machado', '', '6º Grau', 'Violas', 'sim'],
+    ['André Moreira', 'Chefe', '8º Grau', 'Violoncelos', 'sim'],
+    ['Sofia Carvalho', '', '7º Grau', 'Violoncelos', 'sim'],
+    ['Francisco Lima', '', '6º Grau', 'Violoncelos', 'sim'],
+    ['Vasco Henriques', 'Chefe', '7º Grau', 'Contrabaixos', 'sim'],
+    ['Bruno Coelho', '', '6º Grau', 'Contrabaixos', 'sim'],
+    ['Marta Ribeiro', 'Chefe', '8º Grau', 'Flautas', 'sim'],
+    ['Joana Fontes', '', '7º Grau', 'Flautas', 'sim'],
+    ['Sofia Almeida', 'Chefe', '8º Grau', 'Oboés', 'sim'],
+    ['Tiago Resende', '', '7º Grau', 'Oboés', 'sim'],
+    ['Rui Carvalho', 'Chefe', '8º Grau', 'Clarinetes', 'sim'],
+    ['Gonçalo Faria', '', '7º Grau', 'Clarinetes', 'sim'],
+    ['Henrique Monteiro', 'Chefe', '7º Grau', 'Fagotes', 'sim'],
+    ['Daniel Tavares', 'Chefe', '7º Grau', 'Trompas', 'sim'],
+    ['Manuel Cunha', '', '6º Grau', 'Trompas', 'sim'],
+    ['Dinis Loureiro', 'Chefe', '8º Grau', 'Trompetes', 'sim'],
+    ['Vasco Ramos', '', '7º Grau', 'Trompetes', 'sim'],
+    ['Nuno Vasconcelos', 'Chefe', '7º Grau', 'Trombones', 'sim'],
+    ['Rafael Figueiredo', 'Chefe', '6º Grau', 'Tuba', 'sim'],
+    ['Miguel Teixeira', 'Chefe', '8º Grau', 'Percussão', 'sim'],
+    ['Fábio Rocha', '', '7º Grau', 'Percussão', 'sim'],
+  ],
   Alunos: [
     ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
-    ['Maria Santos', 'Chefe', '5º Grau', 'Violinos I', 'sim'],
-    ['João Ferreira', '', '4º Grau', 'Violinos I', 'sim'],
-    ['Ana Rodrigues', '', '5º Grau', 'Violinos I', 'sim'],
-    ['Pedro Oliveira', 'Chefe', '4º Grau', 'Violinos II', 'sim'],
-    ['Inês Costa', '', '2º Grau', 'Violinos II', 'sim'],
-    ['Tiago Silva', '', '3º Grau', 'Violinos II', 'sim'],
-    ['Beatriz Martins', 'Chefe', '5º Grau', 'Violas', 'sim'],
-    ['Lucas Pereira', '', '3º Grau', 'Violas', 'sim'],
-    ['Carolina Sousa', 'Chefe', '5º Grau', 'Violoncelos', 'sim'],
-    ['Diogo Gomes', '', '4º Grau', 'Violoncelos', 'sim'],
-    ['Gonçalo Pinto', 'Chefe', '3º Grau', 'Contrabaixos', 'sim'],
-    ['Marta Ribeiro', 'Chefe', '5º Grau', 'Flautas', 'sim'],
-    ['Sofia Almeida', 'Chefe', '4º Grau', 'Oboés', 'sim'],
-    ['Rui Carvalho', 'Chefe', '4º Grau', 'Clarinetes', 'sim'],
-    ['André Moreira', 'Chefe', '4º Grau', 'Trompetes', 'sim'],
-    ['Miguel Teixeira', 'Chefe', '5º Grau', 'Percussão', 'sim'],
+    ['Maria Santos', 'Chefe', '8º Grau', 'Violinos I', 'sim'],
+    ['João Ferreira', '', '7º Grau', 'Violinos I', 'sim'],
+    ['Ana Rodrigues', '', '8º Grau', 'Violinos I', 'sim'],
+    ['Pedro Oliveira', 'Chefe', '7º Grau', 'Violinos II', 'sim'],
+    ['Inês Costa', 'Chefe', '3º Grau', 'Violinos II', 'sim'],
+    ['Tiago Silva', '', '2º Grau', 'Violinos II', 'sim'],
+    ['Beatriz Martins', '', '6º Grau', 'Violas', 'sim'],
+    ['Lucas Pereira', 'Chefe', '2º Grau', 'Violas', 'sim'],
+    ['Carolina Sousa', 'Chefe', '8º Grau', 'Violoncelos', 'sim'],
+    ['Diogo Gomes', 'Chefe', '3º Grau', 'Violoncelos', 'sim'],
+    ['Gonçalo Pinto', 'Chefe', '2º Grau', 'Contrabaixos', 'sim'],
+    ['Marta Ribeiro', 'Chefe', '8º Grau', 'Flautas', 'sim'],
+    ['Sofia Almeida', 'Chefe', '8º Grau', 'Oboés', 'sim'],
+    ['Rui Carvalho', 'Chefe', '8º Grau', 'Clarinetes', 'sim'],
+    ['André Moreira', 'Chefe', '8º Grau', 'Violoncelos', 'sim'],
+    ['Miguel Teixeira', 'Chefe', '8º Grau', 'Percussão', 'sim'],
   ],
   Repertório: [
     ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'],
@@ -330,17 +415,26 @@ const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
 };
 
 function getLocalTab(tabName: string): string[][] {
-  const key = `orchestra_db_${tabName}`;
+  const normalizedKey = Object.keys(INITIAL_LOCAL_DATA).find(
+    (k) => k.toLowerCase().trim() === tabName.toLowerCase().trim()
+  ) || tabName;
+
+  const key = `orchestra_db_${normalizedKey}`;
   const saved = localStorage.getItem(key);
   if (saved) {
     try {
-      return JSON.parse(saved);
+      const parsed = JSON.parse(saved);
+      if (Array.isArray(parsed) && parsed.length > 1) {
+        return parsed;
+      }
     } catch {
       // fallback to initial
     }
   }
-  const initial = INITIAL_LOCAL_DATA[tabName] || [];
-  localStorage.setItem(key, JSON.stringify(initial));
+  const initial = INITIAL_LOCAL_DATA[normalizedKey] || INITIAL_LOCAL_DATA[tabName] || [];
+  if (initial.length > 0) {
+    localStorage.setItem(key, JSON.stringify(initial));
+  }
   return initial;
 }
 
@@ -577,46 +671,48 @@ export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
   title: string;
   sheets: Array<{ properties: { sheetId: number; title: string } }>;
 }> {
+  const DEFAULT_SHEETS = [
+    { properties: { sheetId: 0, title: 'Académica' } },
+    { properties: { sheetId: 1, title: 'Juvenil' } },
+    { properties: { sheetId: 2, title: 'Artave' } },
+    { properties: { sheetId: 3, title: 'Repertório' } },
+    { properties: { sheetId: 4, title: 'Avaliações' } },
+    { properties: { sheetId: 5, title: 'Critérios' } },
+    { properties: { sheetId: 6, title: 'PlanosPalco' } },
+  ];
+
   if (isAppsScript(spreadsheetId)) {
     try {
       const data = await callAppsScriptGet<{
         title?: string;
         sheets?: Array<{ properties: { sheetId: number; title: string } }>;
       }>(spreadsheetId, { action: 'getMeta' });
+
+      let sheets = data.sheets;
+      // Suporte para versões do script que retornam diretamente o mapa com as abas { "Académica": [...], "Juvenil": [...], "Artave": [...] }
+      if ((!sheets || sheets.length === 0) && typeof data === 'object' && data !== null && !Array.isArray(data)) {
+        const keys = Object.keys(data).filter((k) => k !== 'title' && k !== 'error');
+        if (keys.length > 0) {
+          sheets = keys.map((title, idx) => ({ properties: { sheetId: idx, title } }));
+        }
+      }
+
       return {
         title: data.title || 'Google Sheets (Drive)',
-        sheets: data.sheets || [
-          { properties: { sheetId: 0, title: 'Alunos' } },
-          { properties: { sheetId: 1, title: 'Repertório' } },
-          { properties: { sheetId: 2, title: 'Avaliações' } },
-          { properties: { sheetId: 3, title: 'Critérios' } },
-          { properties: { sheetId: 4, title: 'PlanosPalco' } },
-        ],
+        sheets: sheets && sheets.length > 0 ? sheets : DEFAULT_SHEETS,
       };
     } catch {
       return {
         title: 'Google Sheets (Drive Conectado)',
-        sheets: [
-          { properties: { sheetId: 0, title: 'Alunos' } },
-          { properties: { sheetId: 1, title: 'Repertório' } },
-          { properties: { sheetId: 2, title: 'Avaliações' } },
-          { properties: { sheetId: 3, title: 'Critérios' } },
-          { properties: { sheetId: 4, title: 'PlanosPalco' } },
-        ],
+        sheets: DEFAULT_SHEETS,
       };
     }
   }
 
   if (isLocalId(spreadsheetId)) {
     return {
-      title: 'Orquestra Bomfim (Base de Dados Local)',
-      sheets: [
-        { properties: { sheetId: 0, title: 'Alunos' } },
-        { properties: { sheetId: 1, title: 'Repertório' } },
-        { properties: { sheetId: 2, title: 'Avaliações' } },
-        { properties: { sheetId: 3, title: 'Critérios' } },
-        { properties: { sheetId: 4, title: 'PlanosPalco' } },
-      ],
+      title: 'Orquestras Bomfim (Base de Dados Local)',
+      sheets: DEFAULT_SHEETS,
     };
   }
 

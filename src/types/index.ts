@@ -36,7 +36,7 @@ export interface Student {
   grau: string; // "Grau"
   naipe: string; // "Naipe"
   ativo?: boolean;
-  orquestra?: string; // ex: "Académica", "Juvenil"
+  orquestra?: string; // ex: "Académica", "Juvenil", "Artave"
 }
 
 // ─── Repertoire ──────────────────────────────────────────────────────────────

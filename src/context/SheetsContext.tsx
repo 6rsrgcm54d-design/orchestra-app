@@ -17,6 +17,7 @@ interface SheetsContextValue {
   connect: (urlOrId: string) => Promise<void>;
   connectLocal: () => Promise<void>;
   reconnect: () => Promise<void>;
+  refreshMeta: () => Promise<void>;
   disconnect: () => void;
   getSheetId: (tabName: string) => number | undefined;
 }
@@ -114,6 +115,16 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     }
   }, [sheetsMeta]);
 
+  const refreshMeta = useCallback(async () => {
+    if (!config) return;
+    try {
+      const meta = await getSpreadsheetMeta(config.spreadsheetId);
+      setSheetsMeta(meta);
+    } catch (err) {
+      console.warn('Erro ao atualizar abas:', err);
+    }
+  }, [config]);
+
   const disconnect = useCallback(() => {
     setConfig(null);
     setSheetsMeta(null);
@@ -140,6 +151,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
         connect,
         connectLocal,
         reconnect,
+        refreshMeta,
         disconnect,
         getSheetId,
       }}

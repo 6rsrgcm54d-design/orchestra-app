@@ -199,7 +199,7 @@ function SpreadsheetSetup() {
 
 function MainApp() {
   const { user, signOut } = useAuth();
-  const { config, sheetsMeta, disconnect, connect, connectLocal, isConnecting, isLocalMode } = useSheets();
+  const { config, sheetsMeta, disconnect, connect, connectLocal, isConnecting, isLocalMode, refreshMeta } = useSheets();
   const [activeModule, setActiveModule] = useState<NavModule>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [isSyncing, setIsSyncing] = useState(false);
@@ -256,6 +256,7 @@ function MainApp() {
   const syncAll = useCallback(async () => {
     setIsSyncing(true);
     try {
+      await refreshMeta();
       await Promise.all([
         ensureStudentsHeader(),
         ensurePiecesHeader(),
@@ -267,6 +268,7 @@ function MainApp() {
       setIsSyncing(false);
     }
   }, [
+    refreshMeta,
     ensureStudentsHeader,
     ensurePiecesHeader,
     ensureEvalsHeaders,
@@ -282,7 +284,8 @@ function MainApp() {
     if (config) syncAll();
   }, [config]);
 
-  const handleSync = () => {
+  const handleSync = async () => {
+    await refreshMeta();
     switch (activeModule) {
       case 'students':
         loadStudents();

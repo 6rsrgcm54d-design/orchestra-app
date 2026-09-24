@@ -53,7 +53,9 @@ export default function EvaluationForm({ students, criteria, onSave, onClose }: 
             >
               <option value="">Selecionar aluno...</option>
               {students.filter(s => s.ativo !== false).map((s) => (
-                <option key={s.id} value={s.nome}>{s.nome} — {s.naipe}</option>
+                <option key={s.id} value={s.nome}>
+                  {s.nome} — {s.naipe}{s.orquestra ? ` (${s.orquestra})` : ''}
+                </option>
               ))}
             </select>
           </div>

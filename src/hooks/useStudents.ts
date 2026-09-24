@@ -17,8 +17,8 @@ const NON_STUDENT_TABS = new Set([
 ]);
 
 function detectMapping(headerRow: string[]) {
-  // Ordem predefinida: Nome, Chefes de Naipe, Grau, Naipe, Ativo
-  const mapping = { nome: 0, chefeNaipe: 1, grau: 2, naipe: 3, ativo: 4 };
+  // Ordem predefinida: Nome, Chefes de Naipe, Grau, Naipe, Ativo, Orquestra
+  const mapping = { nome: 0, chefeNaipe: 1, grau: 2, naipe: 3, ativo: 4, orquestra: -1 };
   if (!headerRow || headerRow.length === 0) return mapping;
 
   headerRow.forEach((col, idx) => {
@@ -37,6 +37,8 @@ function detectMapping(headerRow: string[]) {
       mapping.naipe = idx;
     } else if (/ativo|ativa|estado|status/i.test(text)) {
       mapping.ativo = idx;
+    } else if (/orquestra|orchestra|grupo|elenco/i.test(text)) {
+      mapping.orquestra = idx;
     }
   });
 
@@ -47,7 +49,7 @@ function parseStudentRow(
   row: string[],
   rowIndex: number,
   tabName: string,
-  mapping: { nome: number; chefeNaipe: number; grau: number; naipe: number; ativo: number }
+  mapping: { nome: number; chefeNaipe: number; grau: number; naipe: number; ativo: number; orquestra?: number }
 ): Student | null {
   const nome = row[mapping.nome] !== undefined ? String(row[mapping.nome]).trim() : '';
   if (!nome || nome.toLowerCase() === 'nome') return null;
@@ -57,6 +59,10 @@ function parseStudentRow(
   const naipe = row[mapping.naipe] !== undefined ? String(row[mapping.naipe]).trim() : '';
   const ativoVal = row[mapping.ativo] !== undefined ? String(row[mapping.ativo]).toLowerCase().trim() : 'sim';
   const ativo = !['não', 'nao', 'inativo', 'false', '0', 'no'].includes(ativoVal);
+  const orquestraVal =
+    mapping.orquestra !== undefined && mapping.orquestra !== -1 && row[mapping.orquestra] !== undefined
+      ? String(row[mapping.orquestra]).trim()
+      : '';
 
   return {
     id: `student-${tabName}-${rowIndex}`,
@@ -66,7 +72,7 @@ function parseStudentRow(
     grau,
     naipe,
     ativo,
-    orquestra: tabName,
+    orquestra: orquestraVal || tabName,
   };
 }
 
@@ -79,16 +85,21 @@ export function useStudents() {
   const [students, setStudents] = useState<Student[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Detect which tabs contain students (e.g. "Académica", "Juvenil", or "Alunos")
+  // Detect which tabs contain students (e.g. "Académica", "Juvenil", "Artave")
   const studentTabs = useMemo(() => {
     if (!sheetsMeta?.sheets || sheetsMeta.sheets.length === 0) {
-      return ['Alunos'];
+      return ['Académica', 'Juvenil', 'Artave'];
     }
     const filtered = sheetsMeta.sheets
       .map((s) => s.properties.title)
       .filter((title) => !NON_STUDENT_TABS.has(title.toLowerCase().trim()));
 
-    return filtered.length > 0 ? filtered : ['Alunos'];
+    // Se só tiver Alunos genérico ou vazio, disponibiliza as 3 orquestras principais
+    if (filtered.length === 1 && filtered[0].toLowerCase() === 'alunos') {
+      return ['Académica', 'Juvenil', 'Artave'];
+    }
+
+    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
   }, [sheetsMeta]);
 
   const load = useCallback(async () => {
@@ -101,11 +112,27 @@ export function useStudents() {
         try {
           const rows = await readRange(config.spreadsheetId, `${tab}!A:Z`);
           if (rows && rows.length > 0) {
-            const header = rows[0];
+            // Localiza a linha correta do cabeçalho caso existam títulos ou linhas vazias no topo
+            let headerIndex = 0;
+            for (let r = 0; r < Math.min(rows.length, 5); r++) {
+              const rowStr = rows[r].map((c) => String(c).toLowerCase()).join(' ');
+              if (
+                rowStr.includes('nome') ||
+                rowStr.includes('aluno') ||
+                rowStr.includes('naipe') ||
+                rowStr.includes('instrumento') ||
+                rowStr.includes('grau')
+              ) {
+                headerIndex = r;
+                break;
+              }
+            }
+
+            const header = rows[headerIndex];
             const mapping = detectMapping(header);
-            const dataRows = rows.slice(1);
+            const dataRows = rows.slice(headerIndex + 1);
             dataRows.forEach((row, i) => {
-              const student = parseStudentRow(row, i + 2, tab, mapping);
+              const student = parseStudentRow(row, headerIndex + i + 2, tab, mapping);
               if (student) allLoaded.push(student);
             });
           }
