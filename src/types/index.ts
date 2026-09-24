@@ -82,6 +82,50 @@ export function formatNaipe(val: string | number | undefined | null): string {
   return str;
 }
 
+export function cleanTimeString(val: string | undefined | null): string {
+  if (!val) return '';
+  const str = String(val).trim();
+  if (!str || str.toLowerCase() === 'a definir' || str === '-') return '';
+
+  // Se for puramente "1899-12-30" (ou com hora 00:00 proveniente do Excel/Sheets base date)
+  if (/^1899-12-30(?:[T\s]00:00(?::00)?)?h?$/i.test(str)) {
+    return '';
+  }
+
+  // Se contiver hora em formato ISO (ex: "1899-12-30T15:00:00" ou "Sat Dec 30 1899 15:00:00")
+  const isoTime = str.match(/[T\s](\d{1,2}):(\d{2})/);
+  if (isoTime) {
+    return `${isoTime[1].padStart(2, '0')}:${isoTime[2]}`;
+  }
+
+  // Formato "15:00:00" ou "15:00"
+  const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  if (timeMatch) {
+    return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
+  }
+
+  // Formato "15h" ou "15h30"
+  const hMatch = str.match(/^(\d{1,2})h(\d{2})?$/i);
+  if (hMatch) {
+    const min = hMatch[2] ? hMatch[2] : '00';
+    return `${hMatch[1].padStart(2, '0')}:${min}`;
+  }
+
+  // Se for apenas hora simples (ex: "15")
+  if (/^\d{1,2}$/.test(str)) {
+    return `${str.padStart(2, '0')}:00`;
+  }
+
+  return str.replace(/h$/i, '');
+}
+
+export function formatTimeDisplay(val: string | undefined | null): string {
+  const cleaned = cleanTimeString(val);
+  if (!cleaned) return 'A definir';
+  if (cleaned.endsWith('h') || cleaned.endsWith('H')) return cleaned;
+  return `${cleaned}h`;
+}
+
 export const NIVEIS = ['Iniciante', 'Elementar', 'Intermédio', 'Avançado', 'Profissional'] as const;
 export type Nivel = typeof NIVEIS[number];
 

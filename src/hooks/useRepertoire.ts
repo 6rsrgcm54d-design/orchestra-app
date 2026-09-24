@@ -8,12 +8,17 @@ import { safeStorage } from '../utils/storage';
 const TAB = 'Repertório';
 const HEADER = ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas', 'Orquestra'];
 
-function rowToPiece(row: string[], rowIndex: number): Piece {
+function rowToPiece(row: string[], rowIndex: number): Piece | null {
+  const titulo = (row[0] ?? '').trim();
+  const compositor = (row[1] ?? '').trim();
+  if (!titulo && !compositor) return null;
+  if (titulo.toLowerCase() === 'título' || titulo.toLowerCase() === 'titulo') return null;
+
   return {
     id: `piece-${rowIndex}`,
     rowIndex,
-    titulo: row[0] ?? '',
-    compositor: row[1] ?? '',
+    titulo,
+    compositor,
     dificuldade: row[2] ?? '',
     duracao: row[3] ?? '',
     estado: (row[4] as EstadoRepertorio) ?? 'em ensaio',
@@ -33,12 +38,19 @@ function getInitialPieces(): Piece[] {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        const valid = parsed.filter((p: any) => p && p.titulo);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(valid));
+        return valid;
+      }
     } catch {}
   }
   const raw = INITIAL_LOCAL_DATA['Repertório'] || [];
   if (raw.length > 1) {
-    const list = raw.slice(1).map((row, i) => rowToPiece(row, i + 2));
+    const list = raw
+      .slice(1)
+      .map((row, i) => rowToPiece(row, i + 2))
+      .filter((p): p is Piece => p !== null);
     safeStorage.setItem(CACHE_KEY, JSON.stringify(list));
     return list;
   }
@@ -55,11 +67,12 @@ export function useRepertoire() {
     setIsLoading(true);
     try {
       const rows = await readRange(config.spreadsheetId, `${TAB}!A:G`);
-      const loaded = rows.slice(1).map((row, i) => rowToPiece(row, i + 2));
+      const loaded = rows
+        .slice(1)
+        .map((row, i) => rowToPiece(row, i + 2))
+        .filter((p): p is Piece => p !== null);
       setPieces(loaded);
-      if (loaded.length > 0) {
-        safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
-      }
+      safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
     } catch (err) {
       toast.error(`Erro ao carregar repertório: ${err instanceof Error ? err.message : 'Erro'}`);
     } finally {
@@ -100,16 +113,24 @@ export function useRepertoire() {
 
   const remove = useCallback(
     async (piece: Piece) => {
+      // 1. Otimista: remove imediatamente da UI e da cache!
+      setPieces((prev) => {
+        const next = prev.filter((p) => p.id !== piece.id && p.rowIndex !== piece.rowIndex);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(next));
+        return next;
+      });
+
       if (!config) return;
       const sheetId = getSheetId(TAB);
       if (sheetId === undefined) { toast.error('Aba não encontrada'); return; }
       const toastId = toast.loading('A eliminar...');
       try {
-        await deleteRow(config.spreadsheetId, sheetId, piece.rowIndex - 1);
+        await deleteRow(config.spreadsheetId, sheetId, piece.rowIndex - 1, TAB);
         toast.success('Peça eliminada!', { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
+        await load();
       }
     },
     [config, getSheetId, load]

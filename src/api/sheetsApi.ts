@@ -53,10 +53,23 @@ function doGet(e) {
       sheet = initDefaultSheet(ss, sheetName);
     }
     var values = sheet.getDataRange().getValues();
-    var formatted = values.map(function(row) {
-      return row.map(function(cell) {
+    var displayValues = sheet.getDataRange().getDisplayValues();
+    var formatted = values.map(function(row, rIdx) {
+      return row.map(function(cell, cIdx) {
         if (cell instanceof Date) {
+          // Se o ano for <= 1900, o utilizador introduziu uma hora (ex: 15:00)
+          if (cell.getFullYear() <= 1900) {
+            return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "HH:mm");
+          }
+          // Se tiver horas e minutos definidos
+          if (cell.getHours() !== 0 || cell.getMinutes() !== 0) {
+            return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd HH:mm");
+          }
           return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
+        }
+        var disp = (displayValues && displayValues[rIdx]) ? displayValues[rIdx][cIdx] : '';
+        if (disp && disp.indexOf(':') !== -1 && typeof cell === 'object') {
+          return disp;
         }
         return String(cell);
       });
@@ -653,26 +666,35 @@ export async function appendRows(
 export async function deleteRow(
   spreadsheetId: string,
   sheetId: number,
-  rowIndex: number
+  rowIndex: number,
+  tabName?: string
 ): Promise<void> {
+  const DEFAULT_TAB_MAP: Record<number, string> = {
+    0: 'Académica',
+    1: 'Juvenil',
+    2: 'Artave',
+    3: 'Repertório',
+    4: 'Avaliações',
+    5: 'Critérios',
+    6: 'PlanosPalco',
+    7: 'Concertos',
+  };
+  const targetTab = tabName || DEFAULT_TAB_MAP[sheetId] || 'Alunos';
+
   if (isAppsScript(spreadsheetId)) {
-    const tabNames = ['Alunos', 'Repertório', 'Avaliações', 'Critérios', 'PlanosPalco'];
-    const tabName = tabNames[sheetId] || 'Alunos';
     await callAppsScriptPost(spreadsheetId, {
       action: 'delete',
-      sheet: tabName,
+      sheet: targetTab,
       rowIndex: rowIndex + 1, // 1-based
     });
     return;
   }
 
   if (isLocalId(spreadsheetId)) {
-    const tabNames = ['Alunos', 'Repertório', 'Avaliações', 'Critérios', 'PlanosPalco'];
-    const tabName = tabNames[sheetId] || 'Alunos';
-    const current = getLocalTab(tabName);
+    const current = getLocalTab(targetTab);
     if (rowIndex >= 0 && rowIndex < current.length) {
       current.splice(rowIndex, 1);
-      setLocalTab(tabName, current);
+      setLocalTab(targetTab, current);
     }
     return;
   }

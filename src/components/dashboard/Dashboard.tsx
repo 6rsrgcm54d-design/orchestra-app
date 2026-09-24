@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award } from 'lucide-react';
 import type { Student, Piece, Evaluation, Concert } from '../../types';
-import { formatNaipe } from '../../types';
+import { formatNaipe, formatTimeDisplay, cleanTimeString } from '../../types';
 import { calcAverage } from '../../utils/csvExport';
 
 interface DashboardProps {
@@ -156,6 +156,7 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
     .slice(0, 5);
 
   const upcomingConcerts = [...concerts]
+    .filter((c) => c && c.data && !String(c.data).toLowerCase().includes('invalid'))
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     .slice(0, 3);
 
@@ -320,11 +321,11 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
 
                   <div className="text-right flex-shrink-0">
                     <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      Concerto: {c.horaConcerto}h
+                      Concerto: {formatTimeDisplay(c.horaConcerto)}
                     </p>
-                    {c.horaEnsaioGeral && (
+                    {cleanTimeString(c.horaEnsaioGeral) && (
                       <p className="text-[11px] text-gray-400">
-                        Ensaio: {c.horaEnsaioGeral}h
+                        Ensaio: {formatTimeDisplay(c.horaEnsaioGeral)}
                       </p>
                     )}
                   </div>

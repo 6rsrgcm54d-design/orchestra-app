@@ -1,6 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Plus, Search, Calendar, Clock, MapPin, Music2, Pencil, Trash2, FileText, ChevronRight } from 'lucide-react';
 import type { Concert } from '../../types';
+import { formatTimeDisplay } from '../../types';
 import ConcertFormModal from './ConcertFormModal';
 
 interface ConcertsViewProps {
@@ -27,6 +28,10 @@ export default function ConcertsView({
 
   const filtered = concerts
     .filter((c) => {
+      // Ignora linhas vazias ou corrompidas
+      if (!c.data && !c.local && !c.programa) return false;
+      if (String(c.data).toLowerCase().includes('invalid') && !c.local && !c.programa) return false;
+
       const matchSearch =
         !search ||
         c.local.toLowerCase().includes(search.toLowerCase()) ||
@@ -36,7 +41,14 @@ export default function ConcertsView({
       const matchOrquestra = !filterOrquestra || c.orquestra === filterOrquestra || c.orquestra === 'Todas';
       return matchSearch && matchOrquestra;
     })
-    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime());
+    .sort((a, b) => {
+      const timeA = new Date(a.data).getTime();
+      const timeB = new Date(b.data).getTime();
+      if (isNaN(timeA) && isNaN(timeB)) return 0;
+      if (isNaN(timeA)) return 1;
+      if (isNaN(timeB)) return -1;
+      return timeA - timeB;
+    });
 
   const handleEdit = (c: Concert) => {
     setEditingConcert(c);
@@ -57,16 +69,29 @@ export default function ConcertsView({
   };
 
   const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr || !dateStr.trim() || dateStr.toLowerCase().includes('invalid')) {
+      return { dia: '—', mes: 'DATA', ano: '', diaSemana: 'A definir', isValid: false };
+    }
     try {
-      const d = new Date(dateStr + 'T00:00:00');
+      let normalized = dateStr.trim();
+      const ptDateMatch = normalized.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+      if (ptDateMatch) {
+        normalized = `${ptDateMatch[3]}-${ptDateMatch[2].padStart(2, '0')}-${ptDateMatch[1].padStart(2, '0')}`;
+      }
+
+      const d = new Date(normalized.includes('T') ? normalized : `${normalized}T00:00:00`);
+      if (isNaN(d.getTime())) {
+        return { dia: '—', mes: 'DATA', ano: '', diaSemana: 'A definir', isValid: false };
+      }
       return {
         dia: d.toLocaleDateString('pt-PT', { day: '2-digit' }),
         mes: d.toLocaleDateString('pt-PT', { month: 'short' }).replace('.', '').toUpperCase(),
-        ano: d.getFullYear(),
+        ano: String(d.getFullYear()),
         diaSemana: d.toLocaleDateString('pt-PT', { weekday: 'long' }),
+        isValid: true,
       };
     } catch {
-      return { dia: '—', mes: '', ano: '', diaSemana: '' };
+      return { dia: '—', mes: 'DATA', ano: '', diaSemana: 'A definir', isValid: false };
     }
   };
 
@@ -216,7 +241,7 @@ export default function ConcertsView({
                         <div>
                           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Ensaio Geral</p>
                           <p className="text-sm font-bold text-gray-800 dark:text-gray-200">
-                            {concert.horaEnsaioGeral ? `${concert.horaEnsaioGeral}h` : 'A definir'}
+                            {formatTimeDisplay(concert.horaEnsaioGeral)}
                           </p>
                         </div>
                       </div>
@@ -226,7 +251,7 @@ export default function ConcertsView({
                         <div>
                           <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide">Concerto</p>
                           <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">
-                            {concert.horaConcerto ? `${concert.horaConcerto}h` : 'A definir'}
+                            {formatTimeDisplay(concert.horaConcerto)}
                           </p>
                         </div>
                       </div>

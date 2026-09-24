@@ -128,16 +128,24 @@ export function useEvaluations() {
 
   const removeEvaluation = useCallback(
     async (ev: Evaluation) => {
+      // 1. Otimista: remove imediatamente da UI e da cache!
+      setEvaluations((prev) => {
+        const next = prev.filter((e) => e.id !== ev.id);
+        safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(next));
+        return next;
+      });
+
       if (!config) return;
       const sheetId = getSheetId(EVAL_TAB);
       if (sheetId === undefined) { toast.error('Aba não encontrada'); return; }
       const toastId = toast.loading('A eliminar...');
       try {
-        await deleteRow(config.spreadsheetId, sheetId, ev.rowIndex - 1);
+        await deleteRow(config.spreadsheetId, sheetId, ev.rowIndex - 1, EVAL_TAB);
         toast.success('Avaliação eliminada!', { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
+        await load();
       }
     },
     [config, getSheetId, load]

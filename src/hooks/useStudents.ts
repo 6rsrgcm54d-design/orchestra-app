@@ -334,16 +334,24 @@ export function useStudents() {
 
   const remove = useCallback(
     async (student: Student) => {
+      // 1. Otimista: remove imediatamente da UI e da cache!
+      setStudents((prev) => {
+        const next = prev.filter((s) => s.id !== student.id);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(next));
+        return next;
+      });
+
       if (!config) return;
       const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
       const sheetId = getSheetId(targetTab) ?? 0;
       const toastId = toast.loading('A eliminar...');
       try {
-        await deleteRow(config.spreadsheetId, sheetId, student.rowIndex - 1);
+        await deleteRow(config.spreadsheetId, sheetId, student.rowIndex - 1, targetTab);
         toast.success('Aluno eliminado!', { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
+        await load();
       }
     },
     [config, studentTabs, getSheetId, load]

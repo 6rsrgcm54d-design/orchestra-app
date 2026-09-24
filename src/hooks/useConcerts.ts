@@ -1,4 +1,4 @@
-﻿import { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import {
   readRange,
@@ -12,22 +12,36 @@ import {
 } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Concert } from '../types';
+import { cleanTimeString } from '../types';
 import { safeStorage } from '../utils/storage';
 
 const TAB = 'Concertos';
 const HEADER = ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'];
 
-function rowToConcert(row: string[], rowIndex: number): Concert {
+function rowToConcert(row: string[], rowIndex: number): Concert | null {
+  const orquestra = (row[0] ?? '').trim();
+  const data = (row[1] ?? '').trim();
+  const local = (row[4] ?? '').trim();
+  const programa = (row[5] ?? '').trim();
+  const notas = (row[6] ?? '').trim();
+
+  // Ignora linhas completamente vazias ou cabeçalhos repetidos
+  if (!orquestra && !data && !local && !programa) return null;
+  if (orquestra.toLowerCase() === 'orquestra' || data.toLowerCase() === 'data') return null;
+
+  const horaEnsaioGeral = cleanTimeString(row[2]);
+  const horaConcerto = cleanTimeString(row[3]);
+
   return {
     id: `concert-${rowIndex}`,
     rowIndex,
-    orquestra: row[0] ?? 'Académica',
-    data: row[1] ?? '',
-    horaEnsaioGeral: row[2] ?? '',
-    horaConcerto: row[3] ?? '',
-    local: row[4] ?? '',
-    programa: row[5] ?? '',
-    notas: row[6] ?? '',
+    orquestra: orquestra || 'Académica',
+    data,
+    horaEnsaioGeral,
+    horaConcerto,
+    local: local || 'A definir',
+    programa,
+    notas,
   };
 }
 
@@ -35,8 +49,8 @@ function concertToRow(c: Omit<Concert, 'id' | 'rowIndex'>): string[] {
   return [
     c.orquestra || 'Académica',
     c.data || '',
-    c.horaEnsaioGeral || '',
-    c.horaConcerto || '',
+    cleanTimeString(c.horaEnsaioGeral) || '',
+    cleanTimeString(c.horaConcerto) || '',
     c.local || '',
     c.programa || '',
     c.notas || '',
@@ -50,12 +64,22 @@ function getInitialConcerts(): Concert[] {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        // Filtra itens inválidos ou corrompidos na cache
+        const valid = parsed.filter(
+          (c: any) => c && (c.data || c.local || c.programa) && !String(c.data).toLowerCase().includes('invalid')
+        );
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(valid));
+        return valid;
+      }
     } catch {}
   }
   const raw = INITIAL_LOCAL_DATA['Concertos'] || [];
   if (raw.length > 1) {
-    const list = raw.slice(1).map((row, i) => rowToConcert(row, i + 2));
+    const list = raw
+      .slice(1)
+      .map((row, i) => rowToConcert(row, i + 2))
+      .filter((c): c is Concert => c !== null);
     safeStorage.setItem(CACHE_KEY, JSON.stringify(list));
     return list;
   }
@@ -87,7 +111,10 @@ export function useConcerts() {
     try {
       const rows = await readRange(config.spreadsheetId, `${TAB}!A:G`);
       if (rows && rows.length > 1) {
-        const loaded = rows.slice(1).map((row, i) => rowToConcert(row, i + 2));
+        const loaded = rows
+          .slice(1)
+          .map((row, i) => rowToConcert(row, i + 2))
+          .filter((c): c is Concert => c !== null);
         setConcerts(loaded);
         safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
       }
@@ -133,6 +160,13 @@ export function useConcerts() {
 
   const deleteConcert = useCallback(
     async (concert: Concert) => {
+      // 1. Otimista: remove imediatamente da UI e da cache!
+      setConcerts((prev) => {
+        const next = prev.filter((c) => c.id !== concert.id && c.rowIndex !== concert.rowIndex);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(next));
+        return next;
+      });
+
       if (!config) return;
       const sheetId = getSheetId(TAB);
       if (sheetId === undefined && !isAppsScript(config.spreadsheetId) && !isLocalId(config.spreadsheetId)) {
@@ -141,11 +175,12 @@ export function useConcerts() {
       }
       const toastId = toast.loading('A eliminar concerto...');
       try {
-        await deleteRow(config.spreadsheetId, sheetId ?? 0, concert.rowIndex - 1);
+        await deleteRow(config.spreadsheetId, sheetId ?? 0, concert.rowIndex - 1, TAB);
         toast.success('Concerto eliminado!', { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
+        await load();
       }
     },
     [config, getSheetId, load]

@@ -1,6 +1,7 @@
-﻿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Music2, FileText } from 'lucide-react';
 import type { Concert } from '../../types';
+import { cleanTimeString } from '../../types';
 
 interface ConcertFormModalProps {
   concert?: Concert;
@@ -30,8 +31,8 @@ export default function ConcertFormModal({
       ? {
           orquestra: concert.orquestra || 'Académica',
           data: concert.data,
-          horaEnsaioGeral: concert.horaEnsaioGeral,
-          horaConcerto: concert.horaConcerto,
+          horaEnsaioGeral: cleanTimeString(concert.horaEnsaioGeral) || '15:00',
+          horaConcerto: cleanTimeString(concert.horaConcerto) || '21:00',
           local: concert.local,
           programa: concert.programa,
           notas: concert.notas || '',
