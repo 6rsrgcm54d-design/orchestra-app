@@ -24,9 +24,20 @@ function pieceToRow(p: Omit<Piece, 'id' | 'rowIndex'>): string[] {
   return [p.titulo, p.compositor, p.dificuldade, p.duracao, p.estado, p.notas];
 }
 
+const CACHE_KEY = 'orchestra_cache_pieces';
+
 export function useRepertoire() {
   const { config, getSheetId } = useSheets();
-  const [pieces, setPieces] = useState<Piece[]>([]);
+  const [pieces, setPieces] = useState<Piece[]>(() => {
+    const saved = localStorage.getItem(CACHE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const load = useCallback(async () => {
@@ -34,7 +45,11 @@ export function useRepertoire() {
     setIsLoading(true);
     try {
       const rows = await readRange(config.spreadsheetId, `${TAB}!A:F`);
-      setPieces(rows.slice(1).map((row, i) => rowToPiece(row, i + 2)));
+      const loaded = rows.slice(1).map((row, i) => rowToPiece(row, i + 2));
+      setPieces(loaded);
+      if (loaded.length > 0) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
+      }
     } catch (err) {
       toast.error(`Erro ao carregar repertório: ${err instanceof Error ? err.message : 'Erro'}`);
     } finally {

@@ -251,7 +251,20 @@ function MainApp() {
     savePlan,
     deletePlan,
     ensureHeader: ensurePlansHeader,
+    exportPlansBackup,
+    importPlansBackup,
   } = useStagePlans();
+
+  const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
+    return localStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
+  });
+
+  const recordSyncSuccess = useCallback(() => {
+    const now = new Date();
+    const timeStr = `Sincronizado às ${now.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}`;
+    setLastSyncTime(timeStr);
+    localStorage.setItem('orchestra_last_sync_time', timeStr);
+  }, []);
 
   const syncAll = useCallback(async () => {
     setIsSyncing(true);
@@ -264,6 +277,7 @@ function MainApp() {
         ensurePlansHeader(),
       ]);
       await Promise.all([loadStudents(), loadPieces(), loadEvals(), loadPlans()]);
+      recordSyncSuccess();
     } finally {
       setIsSyncing(false);
     }
@@ -277,31 +291,37 @@ function MainApp() {
     loadPieces,
     loadEvals,
     loadPlans,
+    recordSyncSuccess,
   ]);
 
-  // Initial load
+  // Abre sempre com os dados da última vez; só faz sincronização de rede se a cache estiver vazia
   useEffect(() => {
-    if (config) syncAll();
-  }, [config]);
+    if (!config) return;
+    const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0;
+    if (!hasCachedData) {
+      syncAll();
+    }
+  }, []);
 
   const handleSync = async () => {
     await refreshMeta();
     switch (activeModule) {
       case 'students':
-        loadStudents();
+        await loadStudents();
         break;
       case 'repertoire':
-        loadPieces();
+        await loadPieces();
         break;
       case 'evaluations':
-        loadEvals();
+        await loadEvals();
         break;
       case 'stagePlan':
-        loadPlans();
+        await loadPlans();
         break;
       default:
-        syncAll();
+        await syncAll();
     }
+    recordSyncSuccess();
   };
 
   // Student handlers
@@ -385,6 +405,8 @@ function MainApp() {
             isLoading={plansLoading}
             onSave={savePlan}
             onDelete={deletePlan}
+            onExportBackup={exportPlansBackup}
+            onImportBackup={importPlansBackup}
           />
         );
     }
@@ -408,6 +430,7 @@ function MainApp() {
           user={user}
           spreadsheetTitle={spreadsheetTitle}
           isLocalMode={isLocalMode}
+          lastSyncTime={lastSyncTime}
           onSync={handleSync}
           onDisconnect={disconnect}
           onOpenConnect={() => setIsConnectModalOpen(true)}

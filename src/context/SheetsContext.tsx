@@ -33,12 +33,35 @@ const SheetsContext = createContext<SheetsContextValue | null>(null);
 
 const STORAGE_KEY = 'orchestra_spreadsheet_id';
 
+const DEFAULT_SHEETS_META: SheetsMeta = {
+  title: 'Orquestras Bomfim (Base de Dados Local)',
+  sheets: [
+    { properties: { sheetId: 0, title: 'Académica' } },
+    { properties: { sheetId: 1, title: 'Juvenil' } },
+    { properties: { sheetId: 2, title: 'Artave' } },
+    { properties: { sheetId: 3, title: 'Repertório' } },
+    { properties: { sheetId: 4, title: 'Avaliações' } },
+    { properties: { sheetId: 5, title: 'Critérios' } },
+    { properties: { sheetId: 6, title: 'PlanosPalco' } },
+  ],
+};
+
 export function SheetsProvider({ children }: { children: React.ReactNode }) {
   const [config, setConfig] = useState<SheetsConfig | null>(() => {
     const saved = localStorage.getItem(STORAGE_KEY);
-    return saved ? { spreadsheetId: saved } : null;
+    if (saved) return { spreadsheetId: saved };
+    localStorage.setItem(STORAGE_KEY, LOCAL_STORAGE_ID);
+    return { spreadsheetId: LOCAL_STORAGE_ID };
   });
-  const [sheetsMeta, setSheetsMeta] = useState<SheetsMeta | null>(null);
+  const [sheetsMeta, setSheetsMeta] = useState<SheetsMeta | null>(() => {
+    const savedMeta = localStorage.getItem('orchestra_cache_sheets_meta');
+    if (savedMeta) {
+      try {
+        return JSON.parse(savedMeta);
+      } catch {}
+    }
+    return DEFAULT_SHEETS_META;
+  });
   const [isConnecting, setIsConnecting] = useState(false);
 
   const connect = useCallback(async (urlOrId: string) => {
@@ -60,6 +83,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       setConfig({ spreadsheetId: id });
       setSheetsMeta(updatedMeta);
       localStorage.setItem(STORAGE_KEY, id);
+      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(updatedMeta));
       toast.success(`Conectado: ${updatedMeta.title}`);
     } catch (err) {
       const msg = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -105,11 +129,13 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
       const meta = await getSpreadsheetMeta(saved);
       setConfig({ spreadsheetId: saved });
       setSheetsMeta(meta);
+      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
     } catch {
       // fallback to local
       const meta = await getSpreadsheetMeta(LOCAL_STORAGE_ID);
       setConfig({ spreadsheetId: LOCAL_STORAGE_ID });
       setSheetsMeta(meta);
+      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
     } finally {
       setIsConnecting(false);
     }
@@ -120,6 +146,7 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
     try {
       const meta = await getSpreadsheetMeta(config.spreadsheetId);
       setSheetsMeta(meta);
+      localStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
     } catch (err) {
       console.warn('Erro ao atualizar abas:', err);
     }

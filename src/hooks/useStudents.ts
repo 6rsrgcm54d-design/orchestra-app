@@ -80,9 +80,20 @@ function studentToRow(s: Omit<Student, 'id' | 'rowIndex'>): (string | boolean)[]
   return [s.nome, s.chefeNaipe, s.grau, s.naipe, s.ativo ? 'sim' : 'não'];
 }
 
+const CACHE_KEY = 'orchestra_cache_students';
+
 export function useStudents() {
   const { config, sheetsMeta, getSheetId } = useSheets();
-  const [students, setStudents] = useState<Student[]>([]);
+  const [students, setStudents] = useState<Student[]>(() => {
+    const saved = localStorage.getItem(CACHE_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   // Detect which tabs contain students (e.g. "Académica", "Juvenil", "Artave")
@@ -142,6 +153,9 @@ export function useStudents() {
       }
 
       setStudents(allLoaded);
+      if (allLoaded.length > 0) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify(allLoaded));
+      }
     } catch (err) {
       toast.error(`Erro ao carregar alunos: ${err instanceof Error ? err.message : 'Erro'}`);
     } finally {

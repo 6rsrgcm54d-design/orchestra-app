@@ -26,6 +26,12 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
 const GUEST_KEY = 'orchestra_guest_user';
 
+const DEFAULT_GUEST_USER: GoogleUser = {
+  name: 'Maestro: Luís Machado',
+  email: 'luismachado78@gmail.com',
+  picture: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80',
+};
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<GoogleUser | null>(() => {
     const saved = localStorage.getItem(GUEST_KEY);
@@ -39,14 +45,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         return u;
       } catch {
-        return null;
+        // fallback
       }
     }
-    return null;
+    // Entra sempre diretamente para a app abrir de imediato
+    localStorage.setItem(GUEST_KEY, JSON.stringify(DEFAULT_GUEST_USER));
+    return DEFAULT_GUEST_USER;
   });
 
   const [accessToken, setAccessToken] = useState<string | null>(() => {
-    return localStorage.getItem(GUEST_KEY) ? 'guest-token' : null;
+    return 'guest-token';
   });
 
   const [isLoading, setIsLoading] = useState(false);

@@ -33,17 +33,42 @@ function rowToCriteria(row: string[], rowIndex: number): Criteria {
   };
 }
 
+const CACHE_EVALS_KEY = 'orchestra_cache_evaluations';
+const CACHE_CRIT_KEY = 'orchestra_cache_criteria';
+
 export function useEvaluations() {
   const { config, getSheetId } = useSheets();
-  const [evaluations, setEvaluations] = useState<Evaluation[]>([]);
-  const [criteria, setCriteria] = useState<Criteria[]>([]);
+  const [evaluations, setEvaluations] = useState<Evaluation[]>(() => {
+    const saved = localStorage.getItem(CACHE_EVALS_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [];
+  });
+  const [criteria, setCriteria] = useState<Criteria[]>(() => {
+    const saved = localStorage.getItem(CACHE_CRIT_KEY);
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      } catch {}
+    }
+    return [];
+  });
   const [isLoading, setIsLoading] = useState(false);
 
   const loadCriteria = useCallback(async () => {
     if (!config) return;
     try {
       const rows = await readRange(config.spreadsheetId, `${CRIT_TAB}!A:C`);
-      setCriteria(rows.slice(1).map((row, i) => rowToCriteria(row, i + 2)));
+      const loaded = rows.slice(1).map((row, i) => rowToCriteria(row, i + 2));
+      setCriteria(loaded);
+      if (loaded.length > 0) {
+        localStorage.setItem(CACHE_CRIT_KEY, JSON.stringify(loaded));
+      }
     } catch (err) {
       toast.error(`Erro ao carregar critérios: ${err instanceof Error ? err.message : 'Erro'}`);
     }
@@ -54,7 +79,11 @@ export function useEvaluations() {
     setIsLoading(true);
     try {
       const rows = await readRange(config.spreadsheetId, `${EVAL_TAB}!A:F`);
-      setEvaluations(rows.slice(1).map((row, i) => rowToEvaluation(row, i + 2)));
+      const loaded = rows.slice(1).map((row, i) => rowToEvaluation(row, i + 2));
+      setEvaluations(loaded);
+      if (loaded.length > 0) {
+        localStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(loaded));
+      }
       await loadCriteria();
     } catch (err) {
       toast.error(`Erro ao carregar avaliações: ${err instanceof Error ? err.message : 'Erro'}`);

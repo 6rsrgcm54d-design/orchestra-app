@@ -1,5 +1,6 @@
 import React, { useState, useCallback, useMemo } from 'react';
-import { Plus, Save, Trash2, ChevronDown, ArrowLeftRight, UserMinus, X, Check } from 'lucide-react';
+import { Plus, Save, Trash2, ChevronDown, ArrowLeftRight, UserMinus, X, Check, Download, Upload, Database } from 'lucide-react';
+import toast from 'react-hot-toast';
 import {
   DndContext,
   DragOverlay,
@@ -23,6 +24,8 @@ interface StagePlanViewProps {
   isLoading: boolean;
   onSave: (plan: StagePlan) => void;
   onDelete: (planId: string) => void;
+  onExportBackup?: () => void;
+  onImportBackup?: (plans: StagePlan[]) => void;
 }
 
 function DroppablePool({
@@ -89,6 +92,8 @@ export default function StagePlanView({
   isLoading,
   onSave,
   onDelete,
+  onExportBackup,
+  onImportBackup,
 }: StagePlanViewProps) {
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(plans[0]?.id ?? null);
   const [editingData, setEditingData] = useState<StagePlanData | null>(null);
@@ -619,6 +624,51 @@ export default function StagePlanView({
             )}
           </>
         )}
+
+        {/* Base de Dados de Mapas de Palco (Exportar / Importar) */}
+        <div className="flex items-center gap-2 sm:ml-auto">
+          {onExportBackup && plans.length > 0 && (
+            <button
+              type="button"
+              onClick={onExportBackup}
+              title="Guardar cópia de segurança de todos os mapas de palco (Ficheiro JSON)"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all shadow-sm"
+            >
+              <Download size={14} className="text-orchestra-gold" />
+              <span>Exportar Backup ({plans.length})</span>
+            </button>
+          )}
+
+          {onImportBackup && (
+            <label
+              title="Restaurar / Importar mapas de palco a partir de um ficheiro JSON"
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700 transition-all cursor-pointer shadow-sm"
+            >
+              <Upload size={14} className="text-blue-500" />
+              <span>Importar</span>
+              <input
+                type="file"
+                accept=".json"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+                  const reader = new FileReader();
+                  reader.onload = (event) => {
+                    try {
+                      const parsed = JSON.parse(event.target?.result as string);
+                      onImportBackup(parsed);
+                    } catch {
+                      toast.error('Ficheiro JSON de mapas de palco inválido.');
+                    }
+                  };
+                  reader.readAsText(file);
+                  e.target.value = '';
+                }}
+              />
+            </label>
+          )}
+        </div>
       </div>
 
       {!currentData ? (

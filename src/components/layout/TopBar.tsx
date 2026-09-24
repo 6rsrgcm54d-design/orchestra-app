@@ -16,6 +16,7 @@ interface TopBarProps {
   user: GoogleUser;
   spreadsheetTitle?: string;
   isLocalMode?: boolean;
+  lastSyncTime?: string;
   onSync: () => void;
   onDisconnect: () => void;
   onOpenConnect: () => void;
@@ -27,6 +28,7 @@ export default function TopBar({
   user,
   spreadsheetTitle,
   isLocalMode,
+  lastSyncTime,
   onSync,
   onDisconnect,
   onOpenConnect,
@@ -74,16 +76,23 @@ export default function TopBar({
           </button>
         )}
 
-        {/* Sync button */}
-        <button
-          onClick={onSync}
-          disabled={isSyncing}
-          title="Sincronizar com a fonte de dados"
-          className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all disabled:opacity-50"
-        >
-          <RefreshCw size={15} className={isSyncing ? 'animate-spin' : ''} />
-          <span className="hidden sm:inline">Sincronizar</span>
-        </button>
+        {/* Sync button & status */}
+        <div className="flex flex-col items-end">
+          <button
+            onClick={onSync}
+            disabled={isSyncing}
+            title="Sincronizar com a folha Google Sheets ou Base de Dados"
+            className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg transition-all disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={isSyncing ? 'animate-spin text-orchestra-gold' : 'text-gray-500'} />
+            <span className="hidden sm:inline font-medium">Sincronizar</span>
+          </button>
+          {lastSyncTime && (
+            <span className="text-[10px] text-gray-400 dark:text-gray-500 hidden sm:block pr-1 leading-none mt-0.5">
+              {lastSyncTime}
+            </span>
+          )}
+        </div>
 
         {/* Theme toggle */}
         <button
