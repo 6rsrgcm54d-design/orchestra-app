@@ -11,6 +11,7 @@ interface StudentFormProps {
 }
 
 const EMPTY: Omit<Student, 'id' | 'rowIndex'> = {
+  numero: '',
   nome: '',
   chefeNaipe: '',
   grau: '',
@@ -23,6 +24,7 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
   const [form, setForm] = useState<Omit<Student, 'id' | 'rowIndex'>>(
     student
       ? {
+          numero: student.numero || '',
           nome: student.nome,
           chefeNaipe: student.chefeNaipe || '',
           grau: student.grau || '',
@@ -114,7 +116,7 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
               required
               value={form.naipe}
               onChange={(e) => setForm({ ...form, naipe: e.target.value })}
-              placeholder="Seleciona ou escreve o naipe (ex: Violinos I, Flautas...)"
+              placeholder="Seleciona ou escreve o naipe (ex: Violino I, Viola d'arco, Flauta...)"
               className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
             />
             <datalist id="naipes-list">

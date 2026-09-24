@@ -1,6 +1,7 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award } from 'lucide-react';
 import type { Student, Piece, Evaluation, Concert } from '../../types';
+import { formatNaipe } from '../../types';
 import { calcAverage } from '../../utils/csvExport';
 
 interface DashboardProps {
@@ -48,7 +49,7 @@ function NaipeSectionList({
   // Preserva a ordem exata dos naipes/instrumentos e alunos tal como constam no Google Sheets
   const orderMap = new Map<string, Student[]>();
   students.forEach((s) => {
-    const n = s.naipe || 'Geral';
+    const n = formatNaipe(s.naipe) || 'Geral';
     if (!orderMap.has(n)) {
       orderMap.set(n, []);
     }
@@ -102,8 +103,13 @@ function NaipeSectionList({
                     key={s.id}
                     className="flex items-center justify-between text-xs py-1 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
                   >
-                    <span className="font-medium text-gray-800 dark:text-gray-200 truncate mr-2">
-                      {s.nome}
+                    <span className="font-medium text-gray-800 dark:text-gray-200 truncate mr-2 flex items-center gap-1">
+                      {s.numero && (
+                        <span className="text-[10px] text-gray-400 font-mono flex-shrink-0">
+                          {s.numero}.
+                        </span>
+                      )}
+                      <span>{s.nome}</span>
                     </span>
                     <div className="flex items-center gap-1 flex-shrink-0">
                       {isChefe && (
