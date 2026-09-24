@@ -6,7 +6,7 @@ import type { Piece, EstadoRepertorio } from '../types';
 import { safeStorage } from '../utils/storage';
 
 const TAB = 'Repertório';
-const HEADER = ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'];
+const HEADER = ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas', 'Orquestra'];
 
 function rowToPiece(row: string[], rowIndex: number): Piece {
   return {
@@ -18,11 +18,12 @@ function rowToPiece(row: string[], rowIndex: number): Piece {
     duracao: row[3] ?? '',
     estado: (row[4] as EstadoRepertorio) ?? 'em ensaio',
     notas: row[5] ?? '',
+    orquestra: row[6] ? String(row[6]).trim() : undefined,
   };
 }
 
 function pieceToRow(p: Omit<Piece, 'id' | 'rowIndex'>): string[] {
-  return [p.titulo, p.compositor, p.dificuldade, p.duracao, p.estado, p.notas];
+  return [p.titulo, p.compositor, p.dificuldade, p.duracao, p.estado, p.notas, p.orquestra ?? ''];
 }
 
 const CACHE_KEY = 'orchestra_cache_pieces';
@@ -53,7 +54,7 @@ export function useRepertoire() {
     if (!config) return;
     setIsLoading(true);
     try {
-      const rows = await readRange(config.spreadsheetId, `${TAB}!A:F`);
+      const rows = await readRange(config.spreadsheetId, `${TAB}!A:G`);
       const loaded = rows.slice(1).map((row, i) => rowToPiece(row, i + 2));
       setPieces(loaded);
       if (loaded.length > 0) {
@@ -71,7 +72,7 @@ export function useRepertoire() {
       if (!config) return;
       const toastId = toast.loading('A adicionar peça...');
       try {
-        await appendRows(config.spreadsheetId, `${TAB}!A:F`, [pieceToRow(piece)]);
+        await appendRows(config.spreadsheetId, `${TAB}!A:G`, [pieceToRow(piece)]);
         toast.success('Peça adicionada!', { id: toastId });
         await load();
       } catch (err) {
@@ -86,7 +87,7 @@ export function useRepertoire() {
       if (!config) return;
       const toastId = toast.loading('A guardar...');
       try {
-        const range = `${TAB}!A${piece.rowIndex}:F${piece.rowIndex}`;
+        const range = `${TAB}!A${piece.rowIndex}:G${piece.rowIndex}`;
         await updateRange(config.spreadsheetId, range, [pieceToRow(piece)]);
         toast.success('Peça atualizada!', { id: toastId });
         await load();
@@ -116,9 +117,9 @@ export function useRepertoire() {
 
   const ensureHeader = useCallback(async () => {
     if (!config) return;
-    const rows = await readRange(config.spreadsheetId, `${TAB}!A1:F1`);
+    const rows = await readRange(config.spreadsheetId, `${TAB}!A1:G1`);
     if (!rows.length || rows[0][0] !== 'Título') {
-      await updateRange(config.spreadsheetId, `${TAB}!A1:F1`, [HEADER]);
+      await updateRange(config.spreadsheetId, `${TAB}!A1:G1`, [HEADER]);
     }
   }, [config]);
 

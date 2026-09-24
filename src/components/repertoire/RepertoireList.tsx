@@ -5,6 +5,7 @@ import { ESTADOS_REPERTORIO } from '../../types';
 
 interface RepertoireListProps {
   pieces: Piece[];
+  orchestras?: string[];
   isLoading: boolean;
   onAdd: () => void;
   onEdit: (piece: Piece) => void;
@@ -17,17 +18,20 @@ const ESTADO_CONFIG: Record<EstadoRepertorio, { label: string; className: string
   arquivado: { label: 'Arquivado', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
 };
 
-export default function RepertoireList({ pieces, isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
+export default function RepertoireList({ pieces, orchestras = ['Académica', 'Juvenil', 'Artave'], isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
   const [search, setSearch] = useState('');
+  const [filterOrquestra, setFilterOrquestra] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
 
   const filtered = pieces.filter((p) => {
     const matchSearch =
       !search ||
       p.titulo.toLowerCase().includes(search.toLowerCase()) ||
-      p.compositor.toLowerCase().includes(search.toLowerCase());
+      p.compositor.toLowerCase().includes(search.toLowerCase()) ||
+      (p.orquestra && p.orquestra.toLowerCase().includes(search.toLowerCase()));
+    const matchOrquestra = !filterOrquestra || p.orquestra === filterOrquestra || p.orquestra === 'Todas';
     const matchEstado = !filterEstado || p.estado === filterEstado;
-    return matchSearch && matchEstado;
+    return matchSearch && matchOrquestra && matchEstado;
   });
 
   const SkeletonCard = () => (
@@ -52,7 +56,19 @@ export default function RepertoireList({ pieces, isLoading, onAdd, onEdit, onDel
             className="w-full pl-9 pr-4 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
           />
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Seletor de Orquestra */}
+          <select
+            value={filterOrquestra}
+            onChange={(e) => setFilterOrquestra(e.target.value)}
+            className="text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
+          >
+            <option value="">Todas as Orquestras</option>
+            {orchestras.map((o) => (
+              <option key={o} value={o}>{o}</option>
+            ))}
+          </select>
+
           <select
             value={filterEstado}
             onChange={(e) => setFilterEstado(e.target.value)}
@@ -112,6 +128,11 @@ export default function RepertoireList({ pieces, isLoading, onAdd, onEdit, onDel
                 </div>
 
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
+                  {piece.orquestra && (
+                    <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
+                      🎻 {piece.orquestra}
+                    </span>
+                  )}
                   <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.className}`}>
                     {estado.label}
                   </span>

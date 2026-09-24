@@ -12,11 +12,13 @@ import RepertoireList from './components/repertoire/RepertoireList';
 import PieceForm from './components/repertoire/PieceForm';
 import EvaluationsView from './components/evaluations/EvaluationsView';
 import StagePlanView from './components/stagePlan/StagePlanView';
+import ConcertsView from './components/concerts/ConcertsView';
 import ConnectSheetsModal from './components/layout/ConnectSheetsModal';
 import { useStudents } from './hooks/useStudents';
 import { useRepertoire } from './hooks/useRepertoire';
 import { useEvaluations } from './hooks/useEvaluations';
 import { useStagePlans } from './hooks/useStagePlans';
+import { useConcerts } from './hooks/useConcerts';
 import type { Student, Piece, NavModule } from './types';
 import { Music2, Link2, Sparkles, HardDrive } from 'lucide-react';
 import { safeStorage } from './utils/storage';
@@ -256,6 +258,16 @@ function MainApp() {
     importPlansBackup,
   } = useStagePlans();
 
+  const {
+    concerts,
+    isLoading: concertsLoading,
+    load: loadConcerts,
+    addConcert,
+    updateConcert,
+    deleteConcert,
+    ensureHeader: ensureConcertsHeader,
+  } = useConcerts();
+
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
     return safeStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
   });
@@ -276,8 +288,9 @@ function MainApp() {
         ensurePiecesHeader(),
         ensureEvalsHeaders(),
         ensurePlansHeader(),
+        ensureConcertsHeader(),
       ]);
-      await Promise.all([loadStudents(), loadPieces(), loadEvals(), loadPlans()]);
+      await Promise.all([loadStudents(), loadPieces(), loadEvals(), loadPlans(), loadConcerts()]);
       recordSyncSuccess();
     } finally {
       setIsSyncing(false);
@@ -288,17 +301,19 @@ function MainApp() {
     ensurePiecesHeader,
     ensureEvalsHeaders,
     ensurePlansHeader,
+    ensureConcertsHeader,
     loadStudents,
     loadPieces,
     loadEvals,
     loadPlans,
+    loadConcerts,
     recordSyncSuccess,
   ]);
 
   // Abre sempre com os dados da última vez; só faz sincronização de rede se a cache estiver vazia
   useEffect(() => {
     if (!config) return;
-    const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0;
+    const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0 || concerts.length > 0;
     if (!hasCachedData) {
       syncAll();
     }
@@ -312,6 +327,9 @@ function MainApp() {
         break;
       case 'repertoire':
         await loadPieces();
+        break;
+      case 'concerts':
+        await loadConcerts();
         break;
       case 'evaluations':
         await loadEvals();
@@ -364,7 +382,15 @@ function MainApp() {
   const renderModule = () => {
     switch (activeModule) {
       case 'dashboard':
-        return <Dashboard students={students} pieces={pieces} evaluations={evaluations} />;
+        return (
+          <Dashboard
+            students={students}
+            pieces={pieces}
+            evaluations={evaluations}
+            concerts={concerts}
+            onNavigate={(mod) => setActiveModule(mod as NavModule)}
+          />
+        );
       case 'students':
         return (
           <StudentList
@@ -380,10 +406,22 @@ function MainApp() {
         return (
           <RepertoireList
             pieces={pieces}
+            orchestras={orchestras}
             isLoading={piecesLoading}
             onAdd={handleAddPiece}
             onEdit={handleEditPiece}
             onDelete={removePiece}
+          />
+        );
+      case 'concerts':
+        return (
+          <ConcertsView
+            concerts={concerts}
+            orchestras={orchestras}
+            isLoading={concertsLoading}
+            onAdd={addConcert}
+            onUpdate={updateConcert}
+            onDelete={deleteConcert}
           />
         );
       case 'evaluations':
@@ -452,6 +490,7 @@ function MainApp() {
       {showPieceForm && (
         <PieceForm
           piece={editingPiece}
+          orchestras={orchestras}
           onSave={handleSavePiece}
           onClose={() => setShowPieceForm(false)}
         />

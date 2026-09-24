@@ -134,10 +134,11 @@ function initDefaultSheet(ss, name) {
     'Juvenil': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Artave': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Alunos': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
-    'Repertório': ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'],
+    'Repertório': ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas', 'Orquestra'],
     'Avaliações': ['Nome Aluno', 'Naipe', 'Critério', 'Pontuação', 'Data', 'Observações'],
     'Critérios': ['Nome do Critério', 'Descrição', 'Peso'],
-    'PlanosPalco': ['PlanosPalco_JSON']
+    'PlanosPalco': ['PlanosPalco_JSON'],
+    'Concertos': ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas']
   };
   if (headers[name]) {
     sheet.appendRow(headers[name]);
@@ -240,13 +241,43 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
     ['Miguel Teixeira', 'Chefe', '8º Grau', 'Percussão', 'sim'],
   ],
   Repertório: [
-    ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas'],
-    ['Sinfonia nº 5 em Dó Menor', 'L. v. Beethoven', 'Difícil', '33 min', 'em ensaio', 'Foco no 1º andamento e transição para o 4º'],
-    ['Eine kleine Nachtmusik (K. 525)', 'W. A. Mozart', 'Médio', '18 min', 'pronto', 'Apresentação no Concerto de Abertura'],
-    ['Dança Húngara nº 5', 'J. Brahms', 'Médio', '3 min', 'em ensaio', 'Ajustar dinâmica dos violinos no compasso 32'],
-    ['Suíte O Quebra-Nozes (Op. 71a)', 'P. I. Tchaikovsky', 'Difícil', '24 min', 'em ensaio', 'Dança das Flautas precisa de ensaio de naipes'],
-    ['Marcha Radetzky', 'J. Strauss I', 'Fácil', '3 min', 'pronto', 'Encore para o concerto de encerramento'],
-    ['As Quatro Estações - Primavera', 'A. Vivaldi', 'Médio', '10 min', 'arquivado', 'Executado no concerto de Primavera'],
+    ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas', 'Orquestra'],
+    ['Sinfonia nº 5 em Dó Menor', 'L. v. Beethoven', 'Difícil', '33 min', 'em ensaio', 'Foco no 1º andamento e transição para o 4º', 'Académica'],
+    ['Eine kleine Nachtmusik (K. 525)', 'W. A. Mozart', 'Médio', '18 min', 'pronto', 'Apresentação no Concerto de Abertura', 'Juvenil'],
+    ['Dança Húngara nº 5', 'J. Brahms', 'Médio', '3 min', 'em ensaio', 'Ajustar dinâmica dos violinos no compasso 32', 'Artave'],
+    ['Suíte O Quebra-Nozes (Op. 71a)', 'P. I. Tchaikovsky', 'Difícil', '24 min', 'em ensaio', 'Dança das Flautas precisa de ensaio de naipes', 'Académica'],
+    ['Marcha Radetzky', 'J. Strauss I', 'Fácil', '3 min', 'pronto', 'Encore para o concerto de encerramento', 'Todas'],
+    ['As Quatro Estações - Primavera', 'A. Vivaldi', 'Médio', '10 min', 'arquivado', 'Executado no concerto de Primavera', 'Artave'],
+  ],
+  Concertos: [
+    ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'],
+    [
+      'Académica',
+      '2026-11-28',
+      '15:00',
+      '21:30',
+      'Theatro Circo de Braga',
+      'L. v. Beethoven: Sinfonia nº 5 em Dó Menor\nP. I. Tchaikovsky: Suíte O Quebra-Nozes',
+      'Fardamento formal. Chegada dos alunos às 14h30 para aquecimento e afinação.',
+    ],
+    [
+      'Juvenil',
+      '2026-12-12',
+      '10:30',
+      '17:00',
+      'Auditório do Conservatório Bomfim',
+      'W. A. Mozart: Eine kleine Nachtmusik (K. 525)\nJ. Strauss I: Marcha Radetzky',
+      'Concerto de Natal da Orquestra Juvenil com presença dos encarregados de educação.',
+    ],
+    [
+      'Artave',
+      '2026-12-19',
+      '16:00',
+      '21:00',
+      'Grande Auditório Europarque',
+      'J. Brahms: Dança Húngara nº 5\nA. Vivaldi: As Quatro Estações (Primavera)',
+      'Gravação ao vivo para transmissão digital.',
+    ],
   ],
   Critérios: [
     ['Nome do Critério', 'Descrição', 'Peso'],

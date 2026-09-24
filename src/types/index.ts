@@ -50,6 +50,7 @@ export interface Piece {
   duracao: string;
   estado: EstadoRepertorio;
   notas: string;
+  orquestra?: string;
 }
 
 // ─── Evaluations ─────────────────────────────────────────────────────────────
@@ -102,6 +103,20 @@ export interface StagePlan {
   data: StagePlanData;
 }
 
+// ─── Concerts ───────────────────────────────────────────────────────────────
+
+export interface Concert {
+  id: string;
+  rowIndex: number;
+  orquestra: string; // "Académica", "Juvenil", "Artave", "Todas"
+  data: string; // YYYY-MM-DD
+  horaEnsaioGeral: string; // ex: "15:00"
+  horaConcerto: string; // ex: "21:00"
+  local: string;
+  programa: string;
+  notas?: string;
+}
+
 // ─── Auth ────────────────────────────────────────────────────────────────────
 
 export interface GoogleUser {
@@ -120,4 +135,4 @@ export interface SheetsConfig {
 
 export type Theme = 'dark' | 'light';
 
-export type NavModule = 'dashboard' | 'students' | 'stagePlan' | 'repertoire' | 'evaluations';
+export type NavModule = 'dashboard' | 'students' | 'stagePlan' | 'repertoire' | 'concerts' | 'evaluations';

@@ -5,6 +5,7 @@ import { ESTADOS_REPERTORIO } from '../../types';
 
 interface PieceFormProps {
   piece?: Piece;
+  orchestras?: string[];
   onSave: (data: Omit<Piece, 'id' | 'rowIndex'>) => void;
   onClose: () => void;
 }
@@ -16,12 +17,22 @@ const EMPTY: Omit<Piece, 'id' | 'rowIndex'> = {
   duracao: '',
   estado: 'em ensaio',
   notas: '',
+  orquestra: 'Académica',
 };
 
-export default function PieceForm({ piece, onSave, onClose }: PieceFormProps) {
+export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil', 'Artave', 'Todas'], onSave, onClose }: PieceFormProps) {
   const [form, setForm] = useState<Omit<Piece, 'id' | 'rowIndex'>>(
-    piece ? { titulo: piece.titulo, compositor: piece.compositor, dificuldade: piece.dificuldade, duracao: piece.duracao, estado: piece.estado, notas: piece.notas }
-    : EMPTY
+    piece
+      ? {
+          titulo: piece.titulo,
+          compositor: piece.compositor,
+          dificuldade: piece.dificuldade,
+          duracao: piece.duracao,
+          estado: piece.estado,
+          notas: piece.notas,
+          orquestra: piece.orquestra || 'Académica',
+        }
+      : EMPTY
   );
 
   useEffect(() => {
@@ -102,19 +113,34 @@ export default function PieceForm({ piece, onSave, onClose }: PieceFormProps) {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
-            <select
-              value={form.estado}
-              onChange={(e) => setForm({ ...form, estado: e.target.value as typeof form.estado })}
-              className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-            >
-              {ESTADOS_REPERTORIO.map((e) => (
-                <option key={e} value={e}>
-                  {e === 'em ensaio' ? 'Em Ensaio' : e === 'pronto' ? 'Pronto' : 'Arquivado'}
-                </option>
-              ))}
-            </select>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Orquestra *</label>
+              <select
+                value={form.orquestra || 'Académica'}
+                onChange={(e) => setForm({ ...form, orquestra: e.target.value })}
+                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold font-medium"
+              >
+                {orchestras.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
+              <select
+                value={form.estado}
+                onChange={(e) => setForm({ ...form, estado: e.target.value as typeof form.estado })}
+                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
+              >
+                {ESTADOS_REPERTORIO.map((e) => (
+                  <option key={e} value={e}>
+                    {e === 'em ensaio' ? 'Em Ensaio' : e === 'pronto' ? 'Pronto' : 'Arquivado'}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           <div>

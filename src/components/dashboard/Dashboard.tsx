@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import { Users, Music, Star, Theater, TrendingUp } from 'lucide-react';
-import type { Student, Piece, Evaluation } from '../../types';
+﻿import React, { useState } from 'react';
+import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award } from 'lucide-react';
+import type { Student, Piece, Evaluation, Concert } from '../../types';
 import { calcAverage } from '../../utils/csvExport';
 
 interface DashboardProps {
   students: Student[];
   pieces: Piece[];
   evaluations: Evaluation[];
+  concerts?: Concert[];
+  onNavigate?: (module: 'concerts' | 'repertoire' | 'students') => void;
 }
 
 function StatCard({
@@ -34,7 +36,7 @@ function StatCard({
   );
 }
 
-function NaipeBarList({
+function NaipeSectionList({
   students,
   title,
   subtitle,
@@ -43,50 +45,90 @@ function NaipeBarList({
   title?: string;
   subtitle?: string;
 }) {
-  const counts = students.reduce((acc, s) => {
-    if (!s.naipe) return acc;
-    acc[s.naipe] = (acc[s.naipe] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
+  // Preserva a ordem exata dos naipes/instrumentos e alunos tal como constam no Google Sheets
+  const orderMap = new Map<string, Student[]>();
+  students.forEach((s) => {
+    const n = s.naipe || 'Geral';
+    if (!orderMap.has(n)) {
+      orderMap.set(n, []);
+    }
+    orderMap.get(n)!.push(s);
+  });
 
-  const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1]);
+  const naipes = Array.from(orderMap.entries());
 
-  if (sorted.length === 0) {
-    return <p className="text-xs text-gray-400 py-2">Sem alunos registados.</p>;
+  if (naipes.length === 0) {
+    return <p className="text-xs text-gray-400 py-3">Sem alunos registados.</p>;
   }
 
-  const max = sorted[0][1];
-
   return (
-    <div className="space-y-2">
+    <div className="space-y-4">
       {title && (
-        <div className="flex items-center justify-between pb-1 mb-2 border-b border-gray-100 dark:border-gray-700">
-          <p className="text-xs font-semibold text-gray-900 dark:text-white">{title}</p>
-          {subtitle && <span className="text-[11px] text-gray-400">{subtitle}</span>}
+        <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
+          <p className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full bg-orchestra-gold inline-block shadow-sm"></span>
+            {title}
+          </p>
+          {subtitle && (
+            <span className="text-xs text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800/50 px-2.5 py-0.5 rounded-full font-semibold">
+              {subtitle}
+            </span>
+          )}
         </div>
       )}
-      {sorted.map(([naipe, count]) => {
-        const pct = Math.round((count / max) * 100);
-        return (
-          <div key={naipe} className="flex items-center gap-3">
-            <span className="text-xs text-gray-600 dark:text-gray-400 w-28 truncate">{naipe}</span>
-            <div className="flex-1 bg-gray-100 dark:bg-gray-700 rounded-full h-2">
-              <div
-                className="bg-orchestra-gold rounded-full h-2 transition-all"
-                style={{ width: `${pct}%` }}
-              />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        {naipes.map(([naipe, naipeStudents]) => (
+          <div
+            key={naipe}
+            className="bg-white dark:bg-gray-800/90 rounded-xl p-3.5 border border-gray-200 dark:border-gray-700 shadow-sm space-y-2 hover:border-amber-300 dark:hover:border-amber-700/60 transition-all"
+          >
+            <div className="flex items-center justify-between border-b border-gray-100 dark:border-gray-700/60 pb-1.5">
+              <span className="text-xs font-bold text-orchestra-navy dark:text-orchestra-gold tracking-wide uppercase">
+                {naipe}
+              </span>
+              <span className="text-[11px] font-semibold text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-2 py-0.5 rounded-full">
+                {naipeStudents.length} {naipeStudents.length === 1 ? 'aluno' : 'alunos'}
+              </span>
             </div>
-            <span className="text-xs font-semibold text-gray-700 dark:text-gray-300 w-6 text-right">
-              {count}
-            </span>
+
+            <ul className="space-y-1 max-h-48 overflow-y-auto pr-1">
+              {naipeStudents.map((s) => {
+                const isChefe =
+                  !!s.chefeNaipe &&
+                  !['não', 'nao', 'false', '0', '-'].includes(s.chefeNaipe.toLowerCase());
+                return (
+                  <li
+                    key={s.id}
+                    className="flex items-center justify-between text-xs py-1 px-1.5 rounded hover:bg-gray-50 dark:hover:bg-gray-700/40 transition-colors"
+                  >
+                    <span className="font-medium text-gray-800 dark:text-gray-200 truncate mr-2">
+                      {s.nome}
+                    </span>
+                    <div className="flex items-center gap-1 flex-shrink-0">
+                      {isChefe && (
+                        <span className="text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-100 dark:bg-amber-950/60 px-1.5 py-0.2 rounded border border-amber-200 dark:border-amber-800/60">
+                          ★ Chefe
+                        </span>
+                      )}
+                      {s.grau && (
+                        <span className="text-[10px] text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-700 px-1.5 py-0.2 rounded">
+                          {s.grau}
+                        </span>
+                      )}
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
-        );
-      })}
+        ))}
+      </div>
     </div>
   );
 }
 
-export default function Dashboard({ students, pieces, evaluations }: DashboardProps) {
+export default function Dashboard({ students, pieces, evaluations, concerts = [], onNavigate }: DashboardProps) {
   const orchestras = Array.from(
     new Set(students.map((s) => s.orquestra).filter((o): o is string => !!o))
   );
@@ -94,22 +136,22 @@ export default function Dashboard({ students, pieces, evaluations }: DashboardPr
   const hasMultipleOrchestras = orchestras.length > 1;
   const [selectedOrchestraTab, setSelectedOrchestraTab] = useState<string>('todas');
 
-  // Subtitle for total students
   const orchestraBreakdown = hasMultipleOrchestras
     ? orchestras.map((o) => `${o}: ${students.filter((s) => s.orquestra === o).length}`).join(' · ')
     : `${students.length} total`;
 
-  // Repertoire stats
   const emEnsaio = pieces.filter((p) => p.estado === 'em ensaio').length;
   const prontas = pieces.filter((p) => p.estado === 'pronto').length;
 
-  // Evaluation average
   const avgScore = calcAverage(evaluations);
 
-  // Recent evaluations (last 5)
   const recentEvals = [...evaluations]
     .sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime())
     .slice(0, 5);
+
+  const upcomingConcerts = [...concerts]
+    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    .slice(0, 3);
 
   const displayedStudents =
     selectedOrchestraTab === 'todas'
@@ -135,150 +177,213 @@ export default function Dashboard({ students, pieces, evaluations }: DashboardPr
           color="bg-purple-50 dark:bg-purple-900/30"
         />
         <StatCard
-          icon={<Star size={20} className="text-yellow-600" />}
-          label="Avaliações"
-          value={evaluations.length}
-          sub={avgScore > 0 ? `Média: ${avgScore.toFixed(1)} ⭐` : 'Sem avaliações'}
-          color="bg-yellow-50 dark:bg-yellow-900/30"
+          icon={<Calendar size={20} className="text-amber-600" />}
+          label="Concertos Agendados"
+          value={concerts.length}
+          sub={concerts.length > 0 ? `${concerts.length} apresentações marcadas` : 'Sem concertos'}
+          color="bg-amber-50 dark:bg-amber-900/30"
         />
         <StatCard
           icon={<Theater size={20} className="text-green-600" />}
-          label="Orquestras"
+          label="Orquestras Ativas"
           value={hasMultipleOrchestras ? orchestras.length : 1}
           sub={hasMultipleOrchestras ? orchestras.join(', ') : 'Orquestra Principal'}
           color="bg-green-50 dark:bg-green-900/30"
         />
       </div>
 
-      {/* Two column layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Alunos por naipe (Separados por Orquestra) */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
-              <TrendingUp size={18} className="text-orchestra-gold" />
-              <h2 className="font-semibold text-gray-900 dark:text-white">Alunos por Naipe</h2>
-            </div>
-
-            {/* Separador de Orquestras */}
-            {hasMultipleOrchestras && (
-              <div className="flex bg-gray-100 dark:bg-gray-700/60 p-0.5 rounded-lg text-xs">
-                <button
-                  type="button"
-                  onClick={() => setSelectedOrchestraTab('todas')}
-                  className={`px-2.5 py-1 rounded-md transition-all ${
-                    selectedOrchestraTab === 'todas'
-                      ? 'bg-white dark:bg-gray-800 text-orchestra-navy dark:text-white font-semibold shadow-sm'
-                      : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
-                  }`}
-                >
-                  Todas ({students.length})
-                </button>
-                {orchestras.map((o) => {
-                  const count = students.filter((s) => s.orquestra === o).length;
-                  return (
-                    <button
-                      key={o}
-                      type="button"
-                      onClick={() => setSelectedOrchestraTab(o)}
-                      className={`px-2.5 py-1 rounded-md transition-all ${
-                        selectedOrchestraTab === o
-                          ? 'bg-white dark:bg-gray-800 text-orchestra-gold font-semibold shadow-sm'
-                          : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
-                      }`}
-                    >
-                      {o} ({count})
-                    </button>
-                  );
-                })}
-              </div>
-            )}
+      {/* Alunos por Naipe (Ordem do Google Sheets, sem números arbitrários) */}
+      <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-6 shadow-sm space-y-5">
+        <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-gray-100 dark:border-gray-700">
+          <div>
+            <h2 className="text-base font-bold text-gray-900 dark:text-white flex items-center gap-2">
+              <Award size={19} className="text-orchestra-gold" />
+              Alunos por Naipe / Instrumento
+            </h2>
+            <p className="text-xs text-gray-400 mt-0.5">
+              Naipes e alunos dispostos na ordem exata definida no Google Sheets
+            </p>
           </div>
 
-          {/* Se a opção for ver individual ou geral */}
-          {selectedOrchestraTab !== 'todas' ? (
-            <NaipeBarList
-              students={displayedStudents}
-              title={`Orquestra ${selectedOrchestraTab}`}
-              subtitle={`${displayedStudents.length} alunos`}
-            />
-          ) : hasMultipleOrchestras ? (
-            /* Vista separada lado a lado das duas orquestras */
-            <div className="space-y-5">
+          {/* Separador de Orquestras */}
+          {hasMultipleOrchestras && (
+            <div className="flex bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl text-xs gap-1">
+              <button
+                type="button"
+                onClick={() => setSelectedOrchestraTab('todas')}
+                className={`px-3 py-1.5 rounded-lg transition-all ${
+                  selectedOrchestraTab === 'todas'
+                    ? 'bg-white dark:bg-gray-800 text-orchestra-navy dark:text-white font-bold shadow-sm'
+                    : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
+                }`}
+              >
+                Todas as Orquestras ({students.length})
+              </button>
               {orchestras.map((o) => {
-                const orqStudents = students.filter((s) => s.orquestra === o);
+                const count = students.filter((s) => s.orquestra === o).length;
                 return (
-                  <div
+                  <button
                     key={o}
-                    className="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700/60"
+                    type="button"
+                    onClick={() => setSelectedOrchestraTab(o)}
+                    className={`px-3 py-1.5 rounded-lg transition-all ${
+                      selectedOrchestraTab === o
+                        ? 'bg-white dark:bg-gray-800 text-orchestra-gold font-bold shadow-sm'
+                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
+                    }`}
                   >
-                    <NaipeBarList
-                      students={orqStudents}
-                      title={`Orquestra ${o}`}
-                      subtitle={`${orqStudents.length} alunos`}
-                    />
-                  </div>
+                    {o} ({count})
+                  </button>
                 );
               })}
             </div>
-          ) : (
-            <NaipeBarList students={students} />
           )}
         </div>
 
-        {/* Avaliações recentes */}
-        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-          <div className="flex items-center gap-2 mb-4">
-            <Star size={18} className="text-orchestra-gold" />
-            <h2 className="font-semibold text-gray-900 dark:text-white">Avaliações Recentes</h2>
+        {selectedOrchestraTab !== 'todas' ? (
+          <NaipeSectionList
+            students={displayedStudents}
+            title={`Orquestra ${selectedOrchestraTab}`}
+            subtitle={`${displayedStudents.length} alunos`}
+          />
+        ) : hasMultipleOrchestras ? (
+          <div className="space-y-6">
+            {orchestras.map((o) => {
+              const orqStudents = students.filter((s) => s.orquestra === o);
+              return (
+                <div
+                  key={o}
+                  className="p-4 bg-gray-50/80 dark:bg-gray-900/40 rounded-2xl border border-gray-100 dark:border-gray-700/60"
+                >
+                  <NaipeSectionList
+                    students={orqStudents}
+                    title={`Orquestra ${o}`}
+                    subtitle={`${orqStudents.length} alunos`}
+                  />
+                </div>
+              );
+            })}
           </div>
-          {recentEvals.length === 0 ? (
-            <p className="text-sm text-gray-400">Nenhuma avaliação registada.</p>
+        ) : (
+          <NaipeSectionList students={students} />
+        )}
+      </div>
+
+      {/* Two column layout: Próximos Concertos & Avaliações / Repertório */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Próximos Concertos */}
+        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
+            <div className="flex items-center gap-2">
+              <Calendar size={18} className="text-orchestra-gold" />
+              <h2 className="font-bold text-gray-900 dark:text-white text-sm">Próximos Concertos</h2>
+            </div>
+            {onNavigate && (
+              <button
+                onClick={() => onNavigate('concerts')}
+                className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
+              >
+                Ver todos <ChevronRight size={13} />
+              </button>
+            )}
+          </div>
+
+          {upcomingConcerts.length === 0 ? (
+            <p className="text-xs text-gray-400 py-6 text-center">Nenhum concerto agendado.</p>
           ) : (
             <div className="space-y-3">
-              {recentEvals.map((ev) => (
-                <div key={ev.id} className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-gray-900 dark:text-white">{ev.nomeAluno}</p>
-                    <p className="text-xs text-gray-500 dark:text-gray-400">{ev.criterio}</p>
-                  </div>
-                  <div className="text-right">
-                    <div className="flex">
-                      {[1, 2, 3, 4, 5].map((i) => (
-                        <span key={i} className={i <= ev.pontuacao ? 'text-yellow-400' : 'text-gray-300'}>
-                          ★
-                        </span>
-                      ))}
+              {upcomingConcerts.map((c) => (
+                <div
+                  key={c.id}
+                  className="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-3"
+                >
+                  <div className="space-y-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="px-2 py-0.2 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[10px] font-bold rounded">
+                        {c.orquestra}
+                      </span>
+                      <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                        📅 {c.data}
+                      </span>
                     </div>
-                    <p className="text-xs text-gray-400">{ev.data}</p>
+                    <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                      <MapPin size={12} className="text-red-500 flex-shrink-0" />
+                      <span className="truncate">{c.local}</span>
+                    </div>
+                  </div>
+
+                  <div className="text-right flex-shrink-0">
+                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                      Concerto: {c.horaConcerto}h
+                    </p>
+                    {c.horaEnsaioGeral && (
+                      <p className="text-[11px] text-gray-400">
+                        Ensaio: {c.horaEnsaioGeral}h
+                      </p>
+                    )}
                   </div>
                 </div>
               ))}
             </div>
           )}
         </div>
-      </div>
 
-      {/* Repertoire status */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm">
-        <div className="flex items-center gap-2 mb-4">
-          <Music size={18} className="text-orchestra-gold" />
-          <h2 className="font-semibold text-gray-900 dark:text-white">Estado do Repertório</h2>
-        </div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <div className="p-4 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800">
-            <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{emEnsaio}</p>
-            <p className="text-xs text-blue-600 dark:text-blue-400 font-medium mt-1">Em Ensaio</p>
+        {/* Avaliações Recentes & Repertório Resumo */}
+        <div className="space-y-6">
+          {/* Avaliações recentes */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
+            <div className="flex items-center gap-2 pb-2 border-b border-gray-100 dark:border-gray-700">
+              <Star size={18} className="text-orchestra-gold" />
+              <h2 className="font-bold text-gray-900 dark:text-white text-sm">Avaliações Recentes</h2>
+            </div>
+            {recentEvals.length === 0 ? (
+              <p className="text-xs text-gray-400 py-3 text-center">Nenhuma avaliação registada.</p>
+            ) : (
+              <div className="space-y-2.5">
+                {recentEvals.map((ev) => (
+                  <div key={ev.id} className="flex items-center justify-between text-xs">
+                    <div>
+                      <p className="font-semibold text-gray-900 dark:text-white">{ev.nomeAluno}</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-[11px]">{ev.criterio}</p>
+                    </div>
+                    <div className="text-right">
+                      <div className="flex text-amber-400">
+                        {[1, 2, 3, 4, 5].map((i) => (
+                          <span key={i} className={i <= ev.pontuacao ? 'text-amber-400' : 'text-gray-300 dark:text-gray-600'}>
+                            ★
+                          </span>
+                        ))}
+                      </div>
+                      <p className="text-[10px] text-gray-400 mt-0.5">{ev.data}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
-          <div className="p-4 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800">
-            <p className="text-2xl font-bold text-green-700 dark:text-green-300">{prontas}</p>
-            <p className="text-xs text-green-600 dark:text-green-400 font-medium mt-1">Pronto</p>
-          </div>
-          <div className="p-4 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700">
-            <p className="text-2xl font-bold text-gray-600 dark:text-gray-300">
-              {pieces.filter((p) => p.estado === 'arquivado').length}
-            </p>
-            <p className="text-xs text-gray-500 dark:text-gray-400 font-medium mt-1">Arquivado</p>
+
+          {/* Estado do Repertório */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-3">
+            <div className="flex items-center gap-2 pb-1 border-b border-gray-100 dark:border-gray-700">
+              <Music size={18} className="text-orchestra-gold" />
+              <h2 className="font-bold text-gray-900 dark:text-white text-sm">Estado do Repertório</h2>
+            </div>
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-center">
+                <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{emEnsaio}</p>
+                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Em Ensaio</p>
+              </div>
+              <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-center">
+                <p className="text-xl font-bold text-green-700 dark:text-green-300">{prontas}</p>
+                <p className="text-[11px] text-green-600 dark:text-green-400 font-medium">Pronto</p>
+              </div>
+              <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 text-center">
+                <p className="text-xl font-bold text-gray-600 dark:text-gray-300">
+                  {pieces.filter((p) => p.estado === 'arquivado').length}
+                </p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Arquivado</p>
+              </div>
+            </div>
           </div>
         </div>
       </div>

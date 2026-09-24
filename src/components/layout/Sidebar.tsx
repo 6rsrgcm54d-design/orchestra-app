@@ -5,6 +5,7 @@ import {
   Music,
   Star,
   Theater,
+  Calendar,
   LogOut,
   ChevronLeft,
   ChevronRight,
@@ -25,6 +26,7 @@ const navItems: { id: NavModule; label: string; icon: React.ReactNode }[] = [
   { id: 'students', label: 'Alunos', icon: <Users size={20} /> },
   { id: 'stagePlan', label: 'Plano de Palco', icon: <Theater size={20} /> },
   { id: 'repertoire', label: 'Repertório', icon: <Music size={20} /> },
+  { id: 'concerts', label: 'Concertos', icon: <Calendar size={20} /> },
   { id: 'evaluations', label: 'Avaliações', icon: <Star size={20} /> },
 ];
 
