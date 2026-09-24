@@ -2,6 +2,12 @@
 <html lang="pt">
   <head>
     <meta charset="UTF-8" />
+    <script>
+      // Se aberto diretamente por duplo-clique no computador (protocolo file://)
+      if (window.location.protocol === 'file:') {
+        window.location.replace('./dist/index.html');
+      }
+    </script>
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
     <meta name="apple-mobile-web-app-capable" content="yes" />

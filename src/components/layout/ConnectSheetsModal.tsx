@@ -181,7 +181,8 @@ export default function ConnectSheetsModal({
                   <button
                     type="button"
                     onClick={() => {
-                      const autoLink = `${window.location.origin}/?sync=${encodeURIComponent(currentId)}`;
+                      const baseOrigin = window.location.protocol === 'file:' ? 'https://orquestrasbomfim.netlify.app' : window.location.origin;
+                      const autoLink = `${baseOrigin}/?sync=${encodeURIComponent(currentId)}`;
                       navigator.clipboard.writeText(autoLink);
                       toast.success('Link de acesso copiado! Abre-o no teu iPad.');
                     }}

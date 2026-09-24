@@ -83,7 +83,9 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
         localStorage.setItem('orchestra_guest_user', JSON.stringify(guestUser));
       }
       connect(syncParam).then(() => {
-        const cleanUrl = window.location.origin + window.location.pathname;
+        const cleanUrl = window.location.protocol === 'file:'
+          ? window.location.href.split('?')[0]
+          : window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, cleanUrl);
         window.location.reload();
       });
