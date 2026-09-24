@@ -1,6 +1,13 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { readRange, updateRange, INITIAL_LOCAL_DATA } from '../api/sheetsApi';
+import {
+  readRange,
+  updateRange,
+  INITIAL_LOCAL_DATA,
+  ensureSheetExists,
+  isAppsScript,
+  isLocalId,
+} from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { StagePlan } from '../types';
 import { safeStorage } from '../utils/storage';
@@ -38,7 +45,7 @@ function getInitialPlans(): StagePlan[] {
 }
 
 export function useStagePlans() {
-  const { config } = useSheets();
+  const { config, sheetsMeta, refreshMeta } = useSheets();
   const [plans, setPlans] = useState<StagePlan[]>(getInitialPlans);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -63,7 +70,8 @@ export function useStagePlans() {
         safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
       }
     } catch (err) {
-      toast.error(`Erro ao carregar planos: ${err instanceof Error ? err.message : 'Erro'}`);
+      // Se a aba ainda não existe no Sheets, não mostra erro intrusivo — mantém os planos locais
+      console.warn('Plano de palco ainda não existe no Sheets ou erro ao carregar:', err);
     } finally {
       setIsLoading(false);
     }
@@ -74,11 +82,24 @@ export function useStagePlans() {
     async (updatedPlans: StagePlan[]) => {
       safeStorage.setItem(CACHE_KEY, JSON.stringify(updatedPlans));
       if (!config) return;
+
+      // Se for Google Sheets direto (não Apps Script nem Local), assegura que a aba PlanosPalco existe
+      if (!isAppsScript(config.spreadsheetId) && !isLocalId(config.spreadsheetId)) {
+        if (sheetsMeta && !sheetsMeta.sheets.some((s) => s.properties.title.toLowerCase() === TAB.toLowerCase())) {
+          try {
+            await ensureSheetExists(config.spreadsheetId, sheetsMeta.sheets, TAB);
+            await refreshMeta();
+          } catch (e) {
+            console.warn('Erro ao criar aba PlanosPalco:', e);
+          }
+        }
+      }
+
       const values: string[][] = [['PlanosPalco_JSON']]; // header
       updatedPlans.forEach((p) => values.push([JSON.stringify(p)]));
       await updateRange(config.spreadsheetId, `${TAB}!A1:A${values.length}`, values);
     },
-    [config]
+    [config, sheetsMeta, refreshMeta]
   );
 
   const savePlan = useCallback(
