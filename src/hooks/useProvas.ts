@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import toast from 'react-hot-toast';
 import {
   readRange,
@@ -27,6 +27,7 @@ export const PROVAS_HEADER = [
   'Articulação',
   'Dinâmicas',
   'Fraseado',
+  'Timbre',
   'Classificação final',
 ];
 
@@ -48,6 +49,17 @@ export function formatSheetRange(tab: string, range: string): string {
   return `'${clean}'!${range}`;
 }
 
+export function colToLetter(col: number): string {
+  let temp = col;
+  let letter = '';
+  while (temp > 0) {
+    const mod = (temp - 1) % 26;
+    letter = String.fromCharCode(65 + mod) + letter;
+    temp = Math.floor((temp - mod) / 26);
+  }
+  return letter || 'A';
+}
+
 export function parsePercentVal(val: any): number | null {
   if (val === undefined || val === null || val === '') return null;
   const clean = String(val).replace('%', '').trim();
@@ -56,7 +68,7 @@ export function parsePercentVal(val: any): number | null {
   return isNaN(num) ? null : Math.min(100, Math.max(0, num));
 }
 
-interface HeaderMapping {
+export interface HeaderMapping {
   colOrdem: number;
   colNome: number;
   colNaipe: number;
@@ -67,10 +79,12 @@ interface HeaderMapping {
   colArticulacao: number;
   colDinamicas: number;
   colFraseado: number;
+  colTimbre: number;
   colClassificacao: number;
+  rawHeader: string[];
 }
 
-function parseHeader(headerRow: string[]): HeaderMapping {
+export function parseHeader(headerRow: string[] = []): HeaderMapping {
   const norm = headerRow.map((c) =>
     (c || '')
       .trim()
@@ -90,7 +104,10 @@ function parseHeader(headerRow: string[]): HeaderMapping {
   const colArticulacao = findCol((c) => c.includes('articula'));
   const colDinamicas = findCol((c) => c.includes('dinamica'));
   const colFraseado = findCol((c) => c.includes('frase'));
-  const colClassificacao = findCol((c) => c.includes('classifica') || c.includes('final') || c.includes('nota') || c.includes('media'));
+  const colTimbre = findCol((c) => c.includes('timbre'));
+  const colClassificacao = findCol(
+    (c) => c.includes('classifica') || c.includes('final') || c.includes('nota') || c.includes('media')
+  );
 
   return {
     colOrdem,
@@ -103,8 +120,66 @@ function parseHeader(headerRow: string[]): HeaderMapping {
     colArticulacao,
     colDinamicas,
     colFraseado,
+    colTimbre,
     colClassificacao,
+    rawHeader: headerRow,
   };
+}
+
+export function buildRowValues(
+  student: { numero?: string; nome: string; naipe?: string; orquestra?: string },
+  params: {
+    afinacao?: number | null;
+    precisaoRitmica?: number | null;
+    tempo?: number | null;
+    articulacao?: number | null;
+    dinamicas?: number | null;
+    fraseado?: number | null;
+    timbre?: number | null;
+    classificacaoFinal?: number | null;
+  },
+  mapping: HeaderMapping,
+  rowIndex: number
+): string[] {
+  const colCount = Math.max(mapping.rawHeader.length, PROVAS_HEADER.length);
+  const row: string[] = new Array(colCount).fill('');
+
+  const finalScore =
+    params.classificacaoFinal !== undefined
+      ? params.classificacaoFinal
+      : calcClassificacaoFinal(params);
+
+  const setVal = (idx: number, val: string) => {
+    if (idx >= 0 && idx < colCount) row[idx] = val;
+  };
+
+  const colOrdem = mapping.colOrdem >= 0 ? mapping.colOrdem : 0;
+  const colNome = mapping.colNome >= 0 ? mapping.colNome : 1;
+  const colNaipe = mapping.colNaipe >= 0 ? mapping.colNaipe : 2;
+  const colOrquestra = mapping.colOrquestra >= 0 ? mapping.colOrquestra : 3;
+  const colAfinacao = mapping.colAfinacao >= 0 ? mapping.colAfinacao : 4;
+  const colPrecisao = mapping.colPrecisao >= 0 ? mapping.colPrecisao : 5;
+  const colTempo = mapping.colTempo >= 0 ? mapping.colTempo : 6;
+  const colArticulacao = mapping.colArticulacao >= 0 ? mapping.colArticulacao : 7;
+  const colDinamicas = mapping.colDinamicas >= 0 ? mapping.colDinamicas : 8;
+  const colFraseado = mapping.colFraseado >= 0 ? mapping.colFraseado : 9;
+  const colTimbre = mapping.colTimbre >= 0 ? mapping.colTimbre : 10;
+  const colClassificacao = mapping.colClassificacao >= 0 ? mapping.colClassificacao : 11;
+
+  setVal(colOrdem, student.numero || (rowIndex > 1 ? String(rowIndex - 1) : ''));
+  setVal(colNome, student.nome);
+  setVal(colNaipe, student.naipe || '');
+  setVal(colOrquestra, student.orquestra || '');
+  setVal(colAfinacao, params.afinacao !== null && params.afinacao !== undefined ? `${params.afinacao}%` : '');
+  setVal(colPrecisao, params.precisaoRitmica !== null && params.precisaoRitmica !== undefined ? `${params.precisaoRitmica}%` : '');
+  setVal(colTempo, params.tempo !== null && params.tempo !== undefined ? `${params.tempo}%` : '');
+  setVal(colArticulacao, params.articulacao !== null && params.articulacao !== undefined ? `${params.articulacao}%` : '');
+  setVal(colDinamicas, params.dinamicas !== null && params.dinamicas !== undefined ? `${params.dinamicas}%` : '');
+  setVal(colFraseado, params.fraseado !== null && params.fraseado !== undefined ? `${params.fraseado}%` : '');
+  setVal(colTimbre, params.timbre !== null && params.timbre !== undefined ? `${params.timbre}%` : '');
+  setVal(colClassificacao, finalScore !== null && finalScore !== undefined ? `${finalScore}%` : '');
+
+  return row;
 }
 
 function rowToProva(row: string[], rowIndex: number, mapping: HeaderMapping): ProvaRecord {
@@ -118,6 +193,7 @@ function rowToProva(row: string[], rowIndex: number, mapping: HeaderMapping): Pr
   const articulacao = mapping.colArticulacao !== -1 ? parsePercentVal(row[mapping.colArticulacao]) : null;
   const dinamicas = mapping.colDinamicas !== -1 ? parsePercentVal(row[mapping.colDinamicas]) : null;
   const fraseado = mapping.colFraseado !== -1 ? parsePercentVal(row[mapping.colFraseado]) : null;
+  const timbre = mapping.colTimbre !== -1 ? parsePercentVal(row[mapping.colTimbre]) : null;
   let classificacaoFinal = mapping.colClassificacao !== -1 ? parsePercentVal(row[mapping.colClassificacao]) : null;
 
   if (classificacaoFinal === null) {
@@ -128,6 +204,7 @@ function rowToProva(row: string[], rowIndex: number, mapping: HeaderMapping): Pr
       articulacao,
       dinamicas,
       fraseado,
+      timbre,
     });
   }
 
@@ -144,6 +221,7 @@ function rowToProva(row: string[], rowIndex: number, mapping: HeaderMapping): Pr
     articulacao,
     dinamicas,
     fraseado,
+    timbre,
     classificacaoFinal,
   };
 }
@@ -175,6 +253,7 @@ export function useProvas() {
   const { config, sheetsMeta, refreshMeta } = useSheets();
   const [provas, setProvas] = useState<ProvaRecord[]>(getInitialProvas);
   const [isLoading, setIsLoading] = useState(false);
+  const lastMappingRef = useRef<HeaderMapping>(parseHeader(PROVAS_HEADER));
 
   // Garante que a aba 'Provas' existe no Google Sheets
   const ensureTabExists = useCallback(async (): Promise<string> => {
@@ -199,22 +278,32 @@ export function useProvas() {
     setIsLoading(true);
     try {
       const tabName = await ensureTabExists();
-      const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:K'));
+      // Lê até coluna Z para abranger todas as colunas
+      const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:Z'));
       if (rows.length > 0) {
         let headerRow = rows[0];
-        const mapping = parseHeader(headerRow);
+        let mapping = parseHeader(headerRow);
 
-        // Se o cabeçalho não tem classificação ou afinação, atualiza com o cabeçalho padrão de 11 colunas
+        // Se o cabeçalho não tem afinação ou classificação, atualiza com o cabeçalho padrão
         if (mapping.colAfinacao === -1 || mapping.colClassificacao === -1) {
           headerRow = PROVAS_HEADER;
-          await updateRange(config.spreadsheetId, formatSheetRange(tabName, 'A1:K1'), [PROVAS_HEADER]);
+          await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A1:${colToLetter(PROVAS_HEADER.length)}1`), [PROVAS_HEADER]);
+          mapping = parseHeader(headerRow);
         }
 
-        const effectiveMapping = parseHeader(headerRow);
+        lastMappingRef.current = mapping;
+
         const loaded = rows
           .slice(1)
-          .map((row, i) => rowToProva(row, i + 2, effectiveMapping))
-          .filter((p) => p.classificacaoFinal !== null || p.afinacao !== null || p.precisaoRitmica !== null || p.tempo !== null);
+          .map((row, i) => rowToProva(row, i + 2, mapping))
+          .filter(
+            (p) =>
+              p.classificacaoFinal !== null ||
+              p.afinacao !== null ||
+              p.precisaoRitmica !== null ||
+              p.tempo !== null ||
+              p.timbre !== null
+          );
 
         setProvas(loaded);
         safeStorage.setItem(CACHE_PROVAS_KEY, JSON.stringify(loaded));
@@ -258,6 +347,7 @@ export function useProvas() {
         articulacao?: number | null;
         dinamicas?: number | null;
         fraseado?: number | null;
+        timbre?: number | null;
       },
       rowIndex?: number
     ) => {
@@ -292,6 +382,7 @@ export function useProvas() {
           articulacao: params.articulacao ?? null,
           dinamicas: params.dinamicas ?? null,
           fraseado: params.fraseado ?? null,
+          timbre: params.timbre ?? null,
           classificacaoFinal: finalScore,
         };
         updateLocalProva(updated);
@@ -300,61 +391,41 @@ export function useProvas() {
       if (!config) return;
 
       try {
-        // Se já tivermos o rowIndex da linha correspondente (> 1), escreve diretamente nessa linha
-        if (rowIndex && rowIndex > 1) {
-          const rowValues = [
-            student.numero || String(rowIndex - 1),
-            student.nome,
-            student.naipe || '',
-            student.orquestra || '',
-            params.afinacao !== null && params.afinacao !== undefined ? `${params.afinacao}%` : '',
-            params.precisaoRitmica !== null && params.precisaoRitmica !== undefined ? `${params.precisaoRitmica}%` : '',
-            params.tempo !== null && params.tempo !== undefined ? `${params.tempo}%` : '',
-            params.articulacao !== null && params.articulacao !== undefined ? `${params.articulacao}%` : '',
-            params.dinamicas !== null && params.dinamicas !== undefined ? `${params.dinamicas}%` : '',
-            params.fraseado !== null && params.fraseado !== undefined ? `${params.fraseado}%` : '',
-            finalScore !== null ? `${finalScore}%` : '',
-          ];
-          await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${rowIndex}:K${rowIndex}`), [rowValues]);
-          return;
-        }
+        let mapping = lastMappingRef.current;
+        let targetRowIndex = rowIndex || -1;
 
-        // Caso contrário, procura na folha a linha com o nome do aluno
-        const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:K'));
-        let targetRowIndex = -1;
-        const mapping = rows.length > 0 ? parseHeader(rows[0]) : parseHeader(PROVAS_HEADER);
-
-        if (rows.length > 1) {
-          const targetName = student.nome.trim().toLowerCase();
-          const targetOrch = (student.orquestra || '').trim().toLowerCase();
-          for (let i = 1; i < rows.length; i++) {
-            const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
-            const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 3] || '').trim().toLowerCase();
-            if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
-              targetRowIndex = i + 1; // 1-based
-              break;
+        // Se ainda não temos o targetRowIndex ou o mapping não tem colunas, consulta o cabeçalho
+        if (targetRowIndex <= 1) {
+          const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:Z'));
+          if (rows.length > 0) {
+            mapping = parseHeader(rows[0]);
+            lastMappingRef.current = mapping;
+          }
+          if (rows.length > 1) {
+            const targetName = student.nome.trim().toLowerCase();
+            const targetOrch = (student.orquestra || '').trim().toLowerCase();
+            for (let i = 1; i < rows.length; i++) {
+              const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
+              const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 3] || '').trim().toLowerCase();
+              if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
+                targetRowIndex = i + 1; // 1-based
+                break;
+              }
             }
           }
         }
 
-        const rowValues = [
-          student.numero || (targetRowIndex > 1 ? String(targetRowIndex - 1) : ''),
-          student.nome,
-          student.naipe || '',
-          student.orquestra || '',
-          params.afinacao !== null && params.afinacao !== undefined ? `${params.afinacao}%` : '',
-          params.precisaoRitmica !== null && params.precisaoRitmica !== undefined ? `${params.precisaoRitmica}%` : '',
-          params.tempo !== null && params.tempo !== undefined ? `${params.tempo}%` : '',
-          params.articulacao !== null && params.articulacao !== undefined ? `${params.articulacao}%` : '',
-          params.dinamicas !== null && params.dinamicas !== undefined ? `${params.dinamicas}%` : '',
-          params.fraseado !== null && params.fraseado !== undefined ? `${params.fraseado}%` : '',
-          finalScore !== null ? `${finalScore}%` : '',
-        ];
+        const rowValues = buildRowValues(student, params, mapping, targetRowIndex);
+        const endColLetter = colToLetter(rowValues.length);
 
         if (targetRowIndex > 1) {
-          await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${targetRowIndex}:K${targetRowIndex}`), [rowValues]);
+          await updateRange(
+            config.spreadsheetId,
+            formatSheetRange(tabName, `A${targetRowIndex}:${endColLetter}${targetRowIndex}`),
+            [rowValues]
+          );
         } else if (!isClearing) {
-          await appendRows(config.spreadsheetId, formatSheetRange(tabName, 'A:K'), [rowValues]);
+          await appendRows(config.spreadsheetId, formatSheetRange(tabName, `A:${endColLetter}`), [rowValues]);
         }
       } catch (err) {
         console.error('Erro ao guardar prova no Sheets:', err);
@@ -368,7 +439,11 @@ export function useProvas() {
   const saveAllProvas = useCallback(
     async (provasToSave: ProvaRecord[], allStudents?: Student[]) => {
       const validProvas = provasToSave.filter(
-        (p) => p.classificacaoFinal !== null || p.afinacao !== null || p.precisaoRitmica !== null
+        (p) =>
+          p.classificacaoFinal !== null ||
+          p.afinacao !== null ||
+          p.precisaoRitmica !== null ||
+          p.timbre !== null
       );
       setProvas(validProvas);
       safeStorage.setItem(CACHE_PROVAS_KEY, JSON.stringify(validProvas));
@@ -382,6 +457,13 @@ export function useProvas() {
       try {
         const tabName = await ensureTabExists();
 
+        // Lê o cabeçalho existente para respeitar a disposição de colunas do utilizador
+        const existingData = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:Z'));
+        let mapping = existingData.length > 0 ? parseHeader(existingData[0]) : parseHeader(PROVAS_HEADER);
+        lastMappingRef.current = mapping;
+
+        const headerRow = mapping.rawHeader.length >= 10 ? mapping.rawHeader : PROVAS_HEADER;
+
         // Mapa de provas existentes por aluno
         const provaMap = new Map<string, ProvaRecord>();
         validProvas.forEach((p) => {
@@ -390,23 +472,21 @@ export function useProvas() {
           provaMap.set((p.nomeAluno || '').trim().toLowerCase(), p);
         });
 
-        const rows: string[][] = [PROVAS_HEADER];
+        const rows: string[][] = [headerRow];
 
         // Garante que todos os alunos são preservados
         let studentRoster = allStudents;
         if (!studentRoster || studentRoster.length === 0) {
-          const existingRows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:D'));
-          if (existingRows.length > 1) {
-            const m = parseHeader(existingRows[0]);
-            studentRoster = existingRows.slice(1).map((r, i) => ({
+          if (existingData.length > 1) {
+            studentRoster = existingData.slice(1).map((r, i) => ({
               id: `sheet-student-${i + 1}`,
               rowIndex: i + 2,
-              numero: m.colOrdem !== -1 && r[m.colOrdem] ? r[m.colOrdem] : String(i + 1),
-              nome: m.colNome !== -1 && r[m.colNome] ? r[m.colNome] : r[1] || '',
+              numero: mapping.colOrdem !== -1 && r[mapping.colOrdem] ? r[mapping.colOrdem] : String(i + 1),
+              nome: mapping.colNome !== -1 && r[mapping.colNome] ? r[mapping.colNome] : r[1] || '',
               chefeNaipe: '',
               grau: '',
-              naipe: m.colNaipe !== -1 && r[m.colNaipe] ? r[m.colNaipe] : '',
-              orquestra: m.colOrquestra !== -1 && r[m.colOrquestra] ? r[m.colOrquestra] : '',
+              naipe: mapping.colNaipe !== -1 && r[mapping.colNaipe] ? r[mapping.colNaipe] : '',
+              orquestra: mapping.colOrquestra !== -1 && r[mapping.colOrquestra] ? r[mapping.colOrquestra] : '',
             }));
           }
         }
@@ -415,23 +495,27 @@ export function useProvas() {
           studentRoster.forEach((s, idx) => {
             const key = `${(s.nome || '').trim().toLowerCase()}|${(s.orquestra || '').trim().toLowerCase()}`;
             const p = provaMap.get(key) || provaMap.get((s.nome || '').trim().toLowerCase());
-            rows.push([
-              s.numero || String(idx + 1),
-              s.nome,
-              s.naipe || '',
-              s.orquestra || '',
-              p && p.afinacao !== null && p.afinacao !== undefined ? `${p.afinacao}%` : '',
-              p && p.precisaoRitmica !== null && p.precisaoRitmica !== undefined ? `${p.precisaoRitmica}%` : '',
-              p && p.tempo !== null && p.tempo !== undefined ? `${p.tempo}%` : '',
-              p && p.articulacao !== null && p.articulacao !== undefined ? `${p.articulacao}%` : '',
-              p && p.dinamicas !== null && p.dinamicas !== undefined ? `${p.dinamicas}%` : '',
-              p && p.fraseado !== null && p.fraseado !== undefined ? `${p.fraseado}%` : '',
-              p && p.classificacaoFinal !== null && p.classificacaoFinal !== undefined ? `${p.classificacaoFinal}%` : '',
-            ]);
+            const row = buildRowValues(
+              s,
+              {
+                afinacao: p?.afinacao ?? null,
+                precisaoRitmica: p?.precisaoRitmica ?? null,
+                tempo: p?.tempo ?? null,
+                articulacao: p?.articulacao ?? null,
+                dinamicas: p?.dinamicas ?? null,
+                fraseado: p?.fraseado ?? null,
+                timbre: p?.timbre ?? null,
+                classificacaoFinal: p?.classificacaoFinal ?? null,
+              },
+              mapping,
+              idx + 2
+            );
+            rows.push(row);
           });
         }
 
-        await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A1:K${rows.length}`), rows);
+        const endColLetter = colToLetter(rows[0].length);
+        await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A1:${endColLetter}${rows.length}`), rows);
         toast.success(`${rows.length - 1} provas sincronizadas no Google Sheets!`, { id: toastId });
         await load();
       } catch (err) {
@@ -445,9 +529,30 @@ export function useProvas() {
     if (!config) return;
     try {
       const tabName = await ensureTabExists();
-      const evalRows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A1:K1'));
+      const evalRows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A1:Z1'));
       if (!evalRows.length || !evalRows[0].some((c) => /afina/i.test(c))) {
-        await updateRange(config.spreadsheetId, formatSheetRange(tabName, 'A1:K1'), [PROVAS_HEADER]);
+        await updateRange(
+          config.spreadsheetId,
+          formatSheetRange(tabName, `A1:${colToLetter(PROVAS_HEADER.length)}1`),
+          [PROVAS_HEADER]
+        );
+      } else {
+        const header = evalRows[0];
+        const hasTimbre = header.some((c) => /timbre/i.test(c));
+        if (!hasTimbre) {
+          const classIdx = header.findIndex((c) => /classifica|final/i.test(c));
+          const newHeader = [...header];
+          if (classIdx >= 0) {
+            newHeader.splice(classIdx, 0, 'Timbre');
+          } else {
+            newHeader.push('Timbre');
+          }
+          await updateRange(
+            config.spreadsheetId,
+            formatSheetRange(tabName, `A1:${colToLetter(newHeader.length)}1`),
+            [newHeader]
+          );
+        }
       }
     } catch {
       // Ignora erro inicial

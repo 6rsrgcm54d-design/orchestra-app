@@ -84,6 +84,7 @@ export function exportProvasToCSV(
     articulacao?: number | null;
     dinamicas?: number | null;
     fraseado?: number | null;
+    timbre?: number | null;
     classificacaoFinal?: number | null;
   }[],
   filename = 'provas.csv'
@@ -99,6 +100,7 @@ export function exportProvasToCSV(
     'Articulação',
     'Dinâmicas',
     'Fraseado',
+    'Timbre',
     'Classificação final',
   ];
   const rows = provas.map((p, i) => [
@@ -112,6 +114,7 @@ export function exportProvasToCSV(
     p.articulacao !== null && p.articulacao !== undefined ? `${p.articulacao}%` : '',
     p.dinamicas !== null && p.dinamicas !== undefined ? `${p.dinamicas}%` : '',
     p.fraseado !== null && p.fraseado !== undefined ? `${p.fraseado}%` : '',
+    p.timbre !== null && p.timbre !== undefined ? `${p.timbre}%` : '',
     p.classificacaoFinal !== null && p.classificacaoFinal !== undefined ? `${p.classificacaoFinal}%` : '',
   ]);
 

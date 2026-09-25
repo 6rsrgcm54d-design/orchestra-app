@@ -323,6 +323,7 @@ export interface ProvaRecord {
   articulacao?: number | null; // 0 a 100
   dinamicas?: number | null; // 0 a 100
   fraseado?: number | null; // 0 a 100
+  timbre?: number | null; // 0 a 100
   classificacaoFinal?: number | null; // 0 a 100 (arredondado em incrementos de 5%)
 }
 
@@ -333,6 +334,7 @@ export function calcClassificacaoFinal(params: {
   articulacao?: number | null;
   dinamicas?: number | null;
   fraseado?: number | null;
+  timbre?: number | null;
 }): number | null {
   const values = [
     params.afinacao,
@@ -341,6 +343,7 @@ export function calcClassificacaoFinal(params: {
     params.articulacao,
     params.dinamicas,
     params.fraseado,
+    params.timbre,
   ].filter((v): v is number => typeof v === 'number' && !isNaN(v) && v >= 0);
 
   if (values.length === 0) return null;

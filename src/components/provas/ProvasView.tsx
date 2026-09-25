@@ -30,6 +30,7 @@ interface ProvasViewProps {
       articulacao?: number | null;
       dinamicas?: number | null;
       fraseado?: number | null;
+      timbre?: number | null;
     },
     rowIndex?: number
   ) => Promise<void>;
@@ -40,7 +41,7 @@ function studentKey(nome: string, orquestra?: string): string {
   return `${(nome || '').trim().toLowerCase()}|${(orquestra || '').trim().toLowerCase()}`;
 }
 
-type ParameterKey = 'afinacao' | 'precisaoRitmica' | 'tempo' | 'articulacao' | 'dinamicas' | 'fraseado';
+type ParameterKey = 'afinacao' | 'precisaoRitmica' | 'tempo' | 'articulacao' | 'dinamicas' | 'fraseado' | 'timbre';
 
 const PARAM_COLUMNS: { key: ParameterKey; label: string; tooltip: string }[] = [
   { key: 'afinacao', label: 'Afinação', tooltip: 'Precisão e estabilidade de afinação (0-100%)' },
@@ -49,7 +50,140 @@ const PARAM_COLUMNS: { key: ParameterKey; label: string; tooltip: string }[] = [
   { key: 'articulacao', label: 'Articulação', tooltip: 'Clareza de ataque, staccato, legato e bowing (0-100%)' },
   { key: 'dinamicas', label: 'Dinâmicas', tooltip: 'Contraste sonoro e expressividade dinâmica (0-100%)' },
   { key: 'fraseado', label: 'Fraseado', tooltip: 'Sentido melódico, respiração e intenção musical (0-100%)' },
+  { key: 'timbre', label: 'Timbre', tooltip: 'Qualidade sonora, pureza e riqueza tímbrica (0-100%)' },
 ];
+
+interface ProvaCellInputProps {
+  id: string;
+  value: number | null | undefined;
+  onCommit: (val: number | null) => void;
+  onNavigate: (direction: 'next' | 'prev' | 'up' | 'down' | 'left' | 'right') => void;
+  title?: string;
+}
+
+function ProvaCellInput({ id, value, onCommit, onNavigate, title }: ProvaCellInputProps) {
+  const [text, setText] = useState<string>(
+    value !== null && value !== undefined ? String(value) : ''
+  );
+  const [isFocused, setIsFocused] = useState(false);
+
+  useEffect(() => {
+    if (!isFocused) {
+      setText(value !== null && value !== undefined ? String(value) : '');
+    }
+  }, [value, isFocused]);
+
+  const commitValue = (valStr: string) => {
+    const clean = valStr.trim().replace(',', '.');
+    if (clean === '') {
+      setText('');
+      onCommit(null);
+      return;
+    }
+    let num = parseFloat(clean);
+    if (isNaN(num)) {
+      setText(value !== null && value !== undefined ? String(value) : '');
+      return;
+    }
+    // Se o utilizador digitou na escala 0-10 com decimal (ex: 8.5 ou 7.5), converte para 85 ou 75
+    if (num > 0 && num <= 10 && clean.includes('.')) {
+      num = num * 10;
+    }
+    const clamped = Math.min(100, Math.max(0, num));
+    const rounded = Math.round(clamped / 5) * 5;
+    setText(String(rounded));
+    onCommit(rounded);
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitValue(text);
+      onNavigate('next');
+    } else if (e.key === 'Tab') {
+      e.preventDefault();
+      commitValue(text);
+      if (e.shiftKey) {
+        onNavigate('prev');
+      } else {
+        onNavigate('next');
+      }
+    } else if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      commitValue(text);
+      onNavigate('down');
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      commitValue(text);
+      onNavigate('up');
+    } else if (e.key === 'ArrowRight') {
+      const input = e.currentTarget;
+      if (
+        input.selectionStart === input.value.length ||
+        (input.selectionStart === 0 && input.selectionEnd === input.value.length)
+      ) {
+        e.preventDefault();
+        commitValue(text);
+        onNavigate('right');
+      }
+    } else if (e.key === 'ArrowLeft') {
+      const input = e.currentTarget;
+      if (
+        input.selectionStart === 0 ||
+        (input.selectionStart === 0 && input.selectionEnd === input.value.length)
+      ) {
+        e.preventDefault();
+        commitValue(text);
+        onNavigate('left');
+      }
+    } else if (e.key === '+' || e.key === '=') {
+      e.preventDefault();
+      const current = parseFloat(text.replace(',', '.')) || (value ?? 0);
+      const nextVal = Math.min(100, Math.round(current / 5) * 5 + 5);
+      setText(String(nextVal));
+      onCommit(nextVal);
+    } else if (e.key === '-' || e.key === '_') {
+      e.preventDefault();
+      const current = parseFloat(text.replace(',', '.')) || (value ?? 0);
+      const nextVal = Math.max(0, Math.round(current / 5) * 5 - 5);
+      setText(String(nextVal));
+      onCommit(nextVal);
+    } else if (e.key === 'Escape') {
+      e.preventDefault();
+      setText(value !== null && value !== undefined ? String(value) : '');
+      e.currentTarget.blur();
+    }
+  };
+
+  return (
+    <input
+      id={id}
+      type="text"
+      inputMode="numeric"
+      autoComplete="off"
+      spellCheck={false}
+      value={text}
+      placeholder="—"
+      onFocus={(e) => {
+        setIsFocused(true);
+        e.target.select();
+      }}
+      onBlur={(e) => {
+        setIsFocused(false);
+        commitValue(e.target.value);
+      }}
+      onChange={(e) => {
+        const val = e.target.value;
+        if (/^[0-9.,]*$/.test(val)) {
+          setText(val);
+        }
+      }}
+      onKeyDown={handleKeyDown}
+      className="w-14 text-center px-1 py-1.5 text-xs font-bold bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-orchestra-gold focus:border-orchestra-gold transition-all select-all font-mono"
+      title={title}
+    />
+  );
+}
 
 export default function ProvasView({
   provas,
@@ -142,19 +276,9 @@ export default function ProvasView({
   }, [orchestraStudents, search, selectedNaipe, statusFilter, provaMap]);
 
   // Alteração de um parâmetro (0 a 100%, em incrementos de 5%)
-  const handleParamChange = (student: Student, paramKey: ParameterKey, rawVal: string) => {
+  const handleParamChange = (student: Student, paramKey: ParameterKey, numVal: number | null) => {
     const key = studentKey(student.nome, student.orquestra);
     const existing = provaMap[key] || provaMap[studentKey(student.nome, '')];
-
-    let numVal: number | null = null;
-    if (rawVal.trim() !== '') {
-      const parsed = parseFloat(rawVal.replace(/[^0-9.]/g, ''));
-      if (!isNaN(parsed)) {
-        // Limita entre 0 e 100 e arredonda ao incremento de 5%
-        const clamped = Math.min(100, Math.max(0, parsed));
-        numVal = Math.round(clamped / 5) * 5;
-      }
-    }
 
     const currentParams = {
       afinacao: existing?.afinacao ?? null,
@@ -163,6 +287,7 @@ export default function ProvasView({
       articulacao: existing?.articulacao ?? null,
       dinamicas: existing?.dinamicas ?? null,
       fraseado: existing?.fraseado ?? null,
+      timbre: existing?.timbre ?? null,
       [paramKey]: numVal,
     };
 
@@ -196,6 +321,57 @@ export default function ProvasView({
           console.error('Erro ao guardar prova:', e);
         });
       }, 700);
+    }
+  };
+
+  // Navegação no teclado numérico entre células da pauta
+  const handleNavigate = (
+    currentRow: number,
+    currentCol: number,
+    direction: 'next' | 'prev' | 'up' | 'down' | 'left' | 'right'
+  ) => {
+    let nextRow = currentRow;
+    let nextCol = currentCol;
+    const totalCols = PARAM_COLUMNS.length;
+    const totalRows = filteredStudents.length;
+
+    switch (direction) {
+      case 'next':
+      case 'right':
+        if (currentCol < totalCols - 1) {
+          nextCol = currentCol + 1;
+        } else if (currentRow < totalRows - 1) {
+          nextRow = currentRow + 1;
+          nextCol = 0;
+        }
+        break;
+      case 'prev':
+      case 'left':
+        if (currentCol > 0) {
+          nextCol = currentCol - 1;
+        } else if (currentRow > 0) {
+          nextRow = currentRow - 1;
+          nextCol = totalCols - 1;
+        }
+        break;
+      case 'down':
+        if (currentRow < totalRows - 1) {
+          nextRow = currentRow + 1;
+        }
+        break;
+      case 'up':
+        if (currentRow > 0) {
+          nextRow = currentRow - 1;
+        }
+        break;
+    }
+
+    if (nextRow !== currentRow || nextCol !== currentCol) {
+      const el = document.getElementById(`prova-cell-${nextRow}-${nextCol}`) as HTMLInputElement | null;
+      if (el) {
+        el.focus();
+        el.select();
+      }
     }
   };
 
@@ -238,6 +414,7 @@ export default function ProvasView({
             articulacao: null,
             dinamicas: null,
             fraseado: null,
+            timbre: null,
           },
           existing.rowIndex
         );
@@ -484,6 +661,28 @@ export default function ProvasView({
         </div>
       </div>
 
+      {/* Atalhos do Teclado Numérico */}
+      <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800/40 rounded-xl px-4 py-2.5 flex flex-wrap items-center gap-x-4 gap-y-1.5 text-xs text-amber-800 dark:text-amber-300">
+        <span className="font-bold flex items-center gap-1.5 text-amber-900 dark:text-amber-200">
+          ⌨️ Teclado Numérico Ativo:
+        </span>
+        <span className="flex items-center gap-1">
+          Digita a nota (<code className="font-mono bg-white dark:bg-gray-800 px-1 py-0.5 rounded border border-amber-300 dark:border-amber-700">0–100</code>)
+        </span>
+        <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500">•</span>
+        <span className="flex items-center gap-1">
+          <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 font-mono text-[10px] font-bold">Enter</kbd> ou <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 font-mono text-[10px] font-bold">Tab</kbd> para avançar
+        </span>
+        <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500">•</span>
+        <span className="flex items-center gap-1">
+          Setas <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 font-mono text-[10px] font-bold">↑ ↓ ← →</kbd> para navegar
+        </span>
+        <span className="flex items-center gap-1 text-gray-400 dark:text-gray-500">•</span>
+        <span className="flex items-center gap-1">
+          Teclas <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 font-mono text-[10px] font-bold">+</kbd> / <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 font-mono text-[10px] font-bold">-</kbd> para ajustar ±5%
+        </span>
+      </div>
+
       {/* Tabela de Provas */}
       <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
@@ -506,13 +705,13 @@ export default function ProvasView({
             <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
               {isLoading ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-gray-400">
+                  <td colSpan={13} className="py-12 text-center text-gray-400">
                     A carregar alunos e provas...
                   </td>
                 </tr>
               ) : filteredStudents.length === 0 ? (
                 <tr>
-                  <td colSpan={12} className="py-12 text-center text-gray-400">
+                  <td colSpan={13} className="py-12 text-center text-gray-400">
                     Nenhum aluno encontrado para os filtros selecionados.
                   </td>
                 </tr>
@@ -572,20 +771,16 @@ export default function ProvasView({
                         </span>
                       </td>
 
-                      {/* 6 Parâmetros (0 a 100%, incrementos de 5%) */}
-                      {PARAM_COLUMNS.map((param) => {
+                      {/* 7 Parâmetros (0 a 100%, incrementos de 5%) com Teclado Numérico */}
+                      {PARAM_COLUMNS.map((param, colIdx) => {
                         const val = p?.[param.key];
                         return (
                           <td key={param.key} className="py-2 px-1 text-center">
-                            <input
-                              type="number"
-                              min="0"
-                              max="100"
-                              step="5"
-                              value={val !== null && val !== undefined ? val : ''}
-                              placeholder="—"
-                              onChange={(e) => handleParamChange(student, param.key, e.target.value)}
-                              className="w-14 text-center px-1 py-1 text-xs font-bold bg-gray-50 dark:bg-gray-700/60 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orchestra-gold transition-all"
+                            <ProvaCellInput
+                              id={`prova-cell-${idx}-${colIdx}`}
+                              value={val}
+                              onCommit={(newVal) => handleParamChange(student, param.key, newVal)}
+                              onNavigate={(dir) => handleNavigate(idx, colIdx, dir)}
                               title={`${param.label}: ${val !== null && val !== undefined ? `${val}%` : 'Sem nota'}`}
                             />
                           </td>

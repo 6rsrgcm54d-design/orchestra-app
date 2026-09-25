@@ -152,7 +152,7 @@ function initDefaultSheet(ss, name) {
     'Critérios': ['Nome do Critério', 'Descrição', 'Peso'],
     'PlanosPalco': ['PlanosPalco_JSON'],
     'Concertos': ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'],
-    'Provas': ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Classificação final']
+    'Provas': ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final']
   };
   if (headers[name]) {
     sheet.appendRow(headers[name]);
@@ -327,10 +327,10 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
     ['2', 'Lucas Pereira', '2º Grau', 'Violino II', 'Juvenil', '4', 'O Lucas demonstrou um desempenho muito bom e consistente no naipe.'],
   ],
   Provas: [
-    ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Classificação final'],
-    ['1', 'Beatriz Esteves Ribeiro', 'Violino I', 'Académica', '85%', '80%', '85%', '80%', '75%', '85%', '80%'],
-    ['2', 'Beatriz Gonçalves Dias', 'Violino I', 'Académica', '80%', '75%', '80%', '70%', '70%', '75%', '75%'],
-    ['3', 'Diogo Pego Machado', 'Violino I', 'Académica', '90%', '95%', '90%', '85%', '90%', '90%', '90%'],
+    ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final'],
+    ['1', 'Beatriz Esteves Ribeiro', 'Violino I', 'Académica', '85%', '80%', '85%', '80%', '75%', '85%', '80%', '80%'],
+    ['2', 'Beatriz Gonçalves Dias', 'Violino I', 'Académica', '80%', '75%', '80%', '70%', '70%', '75%', '75%', '75%'],
+    ['3', 'Diogo Pego Machado', 'Violino I', 'Académica', '90%', '95%', '90%', '85%', '90%', '90%', '90%', '90%'],
   ],
   PlanosPalco: [
     ['PlanosPalco_JSON'],
@@ -713,6 +713,7 @@ export async function deleteRow(
     5: 'Critérios',
     6: 'PlanosPalco',
     7: 'Concertos',
+    8: 'Provas',
   };
   const targetTab = tabName || DEFAULT_TAB_MAP[sheetId] || 'Alunos';
 
@@ -771,6 +772,7 @@ export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
     { properties: { sheetId: 7, title: 'Avaliações' } },
     { properties: { sheetId: 8, title: 'Critérios' } },
     { properties: { sheetId: 9, title: 'PlanosPalco' } },
+    { properties: { sheetId: 10, title: 'Provas' } },
   ];
 
   if (isAppsScript(spreadsheetId)) {
