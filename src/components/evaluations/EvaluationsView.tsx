@@ -278,7 +278,11 @@ export default function EvaluationsView({
 
     if (!existing || (!existing.pontuacao && !existing.observacoes)) return;
 
-    if (window.confirm(`Deseja limpar a avaliação de ${student.nome}?`)) {
+    if (
+      window.confirm(
+        `Deseja limpar o nível e a observação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`
+      )
+    ) {
       // 1. Cancela qualquer temporizador pendente de auto-save
       if (saveTimeoutsRef.current[key]) {
         clearTimeout(saveTimeoutsRef.current[key]);
@@ -303,7 +307,7 @@ export default function EvaluationsView({
       } else if (onDelete) {
         onDelete(existing);
       }
-      toast.success(`Avaliação de ${student.nome} limpa.`);
+      toast.success(`Nível e observação de ${student.nome} limpos. Aluno mantido na base de dados.`);
     }
   };
 
@@ -766,7 +770,7 @@ export default function EvaluationsView({
                                 type="button"
                                 onClick={() => handleClearEvaluation(student)}
                                 className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
-                                title="Limpar avaliação deste aluno"
+                                title="Limpar nível e observação (o aluno permanece na base de dados)"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -842,6 +846,7 @@ export default function EvaluationsView({
                             <button
                               onClick={() => onDelete(ev)}
                               className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
+                              title="Limpar nível e observação (o aluno permanece na base de dados)"
                             >
                               <Trash2 size={13} />
                             </button>

@@ -366,6 +366,38 @@ export function useEvaluations() {
       if (!config) return;
 
       try {
+        if (isClearing) {
+          // Quando é para limpar a avaliação, NUNCA tocamos nas colunas do aluno (A a E)
+          // Limpamos EXCLUSIVAMENTE as colunas F (Nível) e G (Observações)
+          if (rowIndex && rowIndex > 1) {
+            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${rowIndex}:G${rowIndex}`), [['', '']]);
+            return;
+          }
+
+          // Se o rowIndex não for conhecido, procura na folha a linha pelo nome do aluno
+          const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:G'));
+          let targetRowIndex = -1;
+          const mapping = rows.length > 0 ? parseHeader(rows[0]) : parseHeader(USER_EVAL_HEADER);
+
+          if (rows.length > 1) {
+            const targetName = student.nome.trim().toLowerCase();
+            const targetOrch = (student.orquestra || '').trim().toLowerCase();
+            for (let i = 1; i < rows.length; i++) {
+              const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
+              const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
+              if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
+                targetRowIndex = i + 1; // 1-based
+                break;
+              }
+            }
+          }
+
+          if (targetRowIndex > 1) {
+            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${targetRowIndex}:G${targetRowIndex}`), [['', '']]);
+          }
+          return;
+        }
+
         // Se já tivermos o rowIndex da linha correspondente (> 1), escreve diretamente nessa linha
         if (rowIndex && rowIndex > 1) {
           const rowValues = [
@@ -410,7 +442,7 @@ export function useEvaluations() {
             observacoes || '',
           ];
           await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${targetRowIndex}:G${targetRowIndex}`), [rowValues]);
-        } else if (!isClearing) {
+        } else {
           // Só adiciona linha se NÃO for para limpar
           const rowValues = [
             student.numero || '',
@@ -459,9 +491,28 @@ export function useEvaluations() {
 
         const rows: string[][] = [USER_EVAL_HEADER];
 
-        if (allStudents && allStudents.length > 0) {
-          // Se tivermos a lista de todos os alunos (ex: 183 alunos), criamos a tabela completa
-          allStudents.forEach((s, idx) => {
+        // Garante que a lista de alunos contém todos os alunos (da memória ou da folha) para nunca apagar alunos
+        let studentRoster = allStudents;
+        if (!studentRoster || studentRoster.length === 0) {
+          const existingRows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:G'));
+          if (existingRows.length > 1) {
+            const m = parseHeader(existingRows[0]);
+            studentRoster = existingRows.slice(1).map((r, i) => ({
+              id: `student-sheet-${i + 1}`,
+              rowIndex: i + 2,
+              numero: m.colOrdem !== -1 && r[m.colOrdem] ? r[m.colOrdem] : String(i + 1),
+              nome: m.colNome !== -1 && r[m.colNome] ? r[m.colNome] : r[1] || '',
+              chefeNaipe: '',
+              grau: m.colGrau !== -1 && r[m.colGrau] ? r[m.colGrau] : '',
+              naipe: m.colNaipe !== -1 && r[m.colNaipe] ? r[m.colNaipe] : '',
+              orquestra: m.colOrquestra !== -1 && r[m.colOrquestra] ? r[m.colOrquestra] : '',
+            }));
+          }
+        }
+
+        if (studentRoster && studentRoster.length > 0) {
+          // Preenche a tabela com todos os alunos: apenas Nível e Observações são atualizados/limpos
+          studentRoster.forEach((s, idx) => {
             const key = `${(s.nome || '').trim().toLowerCase()}|${(s.orquestra || '').trim().toLowerCase()}`;
             const ev = evalMap.get(key) || evalMap.get((s.nome || '').trim().toLowerCase());
             rows.push([
@@ -472,18 +523,6 @@ export function useEvaluations() {
               s.orquestra || '',
               ev && ev.pontuacao > 0 ? String(ev.pontuacao) : '',
               ev ? ev.observacoes || '' : '',
-            ]);
-          });
-        } else {
-          validEvals.forEach((ev, idx) => {
-            rows.push([
-              ev.ordem || String(idx + 1),
-              ev.nomeAluno,
-              ev.grau || '',
-              ev.naipe || '',
-              ev.orquestra || '',
-              ev.pontuacao > 0 ? String(ev.pontuacao) : '',
-              ev.observacoes || '',
             ]);
           });
         }
