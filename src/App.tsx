@@ -244,6 +244,7 @@ function MainApp() {
     isLoading: evalsLoading,
     load: loadEvals,
     updateEvaluation,
+    saveSingleEvaluation,
     saveAllEvaluations,
     saveLevelTemplates,
     addEvaluation,
@@ -445,7 +446,8 @@ function MainApp() {
             levelTemplates={levelTemplates}
             isLoading={evalsLoading}
             onUpdateEvaluation={updateEvaluation}
-            onSaveAll={saveAllEvaluations}
+            onSaveSingleEvaluation={saveSingleEvaluation}
+            onSaveAll={(evals, allStudents) => saveAllEvaluations(evals, allStudents || students)}
             onSaveLevelTemplates={saveLevelTemplates}
             onAdd={addEvaluation}
             onDelete={removeEvaluation}

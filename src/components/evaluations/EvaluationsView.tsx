@@ -34,7 +34,13 @@ interface EvaluationsViewProps {
   levelTemplates?: Record<number, string>;
   isLoading: boolean;
   onUpdateEvaluation?: (ev: Evaluation) => void;
-  onSaveAll?: (evals: Evaluation[]) => Promise<void>;
+  onSaveSingleEvaluation?: (
+    student: Student,
+    level: number,
+    obs: string,
+    rowIndex?: number
+  ) => Promise<void>;
+  onSaveAll?: (evals: Evaluation[], allStudents?: Student[]) => Promise<void>;
   onSaveLevelTemplates?: (newTemplates: Record<number, string>) => void;
   onAdd: (ev: Omit<Evaluation, 'id' | 'rowIndex'>) => void;
   onDelete: (ev: Evaluation) => void;
@@ -52,6 +58,7 @@ export default function EvaluationsView({
   levelTemplates: propLevelTemplates,
   isLoading,
   onUpdateEvaluation,
+  onSaveSingleEvaluation,
   onSaveAll,
   onSaveLevelTemplates,
   onAdd,
@@ -165,13 +172,13 @@ export default function EvaluationsView({
     });
   }, [orchestraStudents, search, selectedNaipe, statusFilter, evalMap]);
 
-  // Atribuição rápida de nível (1 a 5) com geração automática do texto da observação
+  const saveTimeoutsRef = React.useRef<Record<string, any>>({});
+
+  // Atribuição rápida de nível (1 a 5) com gravação IMEDIATA no Google Sheets
   const handleAssignLevel = (student: Student, level: number) => {
     const key = studentKey(student.nome, student.orquestra);
     const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
 
-    // Se clicar no mesmo nível, mantém ou pode re-gerar a observação
-    const isSameLevel = existing?.pontuacao === level;
     const generatedObs = generateObservationText(templates[level], student, level);
 
     const updated: Evaluation = {
@@ -181,7 +188,7 @@ export default function EvaluationsView({
       nomeAluno: student.nome,
       grau: student.grau || existing?.grau || '',
       naipe: student.naipe || existing?.naipe || '',
-      orquestra: student.orquestra || existing?.orquestra || selectedOrchestra !== 'todas' ? selectedOrchestra : '',
+      orquestra: student.orquestra || existing?.orquestra || (selectedOrchestra !== 'todas' ? selectedOrchestra : ''),
       pontuacao: level,
       data: new Date().toISOString().split('T')[0],
       observacoes: generatedObs,
@@ -192,14 +199,24 @@ export default function EvaluationsView({
       [key]: updated,
       [studentKey(student.nome, '')]: updated,
     }));
-    setHasUnsavedChanges(true);
 
-    if (onUpdateEvaluation) {
+    // Cancela qualquer timeout pendente para este aluno
+    if (saveTimeoutsRef.current[key]) {
+      clearTimeout(saveTimeoutsRef.current[key]);
+      delete saveTimeoutsRef.current[key];
+    }
+
+    // Grava imediatamente no Google Sheets
+    if (onSaveSingleEvaluation) {
+      onSaveSingleEvaluation(student, level, generatedObs, existing?.rowIndex).catch((e) => {
+        console.error('Erro ao gravar no Google Sheets:', e);
+      });
+    } else if (onUpdateEvaluation) {
       onUpdateEvaluation(updated);
     }
   };
 
-  // Alteração manual da observação pelo professor
+  // Alteração manual da observação pelo professor com auto-save em background
   const handleObservationChange = (student: Student, text: string) => {
     const key = studentKey(student.nome, student.orquestra);
     const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
@@ -211,7 +228,7 @@ export default function EvaluationsView({
       nomeAluno: student.nome,
       grau: student.grau || existing?.grau || '',
       naipe: student.naipe || existing?.naipe || '',
-      orquestra: student.orquestra || existing?.orquestra || selectedOrchestra !== 'todas' ? selectedOrchestra : '',
+      orquestra: student.orquestra || existing?.orquestra || (selectedOrchestra !== 'todas' ? selectedOrchestra : ''),
       pontuacao: existing?.pontuacao || 0,
       data: existing?.data || new Date().toISOString().split('T')[0],
       observacoes: text,
@@ -222,10 +239,32 @@ export default function EvaluationsView({
       [key]: updated,
       [studentKey(student.nome, '')]: updated,
     }));
-    setHasUnsavedChanges(true);
 
-    if (onUpdateEvaluation) {
+    if (onSaveSingleEvaluation) {
+      if (saveTimeoutsRef.current[key]) {
+        clearTimeout(saveTimeoutsRef.current[key]);
+      }
+      saveTimeoutsRef.current[key] = setTimeout(() => {
+        onSaveSingleEvaluation(student, existing?.pontuacao || 0, text, existing?.rowIndex).catch((e) => {
+          console.error('Erro no auto-save:', e);
+        });
+      }, 700);
+    } else if (onUpdateEvaluation) {
       onUpdateEvaluation(updated);
+    }
+  };
+
+  const handleObservationBlur = (student: Student) => {
+    const key = studentKey(student.nome, student.orquestra);
+    const ev = evalMap[key] || evalMap[studentKey(student.nome, '')];
+    if (ev && onSaveSingleEvaluation) {
+      if (saveTimeoutsRef.current[key]) {
+        clearTimeout(saveTimeoutsRef.current[key]);
+        delete saveTimeoutsRef.current[key];
+      }
+      onSaveSingleEvaluation(student, ev.pontuacao, ev.observacoes, ev.rowIndex).catch((e) => {
+        console.error('Erro no blur save:', e);
+      });
     }
   };
 
@@ -246,23 +285,20 @@ export default function EvaluationsView({
         delete next[studentKey(student.nome, '')];
         return next;
       });
-      setHasUnsavedChanges(true);
+      if (onSaveSingleEvaluation) {
+        onSaveSingleEvaluation(student, 0, '', existing?.rowIndex);
+      }
       toast.success(`Avaliação de ${student.nome} limpa.`);
     }
   };
 
-  // Guardar todas as avaliações no Google Sheets
+  // Guardar todas as avaliações no Google Sheets sincronizando todos os 183 alunos
   const handleSaveToSheets = async () => {
     if (!onSaveAll) return;
     setIsSaving(true);
     try {
-      // Compila a lista de todas as avaliações válidas
-      const evalsList = Object.values(evalMap).filter(
-        (ev, index, self) =>
-          self.findIndex((e) => e.id === ev.id) === index && (ev.pontuacao > 0 || (ev.observacoes || '').trim().length > 0)
-      );
-
-      await onSaveAll(evalsList);
+      const evalsList = Object.values(evalMap);
+      await onSaveAll(evalsList, students);
       setHasUnsavedChanges(false);
     } finally {
       setIsSaving(false);
@@ -693,6 +729,7 @@ export default function EvaluationsView({
                                 type="text"
                                 value={currentObs}
                                 onChange={(e) => handleObservationChange(student, e.target.value)}
+                                onBlur={() => handleObservationBlur(student)}
                                 placeholder="Clique num nível (1-5) para gerar ou escreva aqui..."
                                 className="w-full px-2.5 py-1.5 text-xs bg-transparent hover:bg-white dark:hover:bg-gray-700/60 focus:bg-white dark:focus:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-orchestra-gold rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orchestra-gold transition-all"
                               />

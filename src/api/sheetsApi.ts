@@ -506,7 +506,8 @@ function setLocalTab(tabName: string, data: string[][]): void {
 
 function parseTabFromRange(range: string): string {
   const match = range.match(/^([^!]+)/);
-  return match ? match[1].trim() : range;
+  const raw = match ? match[1].trim() : range;
+  return raw.replace(/^'+|'+$/g, '').trim();
 }
 
 // ─── Helpers Apps Script Web App ─────────────────────────────────────────────

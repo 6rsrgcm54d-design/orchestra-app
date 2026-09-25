@@ -296,6 +296,18 @@ export interface SheetsConfig {
   spreadsheetId: string;
 }
 
+export interface SheetItem {
+  properties: {
+    sheetId: number;
+    title: string;
+  };
+}
+
+export interface SheetsMeta {
+  title: string;
+  sheets: SheetItem[];
+}
+
 // ─── UI ──────────────────────────────────────────────────────────────────────
 
 export type Theme = 'dark' | 'light';
