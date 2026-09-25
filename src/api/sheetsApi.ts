@@ -56,22 +56,21 @@ function doGet(e) {
     var displayValues = sheet.getDataRange().getDisplayValues();
     var formatted = values.map(function(row, rIdx) {
       return row.map(function(cell, cIdx) {
+        var disp = (displayValues && displayValues[rIdx]) ? String(displayValues[rIdx][cIdx]).trim() : '';
         if (cell instanceof Date) {
-          // Se o ano for <= 1900, o utilizador introduziu uma hora (ex: 15:00)
+          // Se o ano for <= 1900, o utilizador introduziu uma hora (ex: 15:00 ou 16h00)
           if (cell.getFullYear() <= 1900) {
+            if (disp && (disp.indexOf(':') !== -1 || disp.indexOf('h') !== -1 || disp.indexOf('.') !== -1)) {
+              return disp;
+            }
             return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "HH:mm");
           }
-          // Se tiver horas e minutos definidos
           if (cell.getHours() !== 0 || cell.getMinutes() !== 0) {
             return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd HH:mm");
           }
           return Utilities.formatDate(cell, ss.getSpreadsheetTimeZone(), "yyyy-MM-dd");
         }
-        var disp = (displayValues && displayValues[rIdx]) ? displayValues[rIdx][cIdx] : '';
-        if (disp && disp.indexOf(':') !== -1 && typeof cell === 'object') {
-          return disp;
-        }
-        return String(cell);
+        return disp || String(cell);
       });
     });
     return jsonResponse({ values: formatted });
@@ -79,7 +78,7 @@ function doGet(e) {
 
   var result = {};
   ss.getSheets().forEach(function(s) {
-    result[s.getName()] = s.getDataRange().getValues();
+    result[s.getName()] = s.getDataRange().getDisplayValues();
   });
   return jsonResponse(result);
 }

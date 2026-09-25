@@ -377,6 +377,13 @@ function MainApp() {
     }
   };
 
+  // Orquestras musicais reais (exclui abas administrativas/de alunos como "Alunos", "Chefes de Naipe", etc.)
+  const musicalOrchestras = React.useMemo(() => {
+    const nonOrchestraPattern = /^alunos?$|chefe|geral|todos/i;
+    const filtered = orchestras.filter((o) => !nonOrchestraPattern.test(o.trim()));
+    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+  }, [orchestras]);
+
   const spreadsheetTitle = sheetsMeta?.title;
 
   const renderModule = () => {
@@ -406,7 +413,7 @@ function MainApp() {
         return (
           <RepertoireList
             pieces={pieces}
-            orchestras={orchestras}
+            orchestras={musicalOrchestras}
             isLoading={piecesLoading}
             onAdd={handleAddPiece}
             onEdit={handleEditPiece}
@@ -417,7 +424,7 @@ function MainApp() {
         return (
           <ConcertsView
             concerts={concerts}
-            orchestras={orchestras}
+            orchestras={musicalOrchestras}
             isLoading={concertsLoading}
             onAdd={addConcert}
             onUpdate={updateConcert}
@@ -440,7 +447,7 @@ function MainApp() {
           <StagePlanView
             plans={plans}
             students={students}
-            orchestras={orchestras}
+            orchestras={musicalOrchestras}
             isLoading={plansLoading}
             onSave={savePlan}
             onDelete={deletePlan}
@@ -490,7 +497,7 @@ function MainApp() {
       {showPieceForm && (
         <PieceForm
           piece={editingPiece}
-          orchestras={orchestras}
+          orchestras={[...musicalOrchestras, 'Todas']}
           onSave={handleSavePiece}
           onClose={() => setShowPieceForm(false)}
         />

@@ -18,19 +18,97 @@ import { safeStorage } from '../utils/storage';
 const TAB = 'Concertos';
 const HEADER = ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'];
 
-function rowToConcert(row: string[], rowIndex: number): Concert | null {
-  const orquestra = (row[0] ?? '').trim();
-  const data = (row[1] ?? '').trim();
-  const local = (row[4] ?? '').trim();
-  const programa = (row[5] ?? '').trim();
-  const notas = (row[6] ?? '').trim();
+interface ConcertColumnMapping {
+  orquestra: number;
+  data: number;
+  horaEnsaioGeral: number;
+  horaConcerto: number;
+  local: number;
+  programa: number;
+  notas: number;
+}
+
+const DEFAULT_CONCERT_MAPPING: ConcertColumnMapping = {
+  orquestra: 0,
+  data: 1,
+  horaEnsaioGeral: 2,
+  horaConcerto: 3,
+  local: 4,
+  programa: 5,
+  notas: 6,
+};
+
+function detectConcertMapping(headerRow: string[]): ConcertColumnMapping {
+  const mapping: ConcertColumnMapping = {
+    orquestra: -1,
+    data: -1,
+    horaEnsaioGeral: -1,
+    horaConcerto: -1,
+    local: -1,
+    programa: -1,
+    notas: -1,
+  };
+
+  if (!headerRow || headerRow.length === 0) {
+    return DEFAULT_CONCERT_MAPPING;
+  }
+
+  headerRow.forEach((col, idx) => {
+    const text = String(col).toLowerCase().trim();
+    if (/orquestra|grupo|elenco/i.test(text)) {
+      mapping.orquestra = idx;
+    } else if (/ensaio/i.test(text)) {
+      mapping.horaEnsaioGeral = idx;
+    } else if (/(hora.*concerto|in[ií]cio|concerto)/i.test(text) && !/ensaio/i.test(text)) {
+      mapping.horaConcerto = idx;
+    } else if (/data|dia/i.test(text)) {
+      mapping.data = idx;
+    } else if (/local|sala|audit[oó]rio|espa[cç]o/i.test(text)) {
+      mapping.local = idx;
+    } else if (/programa|repert[oó]rio|obras|pe[cç]as/i.test(text)) {
+      mapping.programa = idx;
+    } else if (/nota|obs/i.test(text)) {
+      mapping.notas = idx;
+    }
+  });
+
+  // Fallbacks para posições padrão se não detetadas pelo cabeçalho
+  if (mapping.orquestra === -1) mapping.orquestra = 0;
+  if (mapping.data === -1) mapping.data = 1;
+  if (mapping.horaEnsaioGeral === -1) mapping.horaEnsaioGeral = 2;
+  if (mapping.horaConcerto === -1) mapping.horaConcerto = 3;
+  if (mapping.local === -1) mapping.local = 4;
+  if (mapping.programa === -1) mapping.programa = 5;
+  if (mapping.notas === -1) mapping.notas = 6;
+
+  return mapping;
+}
+
+function rowToConcert(
+  row: string[],
+  rowIndex: number,
+  mapping: ConcertColumnMapping = DEFAULT_CONCERT_MAPPING
+): Concert | null {
+  const orquestra = (row[mapping.orquestra] ?? '').trim();
+  const data = (row[mapping.data] ?? '').trim();
+  const local = (row[mapping.local] ?? '').trim();
+  const programa = (row[mapping.programa] ?? '').trim();
+  const notas = (row[mapping.notas] ?? '').trim();
 
   // Ignora linhas completamente vazias ou cabeçalhos repetidos
   if (!orquestra && !data && !local && !programa) return null;
   if (orquestra.toLowerCase() === 'orquestra' || data.toLowerCase() === 'data') return null;
 
-  const horaEnsaioGeral = cleanTimeString(row[2]);
-  const horaConcerto = cleanTimeString(row[3]);
+  let horaEnsaioGeral = cleanTimeString(row[mapping.horaEnsaioGeral]);
+  let horaConcerto = cleanTimeString(row[mapping.horaConcerto]);
+
+  // Se a hora do concerto estiver vazia mas a data contiver hora (ex: "2026-10-16 21:00")
+  if (!horaConcerto && data) {
+    const extractedTime = cleanTimeString(data);
+    if (extractedTime) {
+      horaConcerto = extractedTime;
+    }
+  }
 
   return {
     id: `concert-${rowIndex}`,
@@ -66,9 +144,15 @@ function getInitialConcerts(): Concert[] {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed) && parsed.length > 0) {
         // Filtra itens inválidos ou corrompidos na cache
-        const valid = parsed.filter(
-          (c: any) => c && (c.data || c.local || c.programa) && !String(c.data).toLowerCase().includes('invalid')
-        );
+        const valid = parsed
+          .filter(
+            (c: any) => c && (c.data || c.local || c.programa) && !String(c.data).toLowerCase().includes('invalid')
+          )
+          .map((c: any) => ({
+            ...c,
+            horaEnsaioGeral: cleanTimeString(c.horaEnsaioGeral),
+            horaConcerto: cleanTimeString(c.horaConcerto),
+          }));
         safeStorage.setItem(CACHE_KEY, JSON.stringify(valid));
         return valid;
       }
@@ -110,10 +194,31 @@ export function useConcerts() {
     setIsLoading(true);
     try {
       const rows = await readRange(config.spreadsheetId, `${TAB}!A:G`);
-      if (rows && rows.length > 1) {
-        const loaded = rows
-          .slice(1)
-          .map((row, i) => rowToConcert(row, i + 2))
+      if (rows && rows.length > 0) {
+        // Localiza a linha correta do cabeçalho caso existam títulos ou linhas vazias no topo
+        let headerIndex = -1;
+        for (let r = 0; r < Math.min(rows.length, 5); r++) {
+          const rowStr = rows[r].map((c) => String(c).toLowerCase()).join(' ');
+          if (
+            rowStr.includes('orquestra') ||
+            rowStr.includes('data') ||
+            rowStr.includes('local') ||
+            rowStr.includes('programa') ||
+            rowStr.includes('ensaio') ||
+            rowStr.includes('concerto')
+          ) {
+            headerIndex = r;
+            break;
+          }
+        }
+
+        const header = headerIndex >= 0 ? rows[headerIndex] : [];
+        const mapping = detectConcertMapping(header);
+        const dataRows = headerIndex >= 0 ? rows.slice(headerIndex + 1) : rows;
+        const startOffset = headerIndex >= 0 ? headerIndex + 2 : 1;
+
+        const loaded = dataRows
+          .map((row, i) => rowToConcert(row, startOffset + i, mapping))
           .filter((c): c is Concert => c !== null);
         setConcerts(loaded);
         safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));

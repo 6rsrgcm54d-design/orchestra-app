@@ -82,46 +82,84 @@ export function formatNaipe(val: string | number | undefined | null): string {
   return str;
 }
 
-export function cleanTimeString(val: string | undefined | null): string {
-  if (!val) return '';
+export function cleanTimeString(val: string | number | undefined | null): string {
+  if (val === undefined || val === null) return '';
   const str = String(val).trim();
   if (!str || str.toLowerCase() === 'a definir' || str === '-') return '';
 
-  // Se for puramente "1899-12-30" (ou com hora 00:00 proveniente do Excel/Sheets base date)
-  if (/^1899-12-30(?:[T\s]00:00(?::00)?)?h?$/i.test(str)) {
+  // 1. Se for uma fração decimal representando a hora do dia no Excel/Sheets (ex: 0.6666667 = 16:00, 0.875 = 21:00)
+  const num = parseFloat(str.replace(',', '.'));
+  if (!isNaN(num) && num > 0 && num < 1 && /^\d*(?:[.,]\d+)?$/.test(str)) {
+    const totalMinutes = Math.round(num * 24 * 60);
+    const hours = Math.floor(totalMinutes / 60) % 24;
+    const minutes = totalMinutes % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+  }
+
+  // 2. Se contiver hora em formato ISO ou texto com data (ex: "1899-12-30T16:00:00" ou "2026-10-16 21:30" ou "Sat Dec 30 1899 15:00:00")
+  const isoTime = str.match(/[T\s](\d{1,2}):(\d{2})(?::\d{2})?/);
+  if (isoTime) {
+    const h = isoTime[1].padStart(2, '0');
+    const m = isoTime[2];
+    if (/^1899-12-30/i.test(str) && h === '00' && m === '00') {
+      return '';
+    }
+    return `${h}:${m}`;
+  }
+
+  // 3. Se for puramente a data base "1899-12-30" sem hora
+  if (/^1899-12-30(?:h)?$/i.test(str)) {
     return '';
   }
 
-  // Se contiver hora em formato ISO (ex: "1899-12-30T15:00:00" ou "Sat Dec 30 1899 15:00:00")
-  const isoTime = str.match(/[T\s](\d{1,2}):(\d{2})/);
-  if (isoTime) {
-    return `${isoTime[1].padStart(2, '0')}:${isoTime[2]}`;
+  // 4. Formato intervalo (ex: "16h-18h", "16:00 - 18:00", "16h às 18h", "16:00 às 18:00")
+  const rangeMatch = str.match(/^(\d{1,2})(?:[:h.](\d{2}))?\s*(?:-|–|—|às|as|a)\s*(\d{1,2})(?:[:h.](\d{2}))?$/i);
+  if (rangeMatch) {
+    const h1 = rangeMatch[1].padStart(2, '0');
+    const m1 = rangeMatch[2] || '00';
+    const h2 = rangeMatch[3].padStart(2, '0');
+    const m2 = rangeMatch[4] || '00';
+    return `${h1}:${m1} - ${h2}:${m2}`;
   }
 
-  // Formato "15:00:00" ou "15:00"
+  // 5. Formato "15:00:00" ou "15:00"
   const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
   if (timeMatch) {
     return `${timeMatch[1].padStart(2, '0')}:${timeMatch[2]}`;
   }
 
-  // Formato "15h" ou "15h30"
+  // 6. Formato "15h" ou "15h30" ou "15H00"
   const hMatch = str.match(/^(\d{1,2})h(\d{2})?$/i);
   if (hMatch) {
     const min = hMatch[2] ? hMatch[2] : '00';
     return `${hMatch[1].padStart(2, '0')}:${min}`;
   }
 
-  // Se for apenas hora simples (ex: "15")
+  // 7. Formato "15.00" ou "15,30" (notação decimal de hora)
+  const dotMatch = str.match(/^(\d{1,2})[.,](\d{2})$/);
+  if (dotMatch) {
+    const h = parseInt(dotMatch[1], 10);
+    const m = parseInt(dotMatch[2], 10);
+    if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+  }
+
+  // 8. Se for apenas hora simples em número inteiro (ex: "15")
   if (/^\d{1,2}$/.test(str)) {
-    return `${str.padStart(2, '0')}:00`;
+    const h = parseInt(str, 10);
+    if (h >= 0 && h < 24) {
+      return `${str.padStart(2, '0')}:00`;
+    }
   }
 
   return str.replace(/h$/i, '');
 }
 
-export function formatTimeDisplay(val: string | undefined | null): string {
+export function formatTimeDisplay(val: string | number | undefined | null): string {
   const cleaned = cleanTimeString(val);
   if (!cleaned) return 'A definir';
+  if (cleaned.includes(' - ')) return cleaned;
   if (cleaned.endsWith('h') || cleaned.endsWith('H')) return cleaned;
   return `${cleaned}h`;
 }

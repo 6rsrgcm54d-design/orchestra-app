@@ -21,6 +21,14 @@ const EMPTY: Omit<Piece, 'id' | 'rowIndex'> = {
 };
 
 export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil', 'Artave', 'Todas'], onSave, onClose }: PieceFormProps) {
+  // Garante que apenas orquestras musicais reais aparecem
+  const validOrchestras = React.useMemo(() => {
+    const nonOrchestraPattern = /^alunos?$|chefe|geral/i;
+    const filtered = orchestras.filter((o) => !nonOrchestraPattern.test(o.trim()));
+    if (!filtered.includes('Todas')) filtered.push('Todas');
+    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave', 'Todas'];
+  }, [orchestras]);
+
   const [form, setForm] = useState<Omit<Piece, 'id' | 'rowIndex'>>(
     piece
       ? {
@@ -121,7 +129,7 @@ export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil'
                 onChange={(e) => setForm({ ...form, orquestra: e.target.value })}
                 className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold font-medium"
               >
-                {orchestras.map((o) => (
+                {validOrchestras.map((o) => (
                   <option key={o} value={o}>{o}</option>
                 ))}
               </select>

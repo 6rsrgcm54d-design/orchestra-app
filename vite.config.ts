@@ -75,6 +75,25 @@ function singleFileBundlePlugin() {
       const rootAppPath = path.resolve(__dirname, 'OrquestraApp.html')
       fs.writeFileSync(rootAppPath, html, 'utf-8')
       console.log('✓ OrquestraApp.html created in project root!')
+
+      // Sync to Desktop / OneDrive Desktop
+      const possibleDesktopPaths = [
+        'C:\\Users\\luism\\OneDrive\\Ambiente de Trabalho\\OrquestraApp.html',
+        'C:\\Users\\luism\\Desktop\\OrquestraApp.html',
+        path.join(process.env.USERPROFILE || '', 'OneDrive', 'Ambiente de Trabalho', 'OrquestraApp.html'),
+        path.join(process.env.USERPROFILE || '', 'Desktop', 'OrquestraApp.html')
+      ]
+      for (const destPath of possibleDesktopPaths) {
+        try {
+          const dir = path.dirname(destPath)
+          if (fs.existsSync(dir)) {
+            fs.writeFileSync(destPath, html, 'utf-8')
+            console.log(`✓ OrquestraApp.html successfully synced to: ${destPath}`)
+          }
+        } catch (e) {
+          // ignore permission errors if path not accessible
+        }
+      }
     }
   }
 }

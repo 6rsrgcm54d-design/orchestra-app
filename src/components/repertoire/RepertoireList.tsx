@@ -23,6 +23,13 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
   const [filterOrquestra, setFilterOrquestra] = useState('');
   const [filterEstado, setFilterEstado] = useState('');
 
+  // Garante que apenas orquestras musicais reais aparecem (exclui abas administrativas como "Alunos", "Chefes de Naipe")
+  const validOrchestras = React.useMemo(() => {
+    const nonOrchestraPattern = /^alunos?$|chefe|geral|todos/i;
+    const filtered = orchestras.filter((o) => !nonOrchestraPattern.test(o.trim()));
+    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+  }, [orchestras]);
+
   const filtered = pieces.filter((p) => {
     const matchSearch =
       !search ||
@@ -64,7 +71,7 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
             className="text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
           >
             <option value="">Todas as Orquestras</option>
-            {orchestras.map((o) => (
+            {validOrchestras.map((o) => (
               <option key={o} value={o}>{o}</option>
             ))}
           </select>
