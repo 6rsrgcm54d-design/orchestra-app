@@ -20,25 +20,55 @@ const EMPTY: Omit<Concert, 'id' | 'rowIndex'> = {
   notas: '',
 };
 
+function normalizeDateForInput(d?: string): string {
+  if (!d) return new Date().toISOString().split('T')[0];
+  const str = d.trim();
+  const ptMatch = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (ptMatch) {
+    return `${ptMatch[3]}-${ptMatch[2].padStart(2, '0')}-${ptMatch[1].padStart(2, '0')}`;
+  }
+  if (/^\d{4}-\d{2}-\d{2}$/.test(str)) return str;
+  const parsed = new Date(str);
+  if (!isNaN(parsed.getTime())) {
+    return parsed.toISOString().split('T')[0];
+  }
+  return str;
+}
+
 export default function ConcertFormModal({
   concert,
   orchestras = ['Académica', 'Juvenil', 'Artave'],
   onSave,
   onClose,
 }: ConcertFormModalProps) {
-  const [form, setForm] = useState<Omit<Concert, 'id' | 'rowIndex'>>(
-    concert
-      ? {
-          orquestra: concert.orquestra || 'Académica',
-          data: concert.data,
-          horaEnsaioGeral: cleanTimeString(concert.horaEnsaioGeral) || '15:00',
-          horaConcerto: cleanTimeString(concert.horaConcerto) || '21:00',
-          local: concert.local,
-          programa: concert.programa,
-          notas: concert.notas || '',
-        }
-      : EMPTY
-  );
+  const [form, setForm] = useState<Omit<Concert, 'id' | 'rowIndex'>>(() => {
+    if (concert) {
+      return {
+        orquestra: concert.orquestra || 'Académica',
+        data: normalizeDateForInput(concert.data),
+        horaEnsaioGeral: cleanTimeString(concert.horaEnsaioGeral) || '15:00',
+        horaConcerto: cleanTimeString(concert.horaConcerto) || '21:00',
+        local: concert.local || '',
+        programa: concert.programa || '',
+        notas: concert.notas || '',
+      };
+    }
+    return EMPTY;
+  });
+
+  useEffect(() => {
+    if (concert) {
+      setForm({
+        orquestra: concert.orquestra || 'Académica',
+        data: normalizeDateForInput(concert.data),
+        horaEnsaioGeral: cleanTimeString(concert.horaEnsaioGeral) || '15:00',
+        horaConcerto: cleanTimeString(concert.horaConcerto) || '21:00',
+        local: concert.local || '',
+        programa: concert.programa || '',
+        notas: concert.notas || '',
+      });
+    }
+  }, [concert]);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -55,7 +85,8 @@ export default function ConcertFormModal({
     onClose();
   };
 
-  const orqOptions = Array.from(new Set([...orchestras, 'Todas']));
+  const validOrchestras = orchestras.filter((o) => !/^alunos?$|chefe|geral/i.test(o.trim()));
+  const orqOptions = Array.from(new Set([...validOrchestras, 'Todas']));
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">

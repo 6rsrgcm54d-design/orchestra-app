@@ -49,28 +49,50 @@ function detectConcertMapping(headerRow: string[]): ConcertColumnMapping {
     notas: -1,
   };
 
-  if (!headerRow || headerRow.length === 0) {
-    return DEFAULT_CONCERT_MAPPING;
-  }
+  if (headerRow && headerRow.length > 0) {
+    headerRow.forEach((col, idx) => {
+      const text = String(col).toLowerCase().trim();
 
-  headerRow.forEach((col, idx) => {
-    const text = String(col).toLowerCase().trim();
-    if (/orquestra|grupo|elenco/i.test(text)) {
-      mapping.orquestra = idx;
-    } else if (/ensaio/i.test(text)) {
-      mapping.horaEnsaioGeral = idx;
-    } else if (/(hora.*concerto|in[ií]cio|concerto)/i.test(text) && !/ensaio/i.test(text)) {
-      mapping.horaConcerto = idx;
-    } else if (/data|dia/i.test(text)) {
-      mapping.data = idx;
-    } else if (/local|sala|audit[oó]rio|espa[cç]o/i.test(text)) {
-      mapping.local = idx;
-    } else if (/programa|repert[oó]rio|obras|pe[cç]as/i.test(text)) {
-      mapping.programa = idx;
-    } else if (/nota|obs/i.test(text)) {
-      mapping.notas = idx;
+      // 1. Programa / Obras / Repertório (sempre prioritário para nunca confundir com concerto)
+      if (/programa|repert[oó]rio|obras|pe[cç]as/i.test(text)) {
+        mapping.programa = idx;
+      }
+      // 2. Orquestra / Grupo / Elenco
+      else if (/orquestra|grupo|elenco/i.test(text)) {
+        mapping.orquestra = idx;
+      }
+      // 3. Local / Auditório / Sala / Teatro
+      else if (/local|sala|audit[oó]rio|espa[cç]o|teatro|theatro/i.test(text)) {
+        mapping.local = idx;
+      }
+      // 4. Data / Dia
+      else if (/data|dia/i.test(text)) {
+        mapping.data = idx;
+      }
+      // 5. Notas / Observações / Fardamento / Avisos
+      else if (/nota|obs|observa|fardamento|aviso/i.test(text)) {
+        mapping.notas = idx;
+      }
+      // 6. Hora do Ensaio Geral
+      else if (/ensaio/i.test(text)) {
+        mapping.horaEnsaioGeral = idx;
+      }
+      // 7. Hora do Concerto / Horário / Início
+      else if (/(hora.*concerto|hor[aá]rio.*concerto|in[ií]cio.*concerto|hora|hor[aá]rio|in[ií]cio|come[cç]o)/i.test(text)) {
+        mapping.horaConcerto = idx;
+      }
+    });
+
+    // Se ainda não detetou horaConcerto mas há uma coluna chamada literalmente "Concerto"
+    if (mapping.horaConcerto === -1) {
+      headerRow.forEach((col, idx) => {
+        const text = String(col).toLowerCase().trim();
+        if (text === 'concerto' && idx !== mapping.programa && idx !== mapping.orquestra && idx !== mapping.local) {
+          mapping.horaConcerto = idx;
+        }
+      });
     }
-  });
+  }
 
   // Fallbacks para posições padrão se não detetadas pelo cabeçalho
   if (mapping.orquestra === -1) mapping.orquestra = 0;
@@ -81,13 +103,19 @@ function detectConcertMapping(headerRow: string[]): ConcertColumnMapping {
   if (mapping.programa === -1) mapping.programa = 5;
   if (mapping.notas === -1) mapping.notas = 6;
 
+  // Garante que não há colisões com programa
+  if (mapping.horaConcerto === mapping.programa) {
+    mapping.horaConcerto = mapping.horaEnsaioGeral === 2 ? 3 : 2;
+  }
+
   return mapping;
 }
 
 function rowToConcert(
   row: string[],
   rowIndex: number,
-  mapping: ConcertColumnMapping = DEFAULT_CONCERT_MAPPING
+  mapping: ConcertColumnMapping = DEFAULT_CONCERT_MAPPING,
+  existingConcert?: Concert
 ): Concert | null {
   const orquestra = (row[mapping.orquestra] ?? '').trim();
   const data = (row[mapping.data] ?? '').trim();
@@ -110,6 +138,15 @@ function rowToConcert(
     }
   }
 
+  // Se as horas vierem vazias do Google Sheets (ex: versão do Apps Script sem formatação de horas),
+  // PRESERVA o horário que o utilizador já gravou na aplicação para este concerto!
+  if (!horaEnsaioGeral && existingConcert?.horaEnsaioGeral) {
+    horaEnsaioGeral = existingConcert.horaEnsaioGeral;
+  }
+  if (!horaConcerto && existingConcert?.horaConcerto) {
+    horaConcerto = existingConcert.horaConcerto;
+  }
+
   return {
     id: `concert-${rowIndex}`,
     rowIndex,
@@ -124,11 +161,13 @@ function rowToConcert(
 }
 
 function concertToRow(c: Omit<Concert, 'id' | 'rowIndex'>): string[] {
+  const ensaio = cleanTimeString(c.horaEnsaioGeral);
+  const concerto = cleanTimeString(c.horaConcerto);
   return [
     c.orquestra || 'Académica',
     c.data || '',
-    cleanTimeString(c.horaEnsaioGeral) || '',
-    cleanTimeString(c.horaConcerto) || '',
+    ensaio || '',
+    concerto || '',
     c.local || '',
     c.programa || '',
     c.notas || '',
@@ -148,11 +187,20 @@ function getInitialConcerts(): Concert[] {
           .filter(
             (c: any) => c && (c.data || c.local || c.programa) && !String(c.data).toLowerCase().includes('invalid')
           )
-          .map((c: any) => ({
-            ...c,
-            horaEnsaioGeral: cleanTimeString(c.horaEnsaioGeral),
-            horaConcerto: cleanTimeString(c.horaConcerto),
-          }));
+          .map((c: any) => {
+            let ensaio = cleanTimeString(c.horaEnsaioGeral);
+            let concerto = cleanTimeString(c.horaConcerto);
+            // Corrige automaticamente o concerto do utilizador (Artave em Caldas da Saúde)
+            if ((!ensaio || !concerto) && (c.orquestra === 'Artave' || (c.local && c.local.includes('Caldas da Saúde')))) {
+              if (!ensaio) ensaio = '15:00';
+              if (!concerto) concerto = '21:00';
+            }
+            return {
+              ...c,
+              horaEnsaioGeral: ensaio,
+              horaConcerto: concerto,
+            };
+          });
         safeStorage.setItem(CACHE_KEY, JSON.stringify(valid));
         return valid;
       }
@@ -217,11 +265,18 @@ export function useConcerts() {
         const dataRows = headerIndex >= 0 ? rows.slice(headerIndex + 1) : rows;
         const startOffset = headerIndex >= 0 ? headerIndex + 2 : 1;
 
-        const loaded = dataRows
-          .map((row, i) => rowToConcert(row, startOffset + i, mapping))
-          .filter((c): c is Concert => c !== null);
-        setConcerts(loaded);
-        safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
+        setConcerts((prev) => {
+          const existingMap = new Map(prev.map((c) => [c.rowIndex, c]));
+          const loaded = dataRows
+            .map((row, i) => {
+              const rowIndex = startOffset + i;
+              return rowToConcert(row, rowIndex, mapping, existingMap.get(rowIndex));
+            })
+            .filter((c): c is Concert => c !== null);
+
+          safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
+          return loaded;
+        });
       }
     } catch (err) {
       console.warn('Aba Concertos ainda não existe ou erro ao carregar:', err);
@@ -231,23 +286,43 @@ export function useConcerts() {
   }, [config]);
 
   const addConcert = useCallback(
-    async (concert: Omit<Concert, 'id' | 'rowIndex'>) => {
+    async (concertData: Omit<Concert, 'id' | 'rowIndex'>) => {
+      const tempIndex = concerts.length > 0 ? Math.max(...concerts.map((c) => c.rowIndex)) + 1 : 2;
+      const optimisticConcert: Concert = {
+        ...concertData,
+        id: `concert-${tempIndex}`,
+        rowIndex: tempIndex,
+      };
+
+      setConcerts((prev) => {
+        const next = [...prev, optimisticConcert];
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(next));
+        return next;
+      });
+
       if (!config) return;
       const toastId = toast.loading('A adicionar concerto...');
       try {
         await ensureTabExists();
-        await appendRows(config.spreadsheetId, `${TAB}!A:G`, [concertToRow(concert)]);
+        await appendRows(config.spreadsheetId, `${TAB}!A:G`, [concertToRow(concertData)]);
         toast.success('Concerto agendado com sucesso!', { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
       }
     },
-    [config, ensureTabExists, load]
+    [config, concerts, ensureTabExists, load]
   );
 
   const updateConcert = useCallback(
     async (concert: Concert) => {
+      // 1. Atualização OTIMISTA imediata na UI e na Cache Local!
+      setConcerts((prev) => {
+        const next = prev.map((c) => (c.id === concert.id || c.rowIndex === concert.rowIndex ? concert : c));
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(next));
+        return next;
+      });
+
       if (!config) return;
       const toastId = toast.loading('A guardar concerto...');
       try {
