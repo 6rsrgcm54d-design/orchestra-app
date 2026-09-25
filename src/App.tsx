@@ -240,8 +240,12 @@ function MainApp() {
   const {
     evaluations,
     criteria,
+    levelTemplates,
     isLoading: evalsLoading,
     load: loadEvals,
+    updateEvaluation,
+    saveAllEvaluations,
+    saveLevelTemplates,
     addEvaluation,
     removeEvaluation,
     ensureHeaders: ensureEvalsHeaders,
@@ -437,7 +441,12 @@ function MainApp() {
             evaluations={evaluations}
             students={students}
             criteria={criteria}
+            orchestras={musicalOrchestras}
+            levelTemplates={levelTemplates}
             isLoading={evalsLoading}
+            onUpdateEvaluation={updateEvaluation}
+            onSaveAll={saveAllEvaluations}
+            onSaveLevelTemplates={saveLevelTemplates}
             onAdd={addEvaluation}
             onDelete={removeEvaluation}
           />

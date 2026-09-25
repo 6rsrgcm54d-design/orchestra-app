@@ -228,10 +228,13 @@ export interface Criteria {
 export interface Evaluation {
   id: string;
   rowIndex: number;
+  ordem?: string; // Nº de Ordem
   nomeAluno: string;
+  grau?: string;
   naipe: string;
-  criterio: string;
-  pontuacao: number; // 1-5
+  orquestra?: string;
+  criterio?: string;
+  pontuacao: number; // 1-5 (Classificação)
   data: string; // ISO date string
   observacoes: string;
 }

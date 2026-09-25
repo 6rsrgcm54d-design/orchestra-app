@@ -4,14 +4,15 @@ import type { Evaluation } from '../types';
  * Exporta avaliações para um ficheiro CSV e faz download no browser.
  */
 export function exportEvaluationsToCSV(evaluations: Evaluation[], filename = 'avaliacoes.csv'): void {
-  const header = ['Nome Aluno', 'Naipe', 'Critério', 'Pontuação', 'Data', 'Observações'];
-  const rows = evaluations.map((ev) => [
+  const header = ['Ordem', 'Nome Aluno', 'Grau', 'Naipe', 'Orquestra', 'Classificação', 'Observações'];
+  const rows = evaluations.map((ev, i) => [
+    ev.ordem || String(i + 1),
     ev.nomeAluno,
-    ev.naipe,
-    ev.criterio,
-    String(ev.pontuacao),
-    ev.data,
-    ev.observacoes,
+    ev.grau || '',
+    ev.naipe || '',
+    ev.orquestra || '',
+    ev.pontuacao > 0 ? String(ev.pontuacao) : '',
+    ev.observacoes || '',
   ]);
 
   const csvContent = [header, ...rows]
@@ -61,8 +62,9 @@ export function groupByStudent(evaluations: Evaluation[]): Record<string, Evalua
  */
 export function groupByCriteria(evaluations: Evaluation[]): Record<string, Evaluation[]> {
   return evaluations.reduce((acc, ev) => {
-    if (!acc[ev.criterio]) acc[ev.criterio] = [];
-    acc[ev.criterio].push(ev);
+    const key = ev.criterio || 'Avaliação Global';
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(ev);
     return acc;
   }, {} as Record<string, Evaluation[]>);
 }

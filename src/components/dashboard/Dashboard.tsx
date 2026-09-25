@@ -351,7 +351,9 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
                   <div key={ev.id} className="flex items-center justify-between text-xs">
                     <div>
                       <p className="font-semibold text-gray-900 dark:text-white">{ev.nomeAluno}</p>
-                      <p className="text-gray-500 dark:text-gray-400 text-[11px]">{ev.criterio}</p>
+                      <p className="text-gray-500 dark:text-gray-400 text-[11px]">
+                        {ev.criterio || (ev.orquestra ? `${ev.orquestra} · ${ev.naipe}` : ev.naipe) || 'Avaliação'}
+                      </p>
                     </div>
                     <div className="text-right">
                       <div className="flex text-amber-400">
