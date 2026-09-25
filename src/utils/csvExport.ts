@@ -68,3 +68,72 @@ export function groupByCriteria(evaluations: Evaluation[]): Record<string, Evalu
     return acc;
   }, {} as Record<string, Evaluation[]>);
 }
+
+/**
+ * Exporta provas para um ficheiro CSV e faz download no browser.
+ */
+export function exportProvasToCSV(
+  provas: {
+    ordem?: string;
+    nomeAluno: string;
+    naipe?: string;
+    orquestra?: string;
+    afinacao?: number | null;
+    precisaoRitmica?: number | null;
+    tempo?: number | null;
+    articulacao?: number | null;
+    dinamicas?: number | null;
+    fraseado?: number | null;
+    classificacaoFinal?: number | null;
+  }[],
+  filename = 'provas.csv'
+): void {
+  const header = [
+    'Ordem',
+    'Nome Aluno',
+    'Naipe',
+    'Orquestra',
+    'Afinação',
+    'Precisão Rítmica',
+    'Tempo',
+    'Articulação',
+    'Dinâmicas',
+    'Fraseado',
+    'Classificação final',
+  ];
+  const rows = provas.map((p, i) => [
+    p.ordem || String(i + 1),
+    p.nomeAluno,
+    p.naipe || '',
+    p.orquestra || '',
+    p.afinacao !== null && p.afinacao !== undefined ? `${p.afinacao}%` : '',
+    p.precisaoRitmica !== null && p.precisaoRitmica !== undefined ? `${p.precisaoRitmica}%` : '',
+    p.tempo !== null && p.tempo !== undefined ? `${p.tempo}%` : '',
+    p.articulacao !== null && p.articulacao !== undefined ? `${p.articulacao}%` : '',
+    p.dinamicas !== null && p.dinamicas !== undefined ? `${p.dinamicas}%` : '',
+    p.fraseado !== null && p.fraseado !== undefined ? `${p.fraseado}%` : '',
+    p.classificacaoFinal !== null && p.classificacaoFinal !== undefined ? `${p.classificacaoFinal}%` : '',
+  ]);
+
+  const csvContent = [header, ...rows]
+    .map((row) =>
+      row
+        .map((cell) => {
+          const escaped = cell.replace(/"/g, '""');
+          return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+        })
+        .join(',')
+    )
+    .join('\n');
+
+  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(url);
+}
+

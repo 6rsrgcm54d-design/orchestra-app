@@ -10,6 +10,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Music2,
+  Award,
 } from 'lucide-react';
 import type { NavModule } from '../../types';
 
@@ -28,6 +29,7 @@ const navItems: { id: NavModule; label: string; icon: React.ReactNode }[] = [
   { id: 'repertoire', label: 'Repertório', icon: <Music size={20} /> },
   { id: 'concerts', label: 'Concertos', icon: <Calendar size={20} /> },
   { id: 'evaluations', label: 'Avaliações', icon: <Star size={20} /> },
+  { id: 'provas', label: 'Provas', icon: <Award size={20} /> },
 ];
 
 export default function Sidebar({ activeModule, onNavigate, collapsed, onToggleCollapse, onSignOut }: SidebarProps) {

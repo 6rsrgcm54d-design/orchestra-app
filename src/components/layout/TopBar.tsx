@@ -10,6 +10,7 @@ const MODULE_LABELS: Record<NavModule, string> = {
   repertoire: 'Repertório',
   concerts: 'Agenda de Concertos',
   evaluations: 'Avaliações',
+  provas: 'Provas de Orquestra',
 };
 
 interface TopBarProps {

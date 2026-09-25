@@ -151,7 +151,8 @@ function initDefaultSheet(ss, name) {
     'Avaliações': ['Nome Aluno', 'Naipe', 'Critério', 'Pontuação', 'Data', 'Observações'],
     'Critérios': ['Nome do Critério', 'Descrição', 'Peso'],
     'PlanosPalco': ['PlanosPalco_JSON'],
-    'Concertos': ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas']
+    'Concertos': ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'],
+    'Provas': ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Classificação final']
   };
   if (headers[name]) {
     sheet.appendRow(headers[name]);
@@ -324,6 +325,12 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
     ['3', 'Ana Rodrigues', '8º Grau', 'Violino I', 'Artave', '5', 'A Ana atingiu o nível excelente! Deve continuar.'],
     ['1', 'Tiago Silva', '2º Grau', 'Violino I', 'Juvenil', '3', 'O Tiago atingiu um nível satisfatório, devendo reforçar o estudo regular das peças.'],
     ['2', 'Lucas Pereira', '2º Grau', 'Violino II', 'Juvenil', '4', 'O Lucas demonstrou um desempenho muito bom e consistente no naipe.'],
+  ],
+  Provas: [
+    ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Classificação final'],
+    ['1', 'Beatriz Esteves Ribeiro', 'Violino I', 'Académica', '85%', '80%', '85%', '80%', '75%', '85%', '80%'],
+    ['2', 'Beatriz Gonçalves Dias', 'Violino I', 'Académica', '80%', '75%', '80%', '70%', '70%', '75%', '75%'],
+    ['3', 'Diogo Pego Machado', 'Violino I', 'Académica', '90%', '95%', '90%', '85%', '90%', '90%', '90%'],
   ],
   PlanosPalco: [
     ['PlanosPalco_JSON'],

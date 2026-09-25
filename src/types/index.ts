@@ -308,8 +308,50 @@ export interface SheetsMeta {
   sheets: SheetItem[];
 }
 
+// ─── Provas ──────────────────────────────────────────────────────────────────
+
+export interface ProvaRecord {
+  id: string;
+  rowIndex: number;
+  ordem: string;
+  nomeAluno: string;
+  naipe: string;
+  orquestra: string;
+  afinacao?: number | null; // 0 a 100
+  precisaoRitmica?: number | null; // 0 a 100
+  tempo?: number | null; // 0 a 100
+  articulacao?: number | null; // 0 a 100
+  dinamicas?: number | null; // 0 a 100
+  fraseado?: number | null; // 0 a 100
+  classificacaoFinal?: number | null; // 0 a 100 (arredondado em incrementos de 5%)
+}
+
+export function calcClassificacaoFinal(params: {
+  afinacao?: number | null;
+  precisaoRitmica?: number | null;
+  tempo?: number | null;
+  articulacao?: number | null;
+  dinamicas?: number | null;
+  fraseado?: number | null;
+}): number | null {
+  const values = [
+    params.afinacao,
+    params.precisaoRitmica,
+    params.tempo,
+    params.articulacao,
+    params.dinamicas,
+    params.fraseado,
+  ].filter((v): v is number => typeof v === 'number' && !isNaN(v) && v >= 0);
+
+  if (values.length === 0) return null;
+  const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
+  // Arredonda em incrementos de 5%
+  return Math.min(100, Math.max(0, Math.round(avg / 5) * 5));
+}
+
 // ─── UI ──────────────────────────────────────────────────────────────────────
 
 export type Theme = 'dark' | 'light';
 
-export type NavModule = 'dashboard' | 'students' | 'stagePlan' | 'repertoire' | 'concerts' | 'evaluations';
+export type NavModule = 'dashboard' | 'students' | 'stagePlan' | 'repertoire' | 'concerts' | 'evaluations' | 'provas';
+

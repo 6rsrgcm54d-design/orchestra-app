@@ -11,12 +11,14 @@ import StudentForm from './components/students/StudentForm';
 import RepertoireList from './components/repertoire/RepertoireList';
 import PieceForm from './components/repertoire/PieceForm';
 import EvaluationsView from './components/evaluations/EvaluationsView';
+import ProvasView from './components/provas/ProvasView';
 import StagePlanView from './components/stagePlan/StagePlanView';
 import ConcertsView from './components/concerts/ConcertsView';
 import ConnectSheetsModal from './components/layout/ConnectSheetsModal';
 import { useStudents } from './hooks/useStudents';
 import { useRepertoire } from './hooks/useRepertoire';
 import { useEvaluations } from './hooks/useEvaluations';
+import { useProvas } from './hooks/useProvas';
 import { useStagePlans } from './hooks/useStagePlans';
 import { useConcerts } from './hooks/useConcerts';
 import type { Student, Piece, NavModule } from './types';
@@ -273,6 +275,15 @@ function MainApp() {
     ensureHeader: ensureConcertsHeader,
   } = useConcerts();
 
+  const {
+    provas,
+    isLoading: provasLoading,
+    load: loadProvas,
+    saveSingleProva,
+    saveAllProvas,
+    ensureHeaders: ensureProvasHeaders,
+  } = useProvas();
+
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
     return safeStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
   });
@@ -294,8 +305,9 @@ function MainApp() {
         ensureEvalsHeaders(),
         ensurePlansHeader(),
         ensureConcertsHeader(),
+        ensureProvasHeaders(),
       ]);
-      await Promise.all([loadStudents(), loadPieces(), loadEvals(), loadPlans(), loadConcerts()]);
+      await Promise.all([loadStudents(), loadPieces(), loadEvals(), loadPlans(), loadConcerts(), loadProvas()]);
       recordSyncSuccess();
     } finally {
       setIsSyncing(false);
@@ -307,18 +319,20 @@ function MainApp() {
     ensureEvalsHeaders,
     ensurePlansHeader,
     ensureConcertsHeader,
+    ensureProvasHeaders,
     loadStudents,
     loadPieces,
     loadEvals,
     loadPlans,
     loadConcerts,
+    loadProvas,
     recordSyncSuccess,
   ]);
 
   // Abre sempre com os dados da última vez; só faz sincronização de rede se a cache estiver vazia
   useEffect(() => {
     if (!config) return;
-    const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0 || concerts.length > 0;
+    const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0 || concerts.length > 0 || provas.length > 0;
     if (!hasCachedData) {
       syncAll();
     }
@@ -338,6 +352,9 @@ function MainApp() {
         break;
       case 'evaluations':
         await loadEvals();
+        break;
+      case 'provas':
+        await loadProvas();
         break;
       case 'stagePlan':
         await loadPlans();
@@ -451,6 +468,17 @@ function MainApp() {
             onSaveLevelTemplates={saveLevelTemplates}
             onAdd={addEvaluation}
             onDelete={removeEvaluation}
+          />
+        );
+      case 'provas':
+        return (
+          <ProvasView
+            provas={provas}
+            students={students}
+            orchestras={musicalOrchestras}
+            isLoading={provasLoading}
+            onSaveSingleProva={saveSingleProva}
+            onSaveAll={(pList, allS) => saveAllProvas(pList, allS || students)}
           />
         );
       case 'stagePlan':
