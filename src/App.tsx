@@ -402,7 +402,7 @@ function MainApp() {
         return (
           <StudentList
             students={students}
-            orchestras={orchestras}
+            orchestras={musicalOrchestras}
             isLoading={studentsLoading}
             onAdd={handleAddStudent}
             onEdit={handleEditStudent}
@@ -489,7 +489,7 @@ function MainApp() {
       {showStudentForm && (
         <StudentForm
           student={editingStudent}
-          orchestras={orchestras}
+          orchestras={musicalOrchestras}
           onSave={handleSaveStudent}
           onClose={() => setShowStudentForm(false)}
         />

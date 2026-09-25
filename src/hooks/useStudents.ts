@@ -17,6 +17,8 @@ const NON_STUDENT_TABS = new Set([
   'planos palco',
   'planos',
   'concertos',
+  'alunos',
+  'aluno',
 ]);
 
 interface ColumnMapping {
@@ -245,7 +247,7 @@ function getInitialStudents(): Student[] {
   }
   // Se ainda não houver cache guardado, inicializa logo com os dados das orquestras/abas
   const initialList: Student[] = [];
-  ['Académica', 'Juvenil', 'Artave', 'Alunos', 'Chefes de Naipe'].forEach((tab) => {
+  ['Académica', 'Juvenil', 'Artave'].forEach((tab) => {
     const raw = INITIAL_LOCAL_DATA[tab];
     if (raw && raw.length > 1) {
       const header = raw[0];
@@ -267,9 +269,9 @@ export function useStudents() {
   const [students, setStudents] = useState<Student[]>(getInitialStudents);
   const [isLoading, setIsLoading] = useState(false);
 
-  // Detect which tabs contain students (e.g. "Académica", "Juvenil", "Artave", "Alunos", "Chefes de Naipe")
+  // Detect which tabs contain students (orquestras reais)
   const studentTabs = useMemo(() => {
-    const DEFAULT_TABS = ['Académica', 'Juvenil', 'Artave', 'Alunos', 'Chefes de Naipe'];
+    const DEFAULT_TABS = ['Académica', 'Juvenil', 'Artave'];
     if (!sheetsMeta?.sheets || sheetsMeta.sheets.length === 0) {
       return DEFAULT_TABS;
     }

@@ -21,6 +21,12 @@ const EMPTY: Omit<Student, 'id' | 'rowIndex'> = {
 };
 
 export default function StudentForm({ student, orchestras, onSave, onClose }: StudentFormProps) {
+  const validOrchestras = React.useMemo(() => {
+    const list = orchestras && orchestras.length > 0 ? orchestras : ['Académica', 'Juvenil', 'Artave'];
+    const filtered = list.filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()));
+    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+  }, [orchestras]);
+
   const [form, setForm] = useState<Omit<Student, 'id' | 'rowIndex'>>(
     student
       ? {
@@ -30,11 +36,11 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
           grau: student.grau || '',
           naipe: student.naipe || '',
           ativo: student.ativo,
-          orquestra: student.orquestra || (orchestras && orchestras[0]) || '',
+          orquestra: student.orquestra || validOrchestras[0] || 'Académica',
         }
       : {
           ...EMPTY,
-          orquestra: (orchestras && orchestras[0]) || '',
+          orquestra: validOrchestras[0] || 'Académica',
         }
   );
 
@@ -53,7 +59,7 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
     onClose();
   };
 
-  const hasMultipleOrchestras = orchestras && orchestras.length > 1;
+  const hasMultipleOrchestras = validOrchestras.length > 1;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -75,15 +81,15 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
           {hasMultipleOrchestras && (
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Orquestra / Aba *
+                Orquestra *
               </label>
               <select
                 required
-                value={form.orquestra || orchestras[0]}
+                value={form.orquestra || validOrchestras[0]}
                 onChange={(e) => setForm({ ...form, orquestra: e.target.value })}
                 className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
               >
-                {orchestras.map((o) => (
+                {validOrchestras.map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>

@@ -62,7 +62,13 @@ export default function StudentList({
     return matchSearch && matchOrquestra && matchNaipe && matchChefe;
   });
 
-  const hasMultipleOrchestras = orchestras && orchestras.length > 1;
+  const validOrchestras = React.useMemo(() => {
+    const list = orchestras && orchestras.length > 0 ? orchestras : ['Académica', 'Juvenil', 'Artave'];
+    const filtered = list.filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()));
+    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+  }, [orchestras]);
+
+  const hasMultipleOrchestras = validOrchestras.length > 1;
 
   // Lista única de naipes existentes nos alunos para o filtro
   const existingNaipes = Array.from(
@@ -81,7 +87,7 @@ export default function StudentList({
 
   return (
     <div className="p-6 space-y-4">
-      {/* Abas / Orquestras (Navegação Rápida entre Abas do Google Sheets) */}
+      {/* Abas / Orquestras (Navegação Rápida entre Orquestras) */}
       {hasMultipleOrchestras && (
         <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-none border-b border-gray-200 dark:border-gray-700">
           <button
@@ -93,7 +99,7 @@ export default function StudentList({
                 : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800'
             }`}
           >
-            <span>Todas as Abas</span>
+            <span>Todas as Orquestras</span>
             <span
               className={`text-[10px] px-1.5 py-0.2 rounded-full ${
                 !filterOrquestra
@@ -101,25 +107,11 @@ export default function StudentList({
                   : 'bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400'
               }`}
             >
-              {students.filter((s) => {
-                const isSpecial =
-                  s.orquestra &&
-                  (/^alunos?$/i.test(s.orquestra.trim()) || /chefe/i.test(s.orquestra.trim()));
-                const n = formatNaipe(s.naipe);
-                return !isSpecial || (n && n !== '—' && n !== '-');
-              }).length}
+              {students.length}
             </span>
           </button>
-          {orchestras.map((o) => {
-            const isSpecial = /^alunos?$/i.test(o.trim()) || /chefe/i.test(o.trim());
-            const count = students.filter((s) => {
-              if (s.orquestra !== o) return false;
-              if (isSpecial) {
-                const n = formatNaipe(s.naipe);
-                return !!n && n !== '—' && n !== '-';
-              }
-              return true;
-            }).length;
+          {validOrchestras.map((o) => {
+            const count = students.filter((s) => s.orquestra === o).length;
             const isSelected = filterOrquestra === o;
             return (
               <button
@@ -164,15 +156,15 @@ export default function StudentList({
         <div className="flex items-center gap-2 flex-wrap">
           <Filter size={15} className="text-gray-400" />
 
-          {/* Filtro de Orquestras / Abas */}
+          {/* Filtro de Orquestras */}
           {hasMultipleOrchestras && (
             <select
               value={filterOrquestra}
               onChange={(e) => setFilterOrquestra(e.target.value)}
               className="text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
             >
-              <option value="">Todas as Abas / Orquestras</option>
-              {orchestras.map((o) => (
+              <option value="">Todas as Orquestras</option>
+              {validOrchestras.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>
@@ -318,7 +310,7 @@ export default function StudentList({
             <p className="text-xs text-gray-400">{filtered.length} de {students.length} aluno(s)</p>
             {hasMultipleOrchestras && (
               <p className="text-xs text-gray-400">
-                {orchestras.map((o) => `${o}: ${students.filter(s => s.orquestra === o).length}`).join(' · ')}
+                {validOrchestras.map((o) => `${o}: ${students.filter(s => s.orquestra === o).length}`).join(' · ')}
               </p>
             )}
           </div>
