@@ -1,6 +1,6 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
-import { readRange, appendRows, deleteRow, updateRange, ensureSheetExists, isAppsScript, isLocalId, INITIAL_LOCAL_DATA } from '../api/sheetsApi';
+import { readRange, appendRows, updateRange, ensureSheetExists, isAppsScript, isLocalId, INITIAL_LOCAL_DATA } from '../api/sheetsApi';
 import { useSheets } from '../context/SheetsContext';
 import type { Evaluation, Criteria, Student, SheetsMeta, SheetItem } from '../types';
 import { safeStorage } from '../utils/storage';
@@ -152,13 +152,16 @@ function getInitialEvaluations(): Evaluation[] {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch {}
   }
   const raw = INITIAL_LOCAL_DATA['Avaliações'] || [];
   if (raw.length > 1) {
     const mapping = parseHeader(raw[0]);
-    const list = raw.slice(1).map((row, i) => rowToEvaluation(row, i + 2, mapping));
+    const list = raw
+      .slice(1)
+      .map((row, i) => rowToEvaluation(row, i + 2, mapping))
+      .filter((ev) => ev.pontuacao > 0 || (ev.observacoes && ev.observacoes.trim().length > 0));
     safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(list));
     return list;
   }
@@ -285,8 +288,8 @@ export function useEvaluations() {
         const effectiveMapping = parseHeader(headerRow);
         const loaded = rows
           .slice(1)
-          .filter((r) => r.some((cell) => (cell || '').trim().length > 0))
-          .map((row, i) => rowToEvaluation(row, i + 2, effectiveMapping));
+          .map((row, i) => rowToEvaluation(row, i + 2, effectiveMapping))
+          .filter((ev) => ev.pontuacao > 0 || (ev.observacoes && ev.observacoes.trim().length > 0));
 
         setEvaluations(loaded);
         safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(loaded));
@@ -329,21 +332,36 @@ export function useEvaluations() {
       rowIndex?: number
     ) => {
       const tabName = getEvalTabName(sheetsMeta);
+      const isClearing = level <= 0 && (!observacoes || observacoes.trim().length === 0);
 
       // 1. Atualiza estado local imediatamente (UI super rápida)
-      const updatedEval: Evaluation = {
-        id: `eval-${student.nome.toLowerCase().replace(/\s+/g, '-')}`,
-        rowIndex: rowIndex || -1,
-        ordem: student.numero || '',
-        nomeAluno: student.nome,
-        grau: student.grau || '',
-        naipe: student.naipe || '',
-        orquestra: student.orquestra || '',
-        pontuacao: level,
-        data: new Date().toISOString().split('T')[0],
-        observacoes,
-      };
-      updateEvaluation(updatedEval);
+      if (isClearing) {
+        setEvaluations((prev) => {
+          const next = prev.filter(
+            (e) =>
+              !(
+                e.nomeAluno.trim().toLowerCase() === student.nome.trim().toLowerCase() &&
+                (!e.orquestra || !student.orquestra || e.orquestra.trim().toLowerCase() === student.orquestra.trim().toLowerCase())
+              )
+          );
+          safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(next));
+          return next;
+        });
+      } else {
+        const updatedEval: Evaluation = {
+          id: `eval-${student.nome.toLowerCase().replace(/\s+/g, '-')}`,
+          rowIndex: rowIndex || -1,
+          ordem: student.numero || '',
+          nomeAluno: student.nome,
+          grau: student.grau || '',
+          naipe: student.naipe || '',
+          orquestra: student.orquestra || '',
+          pontuacao: level,
+          data: new Date().toISOString().split('T')[0],
+          observacoes,
+        };
+        updateEvaluation(updatedEval);
+      }
 
       if (!config) return;
 
@@ -381,19 +399,28 @@ export function useEvaluations() {
           }
         }
 
-        const rowValues = [
-          student.numero || (targetRowIndex > 1 ? String(targetRowIndex - 1) : ''),
-          student.nome,
-          student.grau || '',
-          student.naipe || '',
-          student.orquestra || '',
-          level > 0 ? String(level) : '',
-          observacoes || '',
-        ];
-
         if (targetRowIndex > 1) {
+          const rowValues = [
+            student.numero || String(targetRowIndex - 1),
+            student.nome,
+            student.grau || '',
+            student.naipe || '',
+            student.orquestra || '',
+            level > 0 ? String(level) : '',
+            observacoes || '',
+          ];
           await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${targetRowIndex}:G${targetRowIndex}`), [rowValues]);
-        } else {
+        } else if (!isClearing) {
+          // Só adiciona linha se NÃO for para limpar
+          const rowValues = [
+            student.numero || '',
+            student.nome,
+            student.grau || '',
+            student.naipe || '',
+            student.orquestra || '',
+            level > 0 ? String(level) : '',
+            observacoes || '',
+          ];
           await appendRows(config.spreadsheetId, formatSheetRange(tabName, 'A:G'), [rowValues]);
         }
       } catch (err) {
@@ -407,8 +434,11 @@ export function useEvaluations() {
   // Guarda todas as avaliações no Google Sheets (sincronizando todos os alunos)
   const saveAllEvaluations = useCallback(
     async (evalsToSave: Evaluation[], allStudents?: Student[]) => {
-      setEvaluations(evalsToSave);
-      safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(evalsToSave));
+      const validEvals = evalsToSave.filter(
+        (ev) => (ev.pontuacao && ev.pontuacao > 0) || (ev.observacoes && ev.observacoes.trim().length > 0)
+      );
+      setEvaluations(validEvals);
+      safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(validEvals));
 
       if (!config) {
         toast.success('Avaliações guardadas localmente!');
@@ -421,7 +451,7 @@ export function useEvaluations() {
 
         // Mapa de avaliações existentes por nome de aluno
         const evalMap = new Map<string, Evaluation>();
-        evalsToSave.forEach((ev) => {
+        validEvals.forEach((ev) => {
           const key = `${(ev.nomeAluno || '').trim().toLowerCase()}|${(ev.orquestra || '').trim().toLowerCase()}`;
           evalMap.set(key, ev);
           evalMap.set((ev.nomeAluno || '').trim().toLowerCase(), ev);
@@ -445,7 +475,7 @@ export function useEvaluations() {
             ]);
           });
         } else {
-          evalsToSave.forEach((ev, idx) => {
+          validEvals.forEach((ev, idx) => {
             rows.push([
               ev.ordem || String(idx + 1),
               ev.nomeAluno,
@@ -459,7 +489,7 @@ export function useEvaluations() {
         }
 
         await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A1:G${rows.length}`), rows);
-        toast.success(`${rows.length - 1} avaliações guardadas no Google Sheets!`, { id: toastId });
+        toast.success(`${rows.length - 1} registos sincronizados no Google Sheets!`, { id: toastId });
         await load();
       } catch (err) {
         toast.error(`Erro ao guardar: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
@@ -483,7 +513,12 @@ export function useEvaluations() {
 
   const removeEvaluation = useCallback(
     async (ev: Evaluation) => {
-      const updatedList = evaluations.filter((e) => e.id !== ev.id);
+      const matchEval = (e: Evaluation) =>
+        e.id === ev.id ||
+        (e.nomeAluno.trim().toLowerCase() === ev.nomeAluno.trim().toLowerCase() &&
+          (!e.orquestra || !ev.orquestra || e.orquestra.trim().toLowerCase() === ev.orquestra.trim().toLowerCase()));
+
+      const updatedList = evaluations.filter((e) => !matchEval(e));
       setEvaluations(updatedList);
       safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(updatedList));
 
@@ -493,19 +528,39 @@ export function useEvaluations() {
       }
 
       const tabName = getEvalTabName(sheetsMeta);
-      const sheetId = getSheetId(tabName);
-      if (sheetId !== undefined && ev.rowIndex > 0) {
-        try {
-          await deleteRow(config.spreadsheetId, sheetId, ev.rowIndex - 1, tabName);
-          toast.success('Avaliação removida do Google Sheets!');
-        } catch {
-          await saveAllEvaluations(updatedList);
+      try {
+        if (ev.rowIndex > 1) {
+          // Em vez de deleteRow (que apaga o aluno e desloca todas as linhas abaixo),
+          // limpamos apenas as colunas Nível (F) e Observações (G)
+          await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${ev.rowIndex}:G${ev.rowIndex}`), [['', '']]);
+          toast.success('Avaliação limpa no Google Sheets!');
+        } else {
+          // Procura a linha pelo nome
+          const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:G'));
+          let targetRowIndex = -1;
+          const mapping = rows.length > 0 ? parseHeader(rows[0]) : parseHeader(USER_EVAL_HEADER);
+          if (rows.length > 1) {
+            const targetName = ev.nomeAluno.trim().toLowerCase();
+            const targetOrch = (ev.orquestra || '').trim().toLowerCase();
+            for (let i = 1; i < rows.length; i++) {
+              const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
+              const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
+              if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
+                targetRowIndex = i + 1;
+                break;
+              }
+            }
+          }
+          if (targetRowIndex > 1) {
+            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${targetRowIndex}:G${targetRowIndex}`), [['', '']]);
+            toast.success('Avaliação limpa no Google Sheets!');
+          }
         }
-      } else {
-        await saveAllEvaluations(updatedList);
+      } catch (err) {
+        console.error('Erro ao limpar avaliação no Sheets:', err);
       }
     },
-    [config, evaluations, getSheetId, saveAllEvaluations, sheetsMeta]
+    [config, evaluations, sheetsMeta]
   );
 
   const ensureHeaders = useCallback(async () => {

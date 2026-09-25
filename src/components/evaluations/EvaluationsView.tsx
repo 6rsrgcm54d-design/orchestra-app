@@ -98,12 +98,14 @@ export default function EvaluationsView({
   useEffect(() => {
     const map: Record<string, Evaluation> = {};
     evaluations.forEach((ev) => {
-      const key = studentKey(ev.nomeAluno, ev.orquestra);
-      map[key] = ev;
-      // Indexa também só pelo nome caso a orquestra não venha definida na avaliação
-      const keyNameOnly = studentKey(ev.nomeAluno, '');
-      if (!map[keyNameOnly]) {
-        map[keyNameOnly] = ev;
+      if ((ev.pontuacao && ev.pontuacao > 0) || (ev.observacoes && ev.observacoes.trim().length > 0)) {
+        const key = studentKey(ev.nomeAluno, ev.orquestra);
+        map[key] = ev;
+        // Indexa também só pelo nome caso a orquestra não venha definida na avaliação
+        const keyNameOnly = studentKey(ev.nomeAluno, '');
+        if (!map[keyNameOnly]) {
+          map[keyNameOnly] = ev;
+        }
       }
     });
     setEvalMap(map);
@@ -271,22 +273,35 @@ export default function EvaluationsView({
   // Limpar a avaliação de um aluno
   const handleClearEvaluation = (student: Student) => {
     const key = studentKey(student.nome, student.orquestra);
-    const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
+    const keyNameOnly = studentKey(student.nome, '');
+    const existing = evalMap[key] || evalMap[keyNameOnly];
 
     if (!existing || (!existing.pontuacao && !existing.observacoes)) return;
 
     if (window.confirm(`Deseja limpar a avaliação de ${student.nome}?`)) {
-      if (existing.rowIndex > 0) {
-        onDelete(existing);
+      // 1. Cancela qualquer temporizador pendente de auto-save
+      if (saveTimeoutsRef.current[key]) {
+        clearTimeout(saveTimeoutsRef.current[key]);
+        delete saveTimeoutsRef.current[key];
       }
+      if (saveTimeoutsRef.current[keyNameOnly]) {
+        clearTimeout(saveTimeoutsRef.current[keyNameOnly]);
+        delete saveTimeoutsRef.current[keyNameOnly];
+      }
+
+      // 2. Remove do mapa local da pauta imediatamente
       setEvalMap((prev) => {
         const next = { ...prev };
         delete next[key];
-        delete next[studentKey(student.nome, '')];
+        delete next[keyNameOnly];
         return next;
       });
+
+      // 3. Limpa no Google Sheets e no estado global
       if (onSaveSingleEvaluation) {
-        onSaveSingleEvaluation(student, 0, '', existing?.rowIndex);
+        onSaveSingleEvaluation(student, 0, '', existing.rowIndex);
+      } else if (onDelete) {
+        onDelete(existing);
       }
       toast.success(`Avaliação de ${student.nome} limpa.`);
     }
@@ -297,7 +312,9 @@ export default function EvaluationsView({
     if (!onSaveAll) return;
     setIsSaving(true);
     try {
-      const evalsList = Object.values(evalMap);
+      const evalsList = Object.values(evalMap).filter(
+        (ev) => (ev.pontuacao && ev.pontuacao > 0) || (ev.observacoes && ev.observacoes.trim().length > 0)
+      );
       await onSaveAll(evalsList, students);
       setHasUnsavedChanges(false);
     } finally {
