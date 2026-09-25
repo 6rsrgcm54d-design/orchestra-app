@@ -605,8 +605,19 @@ export async function updateRange(
 ): Promise<void> {
   if (isAppsScript(spreadsheetId)) {
     const tabName = parseTabFromRange(range);
-    const rowMatch = range.match(/([0-9]+)/);
-    const rowIndex = rowMatch ? parseInt(rowMatch[1], 10) : undefined;
+    
+    // rowIndex só deve ser definido quando for explicitamente a atualização de UMA única linha
+    let rowIndex: number | undefined;
+    if (values.length === 1) {
+      const singleRowMatch = range.match(/[A-Z]+([0-9]+):[A-Z]+([0-9]+)/);
+      if (singleRowMatch && singleRowMatch[1] === singleRowMatch[2]) {
+        rowIndex = parseInt(singleRowMatch[1], 10);
+      } else if (!range.includes(':')) {
+        const match = range.match(/([0-9]+)/);
+        if (match) rowIndex = parseInt(match[1], 10);
+      }
+    }
+
     await callAppsScriptPost(spreadsheetId, {
       action: 'update',
       sheet: tabName,

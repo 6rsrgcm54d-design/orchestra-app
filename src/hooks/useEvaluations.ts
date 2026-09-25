@@ -366,38 +366,6 @@ export function useEvaluations() {
       if (!config) return;
 
       try {
-        if (isClearing) {
-          // Quando é para limpar a avaliação, NUNCA tocamos nas colunas do aluno (A a E)
-          // Limpamos EXCLUSIVAMENTE as colunas F (Nível) e G (Observações)
-          if (rowIndex && rowIndex > 1) {
-            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${rowIndex}:G${rowIndex}`), [['', '']]);
-            return;
-          }
-
-          // Se o rowIndex não for conhecido, procura na folha a linha pelo nome do aluno
-          const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:G'));
-          let targetRowIndex = -1;
-          const mapping = rows.length > 0 ? parseHeader(rows[0]) : parseHeader(USER_EVAL_HEADER);
-
-          if (rows.length > 1) {
-            const targetName = student.nome.trim().toLowerCase();
-            const targetOrch = (student.orquestra || '').trim().toLowerCase();
-            for (let i = 1; i < rows.length; i++) {
-              const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
-              const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
-              if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
-                targetRowIndex = i + 1; // 1-based
-                break;
-              }
-            }
-          }
-
-          if (targetRowIndex > 1) {
-            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${targetRowIndex}:G${targetRowIndex}`), [['', '']]);
-          }
-          return;
-        }
-
         // Se já tivermos o rowIndex da linha correspondente (> 1), escreve diretamente nessa linha
         if (rowIndex && rowIndex > 1) {
           const rowValues = [
@@ -431,28 +399,20 @@ export function useEvaluations() {
           }
         }
 
+        const rowValues = [
+          student.numero || (targetRowIndex > 1 ? String(targetRowIndex - 1) : ''),
+          student.nome,
+          student.grau || '',
+          student.naipe || '',
+          student.orquestra || '',
+          level > 0 ? String(level) : '',
+          observacoes || '',
+        ];
+
         if (targetRowIndex > 1) {
-          const rowValues = [
-            student.numero || String(targetRowIndex - 1),
-            student.nome,
-            student.grau || '',
-            student.naipe || '',
-            student.orquestra || '',
-            level > 0 ? String(level) : '',
-            observacoes || '',
-          ];
           await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${targetRowIndex}:G${targetRowIndex}`), [rowValues]);
-        } else {
+        } else if (!isClearing) {
           // Só adiciona linha se NÃO for para limpar
-          const rowValues = [
-            student.numero || '',
-            student.nome,
-            student.grau || '',
-            student.naipe || '',
-            student.orquestra || '',
-            level > 0 ? String(level) : '',
-            observacoes || '',
-          ];
           await appendRows(config.spreadsheetId, formatSheetRange(tabName, 'A:G'), [rowValues]);
         }
       } catch (err) {
@@ -568,11 +528,19 @@ export function useEvaluations() {
 
       const tabName = getEvalTabName(sheetsMeta);
       try {
+        const rowValues = [
+          ev.ordem || (ev.rowIndex > 1 ? String(ev.rowIndex - 1) : ''),
+          ev.nomeAluno,
+          ev.grau || '',
+          ev.naipe || '',
+          ev.orquestra || '',
+          '', // Nível limpo
+          '', // Observações limpa
+        ];
+
         if (ev.rowIndex > 1) {
-          // Em vez de deleteRow (que apaga o aluno e desloca todas as linhas abaixo),
-          // limpamos apenas as colunas Nível (F) e Observações (G)
-          await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${ev.rowIndex}:G${ev.rowIndex}`), [['', '']]);
-          toast.success('Avaliação limpa no Google Sheets!');
+          await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${ev.rowIndex}:G${ev.rowIndex}`), [rowValues]);
+          toast.success('Nível e observação limpos no Google Sheets!');
         } else {
           // Procura a linha pelo nome
           const rows = await readRange(config.spreadsheetId, formatSheetRange(tabName, 'A:G'));
@@ -591,8 +559,17 @@ export function useEvaluations() {
             }
           }
           if (targetRowIndex > 1) {
-            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `F${targetRowIndex}:G${targetRowIndex}`), [['', '']]);
-            toast.success('Avaliação limpa no Google Sheets!');
+            const foundRowValues = [
+              ev.ordem || String(targetRowIndex - 1),
+              ev.nomeAluno,
+              ev.grau || '',
+              ev.naipe || '',
+              ev.orquestra || '',
+              '', // Nível limpo
+              '', // Observações limpa
+            ];
+            await updateRange(config.spreadsheetId, formatSheetRange(tabName, `A${targetRowIndex}:G${targetRowIndex}`), [foundRowValues]);
+            toast.success('Nível e observação limpos no Google Sheets!');
           }
         }
       } catch (err) {
