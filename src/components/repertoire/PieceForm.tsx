@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Piece } from '../../types';
-import { ESTADOS_REPERTORIO } from '../../types';
 
 interface PieceFormProps {
   piece?: Piece;
@@ -95,34 +94,6 @@ export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil'
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Dificuldade</label>
-              <select
-                value={form.dificuldade}
-                onChange={(e) => setForm({ ...form, dificuldade: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-              >
-                <option value="">--</option>
-                <option value="Fácil">Fácil</option>
-                <option value="Médio">Médio</option>
-                <option value="Difícil">Difícil</option>
-                <option value="Muito Difícil">Muito Difícil</option>
-              </select>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duração</label>
-              <input
-                type="text"
-                value={form.duracao}
-                onChange={(e) => setForm({ ...form, duracao: e.target.value })}
-                className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-                placeholder="ex: 12min"
-              />
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Orquestra *</label>
               <select
                 value={form.orquestra || 'Académica'}
@@ -136,18 +107,14 @@ export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil'
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Estado</label>
-              <select
-                value={form.estado}
-                onChange={(e) => setForm({ ...form, estado: e.target.value as typeof form.estado })}
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Duração</label>
+              <input
+                type="text"
+                value={form.duracao}
+                onChange={(e) => setForm({ ...form, duracao: e.target.value })}
                 className="w-full px-3 py-2 text-sm bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-              >
-                {ESTADOS_REPERTORIO.map((e) => (
-                  <option key={e} value={e}>
-                    {e === 'em ensaio' ? 'Em Ensaio' : e === 'pronto' ? 'Pronto' : 'Arquivado'}
-                  </option>
-                ))}
-              </select>
+                placeholder="ex: 12min"
+              />
             </div>
           </div>
 

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
-import type { Piece, EstadoRepertorio } from '../../types';
-import { ESTADOS_REPERTORIO } from '../../types';
+import type { Piece } from '../../types';
 
 interface RepertoireListProps {
   pieces: Piece[];
@@ -12,16 +11,9 @@ interface RepertoireListProps {
   onDelete: (piece: Piece) => void;
 }
 
-const ESTADO_CONFIG: Record<EstadoRepertorio, { label: string; className: string }> = {
-  'em ensaio': { label: 'Em Ensaio', className: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' },
-  pronto: { label: 'Pronto', className: 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' },
-  arquivado: { label: 'Arquivado', className: 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400' },
-};
-
 export default function RepertoireList({ pieces, orchestras = ['Académica', 'Juvenil', 'Artave'], isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
   const [search, setSearch] = useState('');
   const [filterOrquestra, setFilterOrquestra] = useState('');
-  const [filterEstado, setFilterEstado] = useState('');
 
   // Garante que apenas orquestras musicais reais aparecem (exclui abas administrativas como "Alunos", "Chefes de Naipe")
   const validOrchestras = React.useMemo(() => {
@@ -37,8 +29,7 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
       p.compositor.toLowerCase().includes(search.toLowerCase()) ||
       (p.orquestra && p.orquestra.toLowerCase().includes(search.toLowerCase()));
     const matchOrquestra = !filterOrquestra || p.orquestra === filterOrquestra || p.orquestra === 'Todas';
-    const matchEstado = !filterEstado || p.estado === filterEstado;
-    return matchSearch && matchOrquestra && matchEstado;
+    return matchSearch && matchOrquestra;
   });
 
   const SkeletonCard = () => (
@@ -76,14 +67,6 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
             ))}
           </select>
 
-          <select
-            value={filterEstado}
-            onChange={(e) => setFilterEstado(e.target.value)}
-            className="text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-3 py-2 text-gray-700 dark:text-gray-300 focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
-          >
-            <option value="">Todos os estados</option>
-            {ESTADOS_REPERTORIO.map((e) => <option key={e} value={e}>{ESTADO_CONFIG[e].label}</option>)}
-          </select>
 
           <button
             onClick={onAdd}
@@ -107,7 +90,6 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((piece) => {
-            const estado = ESTADO_CONFIG[piece.estado] ?? ESTADO_CONFIG['arquivado'];
             return (
               <div
                 key={piece.id}
@@ -122,12 +104,14 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
                     <button
                       onClick={() => onEdit(piece)}
                       className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded transition-all"
+                      title="Editar peça"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
                       onClick={() => onDelete(piece)}
                       className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
+                      title="Eliminar peça"
                     >
                       <Trash2 size={14} />
                     </button>
@@ -140,16 +124,10 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
                       🎻 {piece.orquestra}
                     </span>
                   )}
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${estado.className}`}>
-                    {estado.label}
-                  </span>
-                  {piece.dificuldade && (
-                    <span className="px-2 py-0.5 bg-orange-50 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 rounded-full text-xs">
-                      {piece.dificuldade}
-                    </span>
-                  )}
                   {piece.duracao && (
-                    <span className="text-xs text-gray-400">⏱ {piece.duracao}</span>
+                    <span className="text-xs text-gray-500 dark:text-gray-400 font-medium bg-gray-100 dark:bg-gray-700/60 px-2 py-0.5 rounded-full flex items-center gap-1">
+                      ⏱ {piece.duracao}
+                    </span>
                   )}
                 </div>
 

@@ -146,9 +146,6 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
     ? orchestras.map((o) => `${o}: ${students.filter((s) => s.orquestra === o).length}`).join(' · ')
     : `${students.length} total`;
 
-  const emEnsaio = pieces.filter((p) => p.estado === 'em ensaio').length;
-  const prontas = pieces.filter((p) => p.estado === 'pronto').length;
-
   const avgScore = calcAverage(evaluations);
 
   const recentEvals = [...evaluations]
@@ -180,7 +177,7 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
           icon={<Music size={20} className="text-purple-600" />}
           label="Repertório"
           value={pieces.length}
-          sub={`${emEnsaio} em ensaio · ${prontas} prontas`}
+          sub={pieces.length === 1 ? '1 peça registada' : `${pieces.length} peças registadas`}
           color="bg-purple-50 dark:bg-purple-900/30"
         />
         <StatCard
@@ -371,28 +368,44 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
             )}
           </div>
 
-          {/* Estado do Repertório */}
+          {/* Repertório por Orquestra */}
           <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-3">
-            <div className="flex items-center gap-2 pb-1 border-b border-gray-100 dark:border-gray-700">
-              <Music size={18} className="text-orchestra-gold" />
-              <h2 className="font-bold text-gray-900 dark:text-white text-sm">Estado do Repertório</h2>
+            <div className="flex items-center justify-between pb-1 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <Music size={18} className="text-orchestra-gold" />
+                <h2 className="font-bold text-gray-900 dark:text-white text-sm">Repertório por Orquestra</h2>
+              </div>
+              {onNavigate && (
+                <button
+                  onClick={() => onNavigate('repertoire')}
+                  className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
+                >
+                  Ver todas <ChevronRight size={13} />
+                </button>
+              )}
             </div>
-            <div className="grid grid-cols-3 gap-2">
-              <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800 text-center">
-                <p className="text-xl font-bold text-blue-700 dark:text-blue-300">{emEnsaio}</p>
-                <p className="text-[11px] text-blue-600 dark:text-blue-400 font-medium">Em Ensaio</p>
+            {pieces.length === 0 ? (
+              <p className="text-xs text-gray-400 py-3 text-center">Nenhuma peça registada.</p>
+            ) : (
+              <div className="grid grid-cols-3 gap-2">
+                {orchestras.map((o) => {
+                  const count = pieces.filter(
+                    (p) =>
+                      (p.orquestra || '').trim().toLowerCase() === o.toLowerCase() ||
+                      p.orquestra === 'Todas'
+                  ).length;
+                  return (
+                    <div
+                      key={o}
+                      className="p-3 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/80 dark:border-amber-800/40 text-center"
+                    >
+                      <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{count}</p>
+                      <p className="text-[11px] text-amber-800 dark:text-amber-400 font-medium truncate">{o}</p>
+                    </div>
+                  );
+                })}
               </div>
-              <div className="p-3 rounded-xl bg-green-50 dark:bg-green-900/20 border border-green-100 dark:border-green-800 text-center">
-                <p className="text-xl font-bold text-green-700 dark:text-green-300">{prontas}</p>
-                <p className="text-[11px] text-green-600 dark:text-green-400 font-medium">Pronto</p>
-              </div>
-              <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-700/30 border border-gray-200 dark:border-gray-700 text-center">
-                <p className="text-xl font-bold text-gray-600 dark:text-gray-300">
-                  {pieces.filter((p) => p.estado === 'arquivado').length}
-                </p>
-                <p className="text-[11px] text-gray-500 dark:text-gray-400 font-medium">Arquivado</p>
-              </div>
-            </div>
+            )}
           </div>
         </div>
       </div>

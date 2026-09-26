@@ -208,9 +208,9 @@ export interface Piece {
   rowIndex: number;
   titulo: string;
   compositor: string;
-  dificuldade: string;
+  dificuldade?: string;
   duracao: string;
-  estado: EstadoRepertorio;
+  estado?: EstadoRepertorio;
   notas: string;
   orquestra?: string;
 }
