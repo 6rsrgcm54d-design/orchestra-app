@@ -2,6 +2,7 @@ import React from 'react';
 import { Sun, Moon, RefreshCw, Unplug, Cloud, HardDrive } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import type { GoogleUser, NavModule } from '../../types';
+import { MAESTRO_AVATAR } from '../../assets/avatar';
 
 const MODULE_LABELS: Record<NavModule, string> = {
   dashboard: 'Dashboard',
@@ -111,9 +112,12 @@ export default function TopBar({
         {/* User avatar */}
         <div className="flex items-center gap-2">
           <img
-            src={user.picture}
+            src={user.picture || MAESTRO_AVATAR}
             alt={user.name}
-            className="w-8 h-8 rounded-full border-2 border-orchestra-gold object-cover"
+            onError={(e) => {
+              (e.currentTarget as HTMLImageElement).src = MAESTRO_AVATAR;
+            }}
+            className="w-8 h-8 rounded-full border-2 border-orchestra-gold object-cover object-center shadow-xs"
           />
           <div className="hidden md:block text-right">
             <p className="text-xs font-medium text-gray-900 dark:text-white leading-tight">

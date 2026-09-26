@@ -22,6 +22,8 @@ interface AuthContextValue {
   refreshToken: () => void;
 }
 
+import { MAESTRO_AVATAR } from '../assets/avatar';
+
 const AuthContext = createContext<AuthContextValue | null>(null);
 
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string;
@@ -30,7 +32,7 @@ const GUEST_KEY = 'orchestra_guest_user';
 const DEFAULT_GUEST_USER: GoogleUser = {
   name: 'Maestro: Luís Machado',
   email: 'luismachado78@gmail.com',
-  picture: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80',
+  picture: MAESTRO_AVATAR,
 };
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -39,9 +41,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (saved) {
       try {
         const u = JSON.parse(saved);
+        let changed = false;
         if (u.name === 'Direção Artística / Maestro' || u.email === 'orquestra@bomfim.pt') {
           u.name = 'Maestro: Luís Machado';
           u.email = 'luismachado78@gmail.com';
+          changed = true;
+        }
+        if (!u.picture || u.picture.includes('photo-1511671782779') || u.picture.includes('unsplash')) {
+          u.picture = MAESTRO_AVATAR;
+          changed = true;
+        }
+        if (changed) {
           safeStorage.setItem(GUEST_KEY, JSON.stringify(u));
         }
         return u;
@@ -125,7 +135,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const guestUser: GoogleUser = {
       name: 'Maestro: Luís Machado',
       email: 'luismachado78@gmail.com',
-      picture: 'https://images.unsplash.com/photo-1511671782779-c97d3d27a1d4?w=120&auto=format&fit=crop&q=80',
+      picture: MAESTRO_AVATAR,
     };
     setUser(guestUser);
     setAccessToken('guest-token');
