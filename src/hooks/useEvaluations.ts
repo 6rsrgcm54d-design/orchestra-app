@@ -14,6 +14,15 @@ const DEFAULT_CB_TAB = 'Avaliações CB';
 const DEFAULT_SEC_TAB = 'Avaliações Secundário';
 const CRIT_TAB = 'Critérios';
 
+export function getCriteriaTabName(sheetsMeta?: SheetsMeta | null): string {
+  if (!sheetsMeta?.sheets?.length) return CRIT_TAB;
+  const found = sheetsMeta.sheets.find((s) => {
+    const norm = s.properties.title.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+    return norm.includes('criter');
+  });
+  return found ? found.properties.title : CRIT_TAB;
+}
+
 export const USER_EVAL_HEADER_CB = [
   'Ordem',
   'Nome Aluno',
@@ -393,35 +402,75 @@ export function useEvaluations() {
   }, [ensureTabsExist]);
 
   // Guarda novos modelos de observação (1 a 5)
+  // Guarda novos modelos de observação (1 a 5) no Google Sheets (aba Critérios)
   const saveLevelTemplates = useCallback(
     async (newTemplates: Record<number, string>) => {
       setLevelTemplates(newTemplates);
       saveStoredLevelTemplates(newTemplates);
-      toast.success('Textos dos níveis guardados com sucesso!');
 
-      if (!config) return;
+      if (!config) {
+        toast.success('Textos dos níveis guardados com sucesso!');
+        return;
+      }
+
+      const critTab = getCriteriaTabName(sheetsMeta);
       try {
-        const critRows = [
-          ['Nível', 'Observação Padrão'],
-          ['5', newTemplates[5] || DEFAULT_LEVEL_TEMPLATES[5]],
-          ['4', newTemplates[4] || DEFAULT_LEVEL_TEMPLATES[4]],
-          ['3', newTemplates[3] || DEFAULT_LEVEL_TEMPLATES[3]],
-          ['2', newTemplates[2] || DEFAULT_LEVEL_TEMPLATES[2]],
-          ['1', newTemplates[1] || DEFAULT_LEVEL_TEMPLATES[1]],
-        ];
-        await updateRange(config.spreadsheetId, formatSheetRange(CRIT_TAB, 'A1:B6'), critRows);
-      } catch {
-        // Fallback silencioso
+        let existingRows: string[][] = [];
+        try {
+          existingRows = await readRange(config.spreadsheetId, formatSheetRange(critTab, 'A:B'));
+        } catch {}
+
+        let critRows: string[][];
+        if (existingRows && existingRows.length > 1) {
+          const updated = [...existingRows];
+          if (!updated[0] || updated[0].length === 0) {
+            updated[0] = ['Nível', 'Observação Padrão'];
+          }
+          const handled = new Set<number>();
+          for (let i = 1; i < updated.length; i++) {
+            const lvl = parseInt(String(updated[i][0] || '').replace(/\D/g, ''), 10);
+            if (lvl >= 1 && lvl <= 5) {
+              updated[i][1] = newTemplates[lvl] || '';
+              handled.add(lvl);
+            }
+          }
+          [5, 4, 3, 2, 1].forEach((lvl) => {
+            if (!handled.has(lvl)) {
+              updated.push([String(lvl), newTemplates[lvl] || '']);
+            }
+          });
+          critRows = updated;
+        } else {
+          critRows = [
+            ['Nível', 'Observação Padrão'],
+            ['5', newTemplates[5] || DEFAULT_LEVEL_TEMPLATES[5]],
+            ['4', newTemplates[4] || DEFAULT_LEVEL_TEMPLATES[4]],
+            ['3', newTemplates[3] || DEFAULT_LEVEL_TEMPLATES[3]],
+            ['2', newTemplates[2] || DEFAULT_LEVEL_TEMPLATES[2]],
+            ['1', newTemplates[1] || DEFAULT_LEVEL_TEMPLATES[1]],
+          ];
+        }
+
+        await updateRange(
+          config.spreadsheetId,
+          formatSheetRange(critTab, `A1:B${critRows.length}`),
+          critRows
+        );
+        toast.success('Textos guardados na aba Critérios do Google Sheets!');
+      } catch (err) {
+        console.error('Erro ao guardar critérios no Sheets:', err);
+        toast.success('Textos guardados localmente.');
       }
     },
-    [config]
+    [config, sheetsMeta]
   );
 
   const loadCriteria = useCallback(async () => {
     if (!config) return;
     try {
-      const rows = await readRange(config.spreadsheetId, formatSheetRange(CRIT_TAB, 'A:C'));
-      if (rows.length > 1) {
+      const critTab = getCriteriaTabName(sheetsMeta);
+      const rows = await readRange(config.spreadsheetId, formatSheetRange(critTab, 'A:C'));
+      if (rows && rows.length > 1) {
         const loadedTpls: Record<number, string> = { ...levelTemplates };
         let hasLevelTpls = false;
         rows.slice(1).forEach((r) => {
@@ -446,7 +495,7 @@ export function useEvaluations() {
     } catch {
       // Ignora erro se aba não existir
     }
-  }, [config, levelTemplates]);
+  }, [config, sheetsMeta, levelTemplates]);
 
   const load = useCallback(async () => {
     if (!config) return;
