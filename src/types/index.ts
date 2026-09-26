@@ -234,7 +234,8 @@ export interface Evaluation {
   naipe: string;
   orquestra?: string;
   criterio?: string;
-  pontuacao: number; // 1-5 (Classificação)
+  pontuacao: number; // 1-5 (Classificação CB) ou 0-20 (Classificação Secundário / Artave / 10º ano)
+  classificacao20?: number | null; // 0 a 20 valores (Artave e Orquestra 10º ano)
   data: string; // ISO date string
   observacoes: string;
 }

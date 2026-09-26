@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import {
   Download,
   Trash2,
@@ -13,6 +13,8 @@ import {
   Users,
   Award,
   Plus,
+  Keyboard,
+  GraduationCap,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { Evaluation, Student, Criteria } from '../../types';
@@ -23,6 +25,7 @@ import {
   DEFAULT_LEVEL_TEMPLATES,
   getStoredLevelTemplates,
 } from '../../utils/nameParser';
+import { isCbOrchestra } from '../../hooks/useEvaluations';
 import LevelTemplatesModal from './LevelTemplatesModal';
 import EvaluationForm from './EvaluationForm';
 
@@ -50,6 +53,32 @@ function studentKey(nome: string, orquestra?: string): string {
   return `${(nome || '').trim().toLowerCase()}|${(orquestra || '').trim().toLowerCase()}`;
 }
 
+function getScore20Badge(score?: number | null) {
+  if (score === undefined || score === null || score <= 0) return null;
+  if (score >= 18) {
+    return {
+      label: 'Excelente',
+      classes: 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800',
+    };
+  }
+  if (score >= 14) {
+    return {
+      label: 'Bom',
+      classes: 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800',
+    };
+  }
+  if (score >= 10) {
+    return {
+      label: 'Suficiente',
+      classes: 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800',
+    };
+  }
+  return {
+    label: 'Insuficiente',
+    classes: 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300 border-rose-300 dark:border-rose-800',
+  };
+}
+
 export default function EvaluationsView({
   evaluations,
   students,
@@ -70,7 +99,7 @@ export default function EvaluationsView({
   const [activeTab, setActiveTab] = useState<'pauta' | 'byStudent' | 'byCriteria'>('pauta');
   const [expandedStudent, setExpandedStudent] = useState<string | null>(null);
 
-  // Filtros
+  // Filtros: 'todas' | 'cb' | 'secundario' | nome da orquestra
   const [selectedOrchestra, setSelectedOrchestra] = useState<string>('todas');
   const [search, setSearch] = useState('');
   const [selectedNaipe, setSelectedNaipe] = useState('todos');
@@ -94,21 +123,35 @@ export default function EvaluationsView({
   // Mapa local de avaliações indexado por aluno
   const [evalMap, setEvalMap] = useState<Record<string, Evaluation>>({});
 
+  // Mapa de texto para inputs de 0 a 20 (Secundário)
+  const [score20Inputs, setScore20Inputs] = useState<Record<string, string>>({});
+
+  // Referências para navegação pelo teclado na grelha 0-20
+  const inputRefs = useRef<Record<number, HTMLInputElement | null>>({});
+  const saveTimeoutsRef = useRef<Record<string, any>>({});
+
   // Sincroniza evalMap inicial com as avaliações recebidas
   useEffect(() => {
     const map: Record<string, Evaluation> = {};
+    const sMap: Record<string, string> = {};
+
     evaluations.forEach((ev) => {
       if ((ev.pontuacao && ev.pontuacao > 0) || (ev.observacoes && ev.observacoes.trim().length > 0)) {
         const key = studentKey(ev.nomeAluno, ev.orquestra);
         map[key] = ev;
-        // Indexa também só pelo nome caso a orquestra não venha definida na avaliação
         const keyNameOnly = studentKey(ev.nomeAluno, '');
         if (!map[keyNameOnly]) {
           map[keyNameOnly] = ev;
         }
+
+        if (!isCbOrchestra(ev.orquestra) && ev.pontuacao > 0) {
+          sMap[key] = String(ev.classificacao20 ?? ev.pontuacao);
+        }
       }
     });
+
     setEvalMap(map);
+    setScore20Inputs((prev) => ({ ...sMap, ...prev }));
   }, [evaluations]);
 
   // Orquestras musicais disponíveis
@@ -131,15 +174,48 @@ export default function EvaluationsView({
     return Array.from(set);
   }, [orchestras, students]);
 
-  // Alunos filtrados por orquestra
+  // Orquestras separadas por ciclo
+  const cbOrchestras = useMemo(
+    () => availableOrchestras.filter((o) => isCbOrchestra(o)),
+    [availableOrchestras]
+  );
+  const secOrchestras = useMemo(
+    () => availableOrchestras.filter((o) => !isCbOrchestra(o)),
+    [availableOrchestras]
+  );
+
+  // Alunos filtrados por orquestra / ciclo
   const orchestraStudents = useMemo(() => {
     if (selectedOrchestra === 'todas') {
       return students;
+    }
+    if (selectedOrchestra === 'cb') {
+      return students.filter((s) => isCbOrchestra(s.orquestra));
+    }
+    if (selectedOrchestra === 'secundario') {
+      return students.filter((s) => !isCbOrchestra(s.orquestra));
     }
     return students.filter(
       (s) => (s.orquestra || '').trim().toLowerCase() === selectedOrchestra.trim().toLowerCase()
     );
   }, [students, selectedOrchestra]);
+
+  // Identificação do modo de visualização
+  const isSecundarioOnly = useMemo(() => {
+    if (selectedOrchestra === 'secundario') return true;
+    if (selectedOrchestra !== 'todas' && selectedOrchestra !== 'cb') {
+      return !isCbOrchestra(selectedOrchestra);
+    }
+    return false;
+  }, [selectedOrchestra]);
+
+  const isCbOnly = useMemo(() => {
+    if (selectedOrchestra === 'cb') return true;
+    if (selectedOrchestra !== 'todas' && selectedOrchestra !== 'secundario') {
+      return isCbOrchestra(selectedOrchestra);
+    }
+    return false;
+  }, [selectedOrchestra]);
 
   // Naipes disponíveis na orquestra atual
   const availableNaipes = useMemo(() => {
@@ -178,8 +254,6 @@ export default function EvaluationsView({
     });
   }, [orchestraStudents, search, selectedNaipe, statusFilter, evalMap]);
 
-  const saveTimeoutsRef = React.useRef<Record<string, any>>({});
-
   // Atribuição rápida de nível (1 a 5) com gravação IMEDIATA no Google Sheets
   const handleAssignLevel = (student: Student, level: number) => {
     const key = studentKey(student.nome, student.orquestra);
@@ -194,7 +268,7 @@ export default function EvaluationsView({
       nomeAluno: student.nome,
       grau: student.grau || existing?.grau || '',
       naipe: student.naipe || existing?.naipe || '',
-      orquestra: student.orquestra || existing?.orquestra || (selectedOrchestra !== 'todas' ? selectedOrchestra : ''),
+      orquestra: student.orquestra || existing?.orquestra || '',
       pontuacao: level,
       data: new Date().toISOString().split('T')[0],
       observacoes: generatedObs,
@@ -206,13 +280,11 @@ export default function EvaluationsView({
       [studentKey(student.nome, '')]: updated,
     }));
 
-    // Cancela qualquer timeout pendente para este aluno
     if (saveTimeoutsRef.current[key]) {
       clearTimeout(saveTimeoutsRef.current[key]);
       delete saveTimeoutsRef.current[key];
     }
 
-    // Grava imediatamente no Google Sheets
     if (onSaveSingleEvaluation) {
       onSaveSingleEvaluation(student, level, generatedObs, existing?.rowIndex).catch((e) => {
         console.error('Erro ao gravar no Google Sheets:', e);
@@ -234,7 +306,7 @@ export default function EvaluationsView({
       nomeAluno: student.nome,
       grau: student.grau || existing?.grau || '',
       naipe: student.naipe || existing?.naipe || '',
-      orquestra: student.orquestra || existing?.orquestra || (selectedOrchestra !== 'todas' ? selectedOrchestra : ''),
+      orquestra: student.orquestra || existing?.orquestra || '',
       pontuacao: existing?.pontuacao || 0,
       data: existing?.data || new Date().toISOString().split('T')[0],
       observacoes: text,
@@ -274,7 +346,138 @@ export default function EvaluationsView({
     }
   };
 
-  // Limpar a avaliação de um aluno
+  // Grava nota de 0 a 20 imediatamente (Enter, ArrowDown, Blur)
+  const commitScore20 = useCallback(
+    (student: Student, explicitVal?: string) => {
+      const key = studentKey(student.nome, student.orquestra);
+      if (saveTimeoutsRef.current[key]) {
+        clearTimeout(saveTimeoutsRef.current[key]);
+        delete saveTimeoutsRef.current[key];
+      }
+
+      const valStr = explicitVal !== undefined ? explicitVal : score20Inputs[key];
+      if (valStr === undefined) return;
+
+      const clean = valStr.trim().replace(',', '.');
+      const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
+
+      if (clean === '') {
+        return;
+      }
+
+      const num = parseFloat(clean);
+      if (!isNaN(num) && num >= 0 && num <= 20) {
+        const rounded = Math.round(num * 10) / 10;
+        const updated: Evaluation = {
+          id: existing?.id || `eval-${student.id || student.nome.toLowerCase().replace(/\s+/g, '-')}`,
+          rowIndex: existing?.rowIndex ?? -1,
+          ordem: student.numero || existing?.ordem || '',
+          nomeAluno: student.nome,
+          grau: student.grau || existing?.grau || '',
+          naipe: student.naipe || existing?.naipe || '',
+          orquestra: student.orquestra || existing?.orquestra || '',
+          pontuacao: rounded,
+          classificacao20: rounded,
+          data: new Date().toISOString().split('T')[0],
+          observacoes: '',
+        };
+
+        setEvalMap((prev) => ({
+          ...prev,
+          [key]: updated,
+          [studentKey(student.nome, '')]: updated,
+        }));
+
+        if (onSaveSingleEvaluation) {
+          onSaveSingleEvaluation(student, rounded, '', existing?.rowIndex).catch((e) => {
+            console.error('Erro ao gravar nota 0-20:', e);
+          });
+        }
+      } else {
+        toast.error('A classificação deve ser entre 0 e 20 valores.');
+      }
+    },
+    [evalMap, onSaveSingleEvaluation, score20Inputs]
+  );
+
+  // Digitação contínua com suporte a teclado numérico e auto-save debounced
+  const handleScore20Change = (student: Student, val: string) => {
+    const key = studentKey(student.nome, student.orquestra);
+    setScore20Inputs((prev) => ({ ...prev, [key]: val }));
+    setHasUnsavedChanges(true);
+
+    const clean = val.trim().replace(',', '.');
+    if (clean === '') return;
+
+    const num = parseFloat(clean);
+    if (!isNaN(num) && num >= 0 && num <= 20) {
+      const rounded = Math.round(num * 10) / 10;
+      const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
+      const updated: Evaluation = {
+        id: existing?.id || `eval-${student.id || student.nome.toLowerCase().replace(/\s+/g, '-')}`,
+        rowIndex: existing?.rowIndex ?? -1,
+        ordem: student.numero || existing?.ordem || '',
+        nomeAluno: student.nome,
+        grau: student.grau || existing?.grau || '',
+        naipe: student.naipe || existing?.naipe || '',
+        orquestra: student.orquestra || existing?.orquestra || '',
+        pontuacao: rounded,
+        classificacao20: rounded,
+        data: new Date().toISOString().split('T')[0],
+        observacoes: '',
+      };
+
+      setEvalMap((prev) => ({
+        ...prev,
+        [key]: updated,
+        [studentKey(student.nome, '')]: updated,
+      }));
+
+      if (saveTimeoutsRef.current[key]) {
+        clearTimeout(saveTimeoutsRef.current[key]);
+      }
+      saveTimeoutsRef.current[key] = setTimeout(() => {
+        if (onSaveSingleEvaluation) {
+          onSaveSingleEvaluation(student, rounded, '', existing?.rowIndex).catch((e) => {
+            console.error('Erro no auto-save 0-20:', e);
+          });
+        }
+      }, 700);
+    }
+  };
+
+  // Navegação no teclado com Enter, Seta Baixo e Seta Cima
+  const handleKeyDownScore20 = (
+    e: React.KeyboardEvent<HTMLInputElement>,
+    student: Student,
+    currentIndex: number
+  ) => {
+    if (e.key === 'Enter' || e.key === 'ArrowDown') {
+      e.preventDefault();
+      commitScore20(student);
+      let nextIdx = currentIndex + 1;
+      while (nextIdx < filteredStudents.length && !inputRefs.current[nextIdx]) {
+        nextIdx++;
+      }
+      if (inputRefs.current[nextIdx]) {
+        inputRefs.current[nextIdx]?.focus();
+        inputRefs.current[nextIdx]?.select();
+      }
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      commitScore20(student);
+      let prevIdx = currentIndex - 1;
+      while (prevIdx >= 0 && !inputRefs.current[prevIdx]) {
+        prevIdx--;
+      }
+      if (inputRefs.current[prevIdx]) {
+        inputRefs.current[prevIdx]?.focus();
+        inputRefs.current[prevIdx]?.select();
+      }
+    }
+  };
+
+  // Limpar a avaliação de um aluno (sem apagar o aluno da base de dados)
   const handleClearEvaluation = (student: Student) => {
     const key = studentKey(student.nome, student.orquestra);
     const keyNameOnly = studentKey(student.nome, '');
@@ -282,12 +485,12 @@ export default function EvaluationsView({
 
     if (!existing || (!existing.pontuacao && !existing.observacoes)) return;
 
-    if (
-      window.confirm(
-        `Deseja limpar o nível e a observação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`
-      )
-    ) {
-      // 1. Cancela qualquer temporizador pendente de auto-save
+    const isCB = isCbOrchestra(student.orquestra);
+    const promptMsg = isCB
+      ? `Deseja limpar o nível e a observação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`
+      : `Deseja limpar a classificação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota de 0 a 20)`;
+
+    if (window.confirm(promptMsg)) {
       if (saveTimeoutsRef.current[key]) {
         clearTimeout(saveTimeoutsRef.current[key]);
         delete saveTimeoutsRef.current[key];
@@ -297,7 +500,6 @@ export default function EvaluationsView({
         delete saveTimeoutsRef.current[keyNameOnly];
       }
 
-      // 2. Remove do mapa local da pauta imediatamente
       setEvalMap((prev) => {
         const next = { ...prev };
         delete next[key];
@@ -305,17 +507,27 @@ export default function EvaluationsView({
         return next;
       });
 
-      // 3. Limpa no Google Sheets e no estado global
+      setScore20Inputs((prev) => {
+        const next = { ...prev };
+        delete next[key];
+        delete next[keyNameOnly];
+        return next;
+      });
+
       if (onSaveSingleEvaluation) {
         onSaveSingleEvaluation(student, 0, '', existing.rowIndex);
       } else if (onDelete) {
         onDelete(existing);
       }
-      toast.success(`Nível e observação de ${student.nome} limpos. Aluno mantido na base de dados.`);
+      toast.success(
+        isCB
+          ? `Nível e observação de ${student.nome} limpos. Aluno mantido na base de dados.`
+          : `Classificação de ${student.nome} limpa. Aluno mantido na base de dados.`
+      );
     }
   };
 
-  // Guardar todas as avaliações no Google Sheets sincronizando todos os 183 alunos
+  // Guardar todas as avaliações no Google Sheets sincronizando ambas as abas
   const handleSaveToSheets = async () => {
     if (!onSaveAll) return;
     setIsSaving(true);
@@ -342,22 +554,54 @@ export default function EvaluationsView({
   const stats = useMemo(() => {
     const totalStudents = orchestraStudents.length;
     let evaluatedCount = 0;
-    let sumScore = 0;
-    const distribution: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    let sumScoreCb = 0;
+    let countCb = 0;
+    let sumScoreSec = 0;
+    let countSec = 0;
+
+    const distributionCb: Record<number, number> = { 1: 0, 2: 0, 3: 0, 4: 0, 5: 0 };
+    const distributionSec = { excelente: 0, bom: 0, suficiente: 0, insuficiente: 0 };
 
     orchestraStudents.forEach((s) => {
-      const ev = evalMap[studentKey(s.nome, s.orquestra)] || evalMap[studentKey(s.nome, '')];
+      const key = studentKey(s.nome, s.orquestra);
+      const ev = evalMap[key] || evalMap[studentKey(s.nome, '')];
+      const isCB = isCbOrchestra(s.orquestra);
+
       if (ev && ev.pontuacao > 0) {
         evaluatedCount++;
-        sumScore += ev.pontuacao;
-        distribution[ev.pontuacao] = (distribution[ev.pontuacao] || 0) + 1;
+        if (isCB) {
+          countCb++;
+          sumScoreCb += ev.pontuacao;
+          const lvl = Math.round(ev.pontuacao);
+          if (lvl >= 1 && lvl <= 5) {
+            distributionCb[lvl] = (distributionCb[lvl] || 0) + 1;
+          }
+        } else {
+          countSec++;
+          sumScoreSec += ev.pontuacao;
+          if (ev.pontuacao >= 18) distributionSec.excelente++;
+          else if (ev.pontuacao >= 14) distributionSec.bom++;
+          else if (ev.pontuacao >= 10) distributionSec.suficiente++;
+          else distributionSec.insuficiente++;
+        }
       }
     });
 
-    const average = evaluatedCount > 0 ? (sumScore / evaluatedCount).toFixed(1) : '—';
+    const averageCb = countCb > 0 ? (sumScoreCb / countCb).toFixed(1) : '—';
+    const averageSec = countSec > 0 ? (sumScoreSec / countSec).toFixed(1) : '—';
     const percent = totalStudents > 0 ? Math.round((evaluatedCount / totalStudents) * 100) : 0;
 
-    return { totalStudents, evaluatedCount, average, percent, distribution };
+    return {
+      totalStudents,
+      evaluatedCount,
+      percent,
+      countCb,
+      countSec,
+      averageCb,
+      averageSec,
+      distributionCb,
+      distributionSec,
+    };
   }, [orchestraStudents, evalMap]);
 
   // Listas agrupadas para as outras abas
@@ -404,15 +648,17 @@ export default function EvaluationsView({
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
-          {/* Botão Configurar Textos dos Níveis (1 a 5) */}
-          <button
-            onClick={() => setShowTemplatesModal(true)}
-            className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all shadow-sm"
-            title="Personalize a frase gerada automaticamente para os níveis 1, 2, 3, 4 e 5"
-          >
-            <Settings2 size={15} className="text-orchestra-gold" />
-            <span>Configurar Textos (1 a 5)</span>
-          </button>
+          {/* Botão Configurar Textos dos Níveis (1 a 5) - Exibido apenas quando relevante (CB ou Todas) */}
+          {!isSecundarioOnly && (
+            <button
+              onClick={() => setShowTemplatesModal(true)}
+              className="flex items-center gap-1.5 px-3 py-2 text-xs font-bold text-gray-700 dark:text-gray-200 bg-white dark:bg-gray-800 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700 rounded-xl transition-all shadow-sm"
+              title="Personalize a frase gerada automaticamente para os níveis 1 a 5 (Curso Básico)"
+            >
+              <Settings2 size={15} className="text-orchestra-gold" />
+              <span>Configurar Textos (1 a 5)</span>
+            </button>
+          )}
 
           {/* Botão Guardar no Google Sheets */}
           {onSaveAll && (
@@ -456,7 +702,7 @@ export default function EvaluationsView({
 
       {activeTab === 'pauta' ? (
         <div className="space-y-4">
-          {/* Seletor de Orquestras */}
+          {/* Seletor de Ciclos e Orquestras */}
           <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-thin">
             <button
               onClick={() => {
@@ -469,29 +715,92 @@ export default function EvaluationsView({
                   : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
               }`}
             >
-              Todas as Orquestras ({students.length})
+              Todas ({students.length})
             </button>
-            {availableOrchestras.map((orch) => {
-              const count = students.filter(
-                (s) => (s.orquestra || '').trim().toLowerCase() === orch.toLowerCase()
-              ).length;
-              return (
-                <button
-                  key={orch}
-                  onClick={() => {
-                    setSelectedOrchestra(orch);
-                    setSelectedNaipe('todos');
-                  }}
-                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold whitespace-nowrap transition-all ${
-                    selectedOrchestra === orch
-                      ? 'bg-orchestra-gold text-orchestra-navy shadow-sm'
-                      : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700 border border-gray-200 dark:border-gray-700'
-                  }`}
-                >
-                  {orch} ({count})
-                </button>
-              );
-            })}
+
+            <span className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+
+            {/* Grupo Curso Básico */}
+            <div className="flex items-center gap-1 bg-amber-500/5 dark:bg-amber-500/10 p-1 rounded-xl border border-amber-500/20">
+              <button
+                onClick={() => {
+                  setSelectedOrchestra('cb');
+                  setSelectedNaipe('todos');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
+                  selectedOrchestra === 'cb'
+                    ? 'bg-amber-500 text-white shadow-sm'
+                    : 'text-amber-800 dark:text-amber-300 hover:bg-amber-500/10'
+                }`}
+                title="Filtrar todas as orquestras do Curso Básico (Níveis 1 a 5)"
+              >
+                <GraduationCap size={13} />
+                <span>Básico (1-5)</span>
+              </button>
+              {cbOrchestras.map((orch) => {
+                const count = students.filter(
+                  (s) => (s.orquestra || '').trim().toLowerCase() === orch.toLowerCase()
+                ).length;
+                return (
+                  <button
+                    key={orch}
+                    onClick={() => {
+                      setSelectedOrchestra(orch);
+                      setSelectedNaipe('todos');
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      selectedOrchestra === orch
+                        ? 'bg-amber-600 text-white shadow-sm'
+                        : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {orch} ({count})
+                  </button>
+                );
+              })}
+            </div>
+
+            <span className="h-5 w-px bg-gray-200 dark:bg-gray-700" />
+
+            {/* Grupo Secundário */}
+            <div className="flex items-center gap-1 bg-blue-500/5 dark:bg-blue-500/10 p-1 rounded-xl border border-blue-500/20">
+              <button
+                onClick={() => {
+                  setSelectedOrchestra('secundario');
+                  setSelectedNaipe('todos');
+                }}
+                className={`px-2.5 py-1 rounded-lg text-xs font-bold whitespace-nowrap transition-all flex items-center gap-1 ${
+                  selectedOrchestra === 'secundario'
+                    ? 'bg-blue-600 text-white shadow-sm'
+                    : 'text-blue-800 dark:text-blue-300 hover:bg-blue-500/10'
+                }`}
+                title="Filtrar todas as orquestras do Secundário (0 a 20 valores)"
+              >
+                <Award size={13} />
+                <span>Secundário (0-20)</span>
+              </button>
+              {secOrchestras.map((orch) => {
+                const count = students.filter(
+                  (s) => (s.orquestra || '').trim().toLowerCase() === orch.toLowerCase()
+                ).length;
+                return (
+                  <button
+                    key={orch}
+                    onClick={() => {
+                      setSelectedOrchestra(orch);
+                      setSelectedNaipe('todos');
+                    }}
+                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold whitespace-nowrap transition-all ${
+                      selectedOrchestra === orch
+                        ? 'bg-blue-600 text-white shadow-sm'
+                        : 'bg-white/80 dark:bg-gray-800/80 text-gray-700 dark:text-gray-300 hover:bg-white dark:hover:bg-gray-800'
+                    }`}
+                  >
+                    {orch} ({count})
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Cards de Resumo Estatístico */}
@@ -520,33 +829,83 @@ export default function EvaluationsView({
               </div>
             </div>
 
+            {/* Média */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3.5 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-medium text-gray-400">Média Global</p>
-                <p className="text-xl font-black text-amber-500 mt-0.5 flex items-center gap-1">
-                  {stats.average} <span className="text-xs">★</span>
+                <p className="text-[11px] font-medium text-gray-400">
+                  {isSecundarioOnly ? 'Média Secundário' : isCbOnly ? 'Média CB' : 'Média Global'}
                 </p>
+                {isSecundarioOnly ? (
+                  <p className="text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 flex items-center gap-1">
+                    {stats.averageSec} <span className="text-xs text-gray-400 font-semibold">/ 20</span>
+                  </p>
+                ) : isCbOnly ? (
+                  <p className="text-xl font-black text-amber-500 mt-0.5 flex items-center gap-1">
+                    {stats.averageCb} <span className="text-xs">★</span>
+                  </p>
+                ) : (
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className="text-sm font-black text-amber-500">★ {stats.averageCb}</span>
+                    <span className="text-gray-300 dark:text-gray-600">|</span>
+                    <span className="text-sm font-black text-blue-500">{stats.averageSec} / 20</span>
+                  </div>
+                )}
               </div>
               <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 flex items-center justify-center">
                 <Award size={18} />
               </div>
             </div>
 
+            {/* Distribuição */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3.5 flex flex-col justify-center">
-              <p className="text-[10px] font-medium text-gray-400 mb-1">Distribuição de Níveis</p>
-              <div className="flex items-center gap-1">
-                {[5, 4, 3, 2, 1].map((lvl) => (
-                  <span
-                    key={lvl}
-                    className="flex-1 text-center text-[10px] font-bold py-0.5 rounded bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300"
-                    title={`Nível ${lvl}: ${stats.distribution[lvl] || 0} alunos`}
-                  >
-                    {lvl}: {stats.distribution[lvl] || 0}
-                  </span>
-                ))}
-              </div>
+              {isSecundarioOnly ? (
+                <>
+                  <p className="text-[10px] font-medium text-gray-400 mb-1">Escalões (0 a 20)</p>
+                  <div className="grid grid-cols-4 gap-1 text-center">
+                    <span className="text-[9px] font-bold py-0.5 rounded bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300" title="18 a 20 valores">
+                      18-20: {stats.distributionSec.excelente}
+                    </span>
+                    <span className="text-[9px] font-bold py-0.5 rounded bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300" title="14 a 17.9 valores">
+                      14-17: {stats.distributionSec.bom}
+                    </span>
+                    <span className="text-[9px] font-bold py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300" title="10 a 13.9 valores">
+                      10-13: {stats.distributionSec.suficiente}
+                    </span>
+                    <span className="text-[9px] font-bold py-0.5 rounded bg-rose-100 dark:bg-rose-950/40 text-rose-700 dark:text-rose-300" title="Menor que 10">
+                      &lt;10: {stats.distributionSec.insuficiente}
+                    </span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <p className="text-[10px] font-medium text-gray-400 mb-1">
+                    {isCbOnly ? 'Distribuição de Níveis (1 a 5)' : 'Distribuição CB (1 a 5)'}
+                  </p>
+                  <div className="flex items-center gap-1">
+                    {[5, 4, 3, 2, 1].map((lvl) => (
+                      <span
+                        key={lvl}
+                        className="flex-1 text-center text-[10px] font-bold py-0.5 rounded bg-gray-100 dark:bg-gray-700/60 text-gray-600 dark:text-gray-300"
+                        title={`Nível ${lvl}: ${stats.distributionCb[lvl] || 0} alunos`}
+                      >
+                        {lvl}: {stats.distributionCb[lvl] || 0}
+                      </span>
+                    ))}
+                  </div>
+                </>
+              )}
             </div>
           </div>
+
+          {/* Dica para inserção rápida no Secundário */}
+          {isSecundarioOnly && (
+            <div className="flex items-center gap-2 px-3.5 py-2 bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 rounded-xl text-xs">
+              <Keyboard size={15} className="text-blue-500 shrink-0" />
+              <span>
+                <strong>Teclado Numérico Ativo:</strong> Digite a nota de <strong>0 a 20 valores</strong> e prima <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 font-mono text-[10px] font-bold shadow-xs">Enter</kbd> ou <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 font-mono text-[10px] font-bold shadow-xs">↓</kbd> para avançar instantaneamente para o aluno seguinte.
+              </span>
+            </div>
+          )}
 
           {/* Filtros Secundários: Pesquisa, Naipe, Estado */}
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-white dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
@@ -629,21 +988,34 @@ export default function EvaluationsView({
                     <th className="py-3 px-3 min-w-[90px]">Grau</th>
                     <th className="py-3 px-3 min-w-[120px]">Naipe</th>
                     <th className="py-3 px-3 min-w-[100px]">Orquestra</th>
-                    <th className="py-3 px-4 min-w-[190px] text-center">Classificação (1 a 5)</th>
-                    <th className="py-3 px-4 min-w-[280px]">Observações (Gerada Automaticamente)</th>
+
+                    {isSecundarioOnly ? (
+                      <th className="py-3 px-4 min-w-[240px] text-center">Classificação Final (0 a 20)</th>
+                    ) : isCbOnly ? (
+                      <>
+                        <th className="py-3 px-4 min-w-[190px] text-center">Classificação (1 a 5)</th>
+                        <th className="py-3 px-4 min-w-[280px]">Observações (Gerada Automaticamente)</th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="py-3 px-4 min-w-[210px] text-center">Classificação</th>
+                        <th className="py-3 px-4 min-w-[260px]">Observações (Curso Básico)</th>
+                      </>
+                    )}
+
                     <th className="py-3 px-2 w-10 text-center"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100 dark:divide-gray-700/60">
                   {isLoading ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-gray-400">
+                      <td colSpan={isSecundarioOnly ? 7 : 8} className="py-12 text-center text-gray-400">
                         A carregar alunos e avaliações...
                       </td>
                     </tr>
                   ) : filteredStudents.length === 0 ? (
                     <tr>
-                      <td colSpan={8} className="py-12 text-center text-gray-400">
+                      <td colSpan={isSecundarioOnly ? 7 : 8} className="py-12 text-center text-gray-400">
                         Nenhum aluno encontrado para os filtros selecionados.
                       </td>
                     </tr>
@@ -654,12 +1026,13 @@ export default function EvaluationsView({
                       const currentScore = ev?.pontuacao || 0;
                       const currentObs = ev?.observacoes || '';
                       const isChefe = student.chefeNaipe && /chefe|sim/i.test(student.chefeNaipe);
+                      const isCB = isCbOrchestra(student.orquestra);
 
                       return (
                         <tr
                           key={`${student.id || student.nome}-${idx}`}
                           className={`hover:bg-gray-50/70 dark:hover:bg-gray-700/30 transition-colors ${
-                            currentScore > 0 ? 'bg-amber-500/[0.02]' : ''
+                            currentScore > 0 ? (isCB ? 'bg-amber-500/[0.02]' : 'bg-blue-500/[0.02]') : ''
                           }`}
                         >
                           {/* Ordem */}
@@ -697,75 +1070,137 @@ export default function EvaluationsView({
 
                           {/* Orquestra */}
                           <td className="py-3 px-3">
-                            <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-50 dark:bg-amber-950/40 text-orchestra-gold border border-amber-200 dark:border-amber-800/40">
+                            <span
+                              className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                                isCB
+                                  ? 'bg-amber-50 dark:bg-amber-950/40 text-orchestra-gold border-amber-200 dark:border-amber-800/40'
+                                  : 'bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/40'
+                              }`}
+                            >
                               {student.orquestra || selectedOrchestra}
                             </span>
                           </td>
 
-                          {/* Classificação (1 a 5) com botões interativos */}
-                          <td className="py-3 px-4">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {[1, 2, 3, 4, 5].map((lvl) => {
-                                const isSelected = currentScore === lvl;
-                                let btnClasses =
-                                  'w-7 h-7 rounded-lg text-xs font-bold transition-all border flex items-center justify-center ';
+                          {/* Classificação / Pontuação */}
+                          {isCB ? (
+                            /* Modo Curso Básico: Níveis 1 a 5 */
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-1.5">
+                                {[1, 2, 3, 4, 5].map((lvl) => {
+                                  const isSelected = currentScore === lvl;
+                                  let btnClasses =
+                                    'w-7 h-7 rounded-lg text-xs font-bold transition-all border flex items-center justify-center ';
 
-                                if (isSelected) {
-                                  if (lvl === 5) {
-                                    btnClasses +=
-                                      'bg-emerald-600 text-white border-emerald-700 shadow-md scale-105';
-                                  } else if (lvl === 4) {
-                                    btnClasses +=
-                                      'bg-blue-600 text-white border-blue-700 shadow-md scale-105';
-                                  } else if (lvl === 3) {
-                                    btnClasses +=
-                                      'bg-amber-500 text-white border-amber-600 shadow-md scale-105';
-                                  } else if (lvl === 2) {
-                                    btnClasses +=
-                                      'bg-orange-500 text-white border-orange-600 shadow-md scale-105';
+                                  if (isSelected) {
+                                    if (lvl === 5) {
+                                      btnClasses +=
+                                        'bg-emerald-600 text-white border-emerald-700 shadow-md scale-105';
+                                    } else if (lvl === 4) {
+                                      btnClasses +=
+                                        'bg-blue-600 text-white border-blue-700 shadow-md scale-105';
+                                    } else if (lvl === 3) {
+                                      btnClasses +=
+                                        'bg-amber-500 text-white border-amber-600 shadow-md scale-105';
+                                    } else if (lvl === 2) {
+                                      btnClasses +=
+                                        'bg-orange-500 text-white border-orange-600 shadow-md scale-105';
+                                    } else {
+                                      btnClasses +=
+                                        'bg-rose-600 text-white border-rose-700 shadow-md scale-105';
+                                    }
                                   } else {
                                     btnClasses +=
-                                      'bg-rose-600 text-white border-rose-700 shadow-md scale-105';
+                                      'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orchestra-gold hover:text-orchestra-gold hover:bg-amber-50/50 dark:hover:bg-amber-950/20';
                                   }
-                                } else {
-                                  btnClasses +=
-                                    'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-300 border-gray-200 dark:border-gray-700 hover:border-orchestra-gold hover:text-orchestra-gold hover:bg-amber-50/50 dark:hover:bg-amber-950/20';
-                                }
 
-                                return (
-                                  <button
-                                    key={lvl}
-                                    type="button"
-                                    onClick={() => handleAssignLevel(student, lvl)}
-                                    className={btnClasses}
-                                    title={`Atribuir nível ${lvl} (${LEVEL_LABELS[lvl]?.label}) e gerar observação`}
-                                  >
-                                    {lvl}
-                                  </button>
-                                );
-                              })}
-                            </div>
-                          </td>
+                                  return (
+                                    <button
+                                      key={lvl}
+                                      type="button"
+                                      onClick={() => handleAssignLevel(student, lvl)}
+                                      className={btnClasses}
+                                      title={`Atribuir nível ${lvl} (${LEVEL_LABELS[lvl]?.label}) e gerar observação`}
+                                    >
+                                      {lvl}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            </td>
+                          ) : (
+                            /* Modo Secundário: Classificação 0 a 20 valores com teclado numérico */
+                            <td className="py-3 px-4">
+                              <div className="flex items-center justify-center gap-3">
+                                <div className="relative">
+                                  <input
+                                    ref={(el) => {
+                                      inputRefs.current[idx] = el;
+                                    }}
+                                    type="text"
+                                    inputMode="decimal"
+                                    value={
+                                      score20Inputs[key] !== undefined
+                                        ? score20Inputs[key]
+                                        : currentScore > 0
+                                        ? String(currentScore)
+                                        : ''
+                                    }
+                                    onChange={(e) => handleScore20Change(student, e.target.value)}
+                                    onKeyDown={(e) => handleKeyDownScore20(e, student, idx)}
+                                    onBlur={() => commitScore20(student)}
+                                    placeholder="0 - 20"
+                                    className={`w-20 sm:w-24 px-3 py-1.5 text-center text-sm font-black font-mono rounded-lg border transition-all ${
+                                      currentScore > 0
+                                        ? 'bg-blue-50/60 dark:bg-blue-950/40 border-blue-400 dark:border-blue-600 text-blue-900 dark:text-blue-100 shadow-xs'
+                                        : 'bg-gray-50 dark:bg-gray-700/60 border-gray-200 dark:border-gray-600 text-gray-900 dark:text-white'
+                                    } focus:bg-white dark:focus:bg-gray-700 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20 focus:outline-none`}
+                                  />
+                                </div>
+                                {currentScore > 0 ? (
+                                  (() => {
+                                    const badge = getScore20Badge(currentScore);
+                                    return badge ? (
+                                      <span className={`px-2 py-0.5 rounded text-[10px] font-bold border whitespace-nowrap ${badge.classes}`}>
+                                        {badge.label}
+                                      </span>
+                                    ) : null;
+                                  })()
+                                ) : (
+                                  <span className="text-[10px] text-gray-400 italic whitespace-nowrap">
+                                    Por avaliar
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                          )}
 
-                          {/* Observações editável */}
-                          <td className="py-2 px-4">
-                            <div className="relative group">
-                              <input
-                                type="text"
-                                value={currentObs}
-                                onChange={(e) => handleObservationChange(student, e.target.value)}
-                                onBlur={() => handleObservationBlur(student)}
-                                placeholder="Clique num nível (1-5) para gerar ou escreva aqui..."
-                                className="w-full px-2.5 py-1.5 text-xs bg-transparent hover:bg-white dark:hover:bg-gray-700/60 focus:bg-white dark:focus:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-orchestra-gold rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orchestra-gold transition-all"
-                              />
-                              {currentScore > 0 && (
-                                <Sparkles
-                                  size={12}
-                                  className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-500 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
-                                />
+                          {/* Observações (Apenas exibidas se não for exclusivamente Secundário) */}
+                          {!isSecundarioOnly && (
+                            <td className="py-2 px-4">
+                              {isCB ? (
+                                <div className="relative group">
+                                  <input
+                                    type="text"
+                                    value={currentObs}
+                                    onChange={(e) => handleObservationChange(student, e.target.value)}
+                                    onBlur={() => handleObservationBlur(student)}
+                                    placeholder="Clique num nível (1-5) para gerar ou escreva aqui..."
+                                    className="w-full px-2.5 py-1.5 text-xs bg-transparent hover:bg-white dark:hover:bg-gray-700/60 focus:bg-white dark:focus:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-orchestra-gold rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orchestra-gold transition-all"
+                                  />
+                                  {currentScore > 0 && (
+                                    <Sparkles
+                                      size={12}
+                                      className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-500 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
+                                    />
+                                  )}
+                                </div>
+                              ) : (
+                                <span className="text-[11px] text-gray-400 italic bg-gray-50 dark:bg-gray-700/40 px-2 py-1 rounded">
+                                  Apenas classificação (0 a 20)
+                                </span>
                               )}
-                            </div>
-                          </td>
+                            </td>
+                          )}
 
                           {/* Ação Limpar */}
                           <td className="py-3 px-2 text-center">
@@ -774,7 +1209,7 @@ export default function EvaluationsView({
                                 type="button"
                                 onClick={() => handleClearEvaluation(student)}
                                 className="p-1 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
-                                title="Limpar nível e observação (o aluno permanece na base de dados)"
+                                title="Limpar classificação (o aluno permanece na base de dados)"
                               >
                                 <Trash2 size={13} />
                               </button>
@@ -795,8 +1230,14 @@ export default function EvaluationsView({
           {Object.entries(byStudent)
             .sort()
             .map(([studentName, evs]) => {
-              const avg = calcAverage(evs);
+              const studentOrch = evs[0]?.orquestra;
+              const isCB = isCbOrchestra(studentOrch);
+              const validEvs = evs.filter((e) => e.pontuacao > 0);
+              const avg = validEvs.length > 0
+                ? validEvs.reduce((sum, e) => sum + e.pontuacao, 0) / validEvs.length
+                : 0;
               const isExpanded = expandedStudent === studentName;
+
               return (
                 <div
                   key={studentName}
@@ -811,15 +1252,21 @@ export default function EvaluationsView({
                         {studentName}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {evs[0]?.naipe} · {evs[0]?.orquestra || ''} · {evs.length} registo(s)
+                        {evs[0]?.naipe} · {studentOrch || ''} · {evs.length} registo(s)
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        <span className="text-amber-400 text-sm font-bold">
-                          ★ {avg > 0 ? avg.toFixed(1) : '—'}
-                        </span>
-                        <p className="text-[10px] text-gray-400">{evs.length} avaliações</p>
+                        {isCB ? (
+                          <span className="text-amber-500 text-sm font-bold">
+                            ★ {avg > 0 ? avg.toFixed(1) : '—'}
+                          </span>
+                        ) : (
+                          <span className="text-blue-600 dark:text-blue-400 text-sm font-bold">
+                            {avg > 0 ? avg.toFixed(1) : '—'} <span className="text-xs text-gray-400">/ 20</span>
+                          </span>
+                        )}
+                        <p className="text-[10px] text-gray-400">{evs.length} registo(s)</p>
                       </div>
                       {isExpanded ? (
                         <ChevronUp size={16} className="text-gray-400" />
@@ -831,32 +1278,49 @@ export default function EvaluationsView({
 
                   {isExpanded && (
                     <div className="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
-                      {evs.map((ev) => (
-                        <div key={ev.id} className="flex items-center justify-between px-4 py-3 text-xs">
-                          <div>
-                            <p className="font-semibold text-gray-900 dark:text-white">
-                              {ev.criterio || `Classificação: Nível ${ev.pontuacao}`}
-                            </p>
-                            {ev.observacoes && (
-                              <p className="text-gray-500 dark:text-gray-400 mt-0.5 italic">
-                                "{ev.observacoes}"
+                      {evs.map((ev) => {
+                        const evIsCb = isCbOrchestra(ev.orquestra);
+                        const badge20 = !evIsCb ? getScore20Badge(ev.pontuacao) : null;
+                        return (
+                          <div key={ev.id} className="flex items-center justify-between px-4 py-3 text-xs">
+                            <div>
+                              <p className="font-semibold text-gray-900 dark:text-white">
+                                {ev.criterio || (evIsCb ? `Classificação: Nível ${ev.pontuacao}` : `Classificação Final`)}
                               </p>
-                            )}
+                              {ev.observacoes && (
+                                <p className="text-gray-500 dark:text-gray-400 mt-0.5 italic">
+                                  "{ev.observacoes}"
+                                </p>
+                              )}
+                            </div>
+                            <div className="flex items-center gap-3">
+                              {evIsCb ? (
+                                <span className="font-bold text-amber-500">
+                                  Nível {ev.pontuacao}
+                                </span>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-bold text-blue-600 dark:text-blue-400 text-sm">
+                                    {ev.pontuacao} / 20
+                                  </span>
+                                  {badge20 && (
+                                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${badge20.classes}`}>
+                                      {badge20.label}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                              <button
+                                onClick={() => onDelete(ev)}
+                                className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
+                                title="Limpar classificação (o aluno permanece na base de dados)"
+                              >
+                                <Trash2 size={13} />
+                              </button>
+                            </div>
                           </div>
-                          <div className="flex items-center gap-3">
-                            <span className="font-bold text-amber-500">
-                              Nível {ev.pontuacao}
-                            </span>
-                            <button
-                              onClick={() => onDelete(ev)}
-                              className="p-1.5 text-gray-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/30 rounded transition-all"
-                              title="Limpar nível e observação (o aluno permanece na base de dados)"
-                            >
-                              <Trash2 size={13} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   )}
                 </div>

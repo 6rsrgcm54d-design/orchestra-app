@@ -47,6 +47,8 @@ const DEFAULT_SHEETS_META: SheetsMeta = {
     { properties: { sheetId: 7, title: 'PlanosPalco' } },
     { properties: { sheetId: 8, title: 'Concertos' } },
     { properties: { sheetId: 9, title: 'Provas' } },
+    { properties: { sheetId: 10, title: 'Avaliações CB' } },
+    { properties: { sheetId: 11, title: 'Avaliações Secundário' } },
   ],
 };
 

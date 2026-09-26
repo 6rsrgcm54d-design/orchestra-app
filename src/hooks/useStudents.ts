@@ -25,6 +25,22 @@ const NON_STUDENT_TABS = new Set([
   'chefe de naipe',
 ]);
 
+export function isNonStudentTab(title: string): boolean {
+  const clean = title.trim();
+  const lower = clean.toLowerCase();
+  const norm = lower.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (NON_STUDENT_TABS.has(lower) || NON_STUDENT_TABS.has(norm)) return true;
+  if (norm.includes('avaliac') || norm.includes('avaliacao') || norm.includes('classifica')) return true;
+  if (norm.includes('criter')) return true;
+  if (norm.includes('plano')) return true;
+  if (norm.includes('repert')) return true;
+  if (norm.includes('concerto')) return true;
+  if (norm.includes('prova')) return true;
+  if (norm.includes('chefe')) return true;
+  if (/^alunos?$/i.test(norm)) return true;
+  return false;
+}
+
 interface ColumnMapping {
   numero: number;
   nome: number;
@@ -294,7 +310,7 @@ export function useStudents() {
     }
     const filtered = sheetsMeta.sheets
       .map((s) => s.properties.title)
-      .filter((title) => !NON_STUDENT_TABS.has(title.toLowerCase().trim()));
+      .filter((title) => !isNonStudentTab(title));
 
     // Garante que 'Orquestra 10º ano' está incluída se a aba ainda não foi apanhada pelo sheetsMeta
     const has10 = filtered.some((t) => /10[º°]?\s*ano/i.test(t));

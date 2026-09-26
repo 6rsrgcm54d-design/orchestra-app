@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Star } from 'lucide-react';
 import type { Evaluation, Student, Criteria } from '../../types';
+import { isCbOrchestra } from '../../hooks/useEvaluations';
 
 interface EvaluationFormProps {
   students: Student[];
@@ -19,9 +20,12 @@ export default function EvaluationForm({ students, criteria, onSave, onClose }: 
     observacoes: '',
   });
 
+  const selectedStudent = students.find((s) => s.nome === form.nomeAluno);
+  const isCB = !selectedStudent?.orquestra || isCbOrchestra(selectedStudent.orquestra);
+
   const handleStudentChange = (nome: string) => {
     const student = students.find((s) => s.nome === nome);
-    setForm({ ...form, nomeAluno: nome, naipe: student?.naipe ?? '' });
+    setForm({ ...form, nomeAluno: nome, naipe: student?.naipe ?? '', criterio: !criteria.length ? 'Classificação Final' : form.criterio });
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -80,28 +84,74 @@ export default function EvaluationForm({ students, criteria, onSave, onClose }: 
             )}
           </div>
 
-          {/* Star rating */}
+          {/* Pontuação / Classificação */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pontuação *</label>
-            <div className="flex gap-2">
-              {[1, 2, 3, 4, 5].map((star) => (
-                <button
-                  key={star}
-                  type="button"
-                  onClick={() => setForm({ ...form, pontuacao: star })}
-                  className="transition-transform hover:scale-110"
-                >
-                  <Star
-                    size={32}
-                    className={star <= form.pontuacao ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}
+            {isCB ? (
+              <>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pontuação (1 a 5) *</label>
+                <div className="flex gap-2">
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setForm({ ...form, pontuacao: star })}
+                      className="transition-transform hover:scale-110"
+                    >
+                      <Star
+                        size={32}
+                        className={star <= form.pontuacao ? 'fill-yellow-400 text-yellow-400' : 'text-gray-300 dark:text-gray-600'}
+                      />
+                    </button>
+                  ))}
+                </div>
+                {form.pontuacao > 0 && (
+                  <p className="text-xs text-gray-400 mt-1">
+                    {['', 'Insuficiente', 'Suficiente', 'Bom', 'Muito Bom', 'Excelente'][form.pontuacao]}
+                  </p>
+                )}
+              </>
+            ) : (
+              <>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Classificação Final (0 a 20 valores) *
+                </label>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    min={0}
+                    max={20}
+                    step={0.5}
+                    value={form.pontuacao > 0 ? form.pontuacao : ''}
+                    onChange={(e) => {
+                      const val = parseFloat(e.target.value);
+                      setForm({ ...form, pontuacao: isNaN(val) ? 0 : Math.min(20, Math.max(0, val)) });
+                    }}
+                    placeholder="Ex: 16"
+                    className="w-28 px-3 py-2 text-base font-bold font-mono text-center bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 rounded-lg text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
                   />
-                </button>
-              ))}
-            </div>
-            {form.pontuacao > 0 && (
-              <p className="text-xs text-gray-400 mt-1">
-                {['', 'Insuficiente', 'Suficiente', 'Bom', 'Muito Bom', 'Excelente'][form.pontuacao]}
-              </p>
+                  {form.pontuacao > 0 && (
+                    <span
+                      className={`px-2.5 py-1 rounded text-xs font-bold ${
+                        form.pontuacao >= 18
+                          ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-300'
+                          : form.pontuacao >= 14
+                          ? 'bg-blue-100 dark:bg-blue-950/60 text-blue-800 dark:text-blue-300'
+                          : form.pontuacao >= 10
+                          ? 'bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-300'
+                          : 'bg-rose-100 dark:bg-rose-950/60 text-rose-800 dark:text-rose-300'
+                      }`}
+                    >
+                      {form.pontuacao >= 18
+                        ? 'Excelente (18-20)'
+                        : form.pontuacao >= 14
+                        ? 'Bom (14-17)'
+                        : form.pontuacao >= 10
+                        ? 'Suficiente (10-13)'
+                        : 'Insuficiente (<10)'}
+                    </span>
+                  )}
+                </div>
+              </>
             )}
           </div>
 
