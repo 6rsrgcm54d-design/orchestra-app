@@ -63,9 +63,16 @@ export default function StudentList({
   });
 
   const validOrchestras = React.useMemo(() => {
-    const list = orchestras && orchestras.length > 0 ? orchestras : ['Académica', 'Juvenil', 'Artave'];
-    const filtered = list.filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()));
-    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
+    const filtered = list
+      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
+      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
+    const unique = Array.from(new Set(filtered));
+    defaultOrchestras.forEach((def) => {
+      if (!unique.includes(def)) unique.push(def);
+    });
+    return unique;
   }, [orchestras]);
 
   const hasMultipleOrchestras = validOrchestras.length > 1;

@@ -37,7 +37,7 @@ function normalizeDateForInput(d?: string): string {
 
 export default function ConcertFormModal({
   concert,
-  orchestras = ['Académica', 'Juvenil', 'Artave'],
+  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
   onSave,
   onClose,
 }: ConcertFormModalProps) {

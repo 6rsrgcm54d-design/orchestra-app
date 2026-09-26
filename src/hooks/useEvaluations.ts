@@ -106,7 +106,8 @@ function rowToEvaluation(row: string[], rowIndex: number, mapping: HeaderMapping
   const ordem = mapping.colOrdem !== -1 ? (row[mapping.colOrdem] ?? '').trim() : '';
   const grau = mapping.colGrau !== -1 ? (row[mapping.colGrau] ?? '').trim() : '';
   const naipe = mapping.colNaipe !== -1 ? (row[mapping.colNaipe] ?? '').trim() : '';
-  const orquestra = mapping.colOrquestra !== -1 ? (row[mapping.colOrquestra] ?? '').trim() : '';
+  const rawOrquestra = mapping.colOrquestra !== -1 ? (row[mapping.colOrquestra] ?? '').trim() : '';
+  const orquestra = /^10[º°]?\s*ano$/i.test(rawOrquestra) ? 'Orquestra 10º ano' : rawOrquestra;
   const observacoes = mapping.colObservacoes !== -1 ? (row[mapping.colObservacoes] ?? '').trim() : '';
   const criterio = mapping.colCriterio !== -1 ? (row[mapping.colCriterio] ?? '').trim() : '';
   const data = mapping.colData !== -1 ? (row[mapping.colData] ?? '').trim() : '';
@@ -389,10 +390,11 @@ export function useEvaluations() {
         if (rows.length > 1) {
           const targetName = student.nome.trim().toLowerCase();
           const targetOrch = (student.orquestra || '').trim().toLowerCase();
+          const normOrch = (o: string) => /^10[º°]?\s*ano$/i.test(o.trim()) ? 'orquestra 10º ano' : o.trim().toLowerCase();
           for (let i = 1; i < rows.length; i++) {
             const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
             const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
-            if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
+            if (rName === targetName && (!targetOrch || !rOrch || normOrch(rOrch) === normOrch(targetOrch))) {
               targetRowIndex = i + 1; // 1-based
               break;
             }
@@ -465,7 +467,7 @@ export function useEvaluations() {
               chefeNaipe: '',
               grau: m.colGrau !== -1 && r[m.colGrau] ? r[m.colGrau] : '',
               naipe: m.colNaipe !== -1 && r[m.colNaipe] ? r[m.colNaipe] : '',
-              orquestra: m.colOrquestra !== -1 && r[m.colOrquestra] ? r[m.colOrquestra] : '',
+              orquestra: m.colOrquestra !== -1 && r[m.colOrquestra] ? (/^10[º°]?\s*ano$/i.test(r[m.colOrquestra].trim()) ? 'Orquestra 10º ano' : r[m.colOrquestra]) : '',
             }));
           }
         }
@@ -549,10 +551,11 @@ export function useEvaluations() {
           if (rows.length > 1) {
             const targetName = ev.nomeAluno.trim().toLowerCase();
             const targetOrch = (ev.orquestra || '').trim().toLowerCase();
+            const normOrch = (o: string) => /^10[º°]?\s*ano$/i.test(o.trim()) ? 'orquestra 10º ano' : o.trim().toLowerCase();
             for (let i = 1; i < rows.length; i++) {
               const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
               const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
-              if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
+              if (rName === targetName && (!targetOrch || !rOrch || normOrch(rOrch) === normOrch(targetOrch))) {
                 targetRowIndex = i + 1;
                 break;
               }

@@ -145,6 +145,7 @@ function initDefaultSheet(ss, name) {
     'Académica': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Juvenil': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Artave': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    'Orquestra 10º ano': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Alunos': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Chefes de Naipe': ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
     'Repertório': ['Título', 'Compositor', 'Dificuldade', 'Duração', 'Estado', 'Notas', 'Orquestra'],
@@ -234,6 +235,22 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
     ['Rafael Figueiredo', 'Chefe', '6º Grau', 'Tuba', 'sim'],
     ['Miguel Teixeira', 'Chefe', '8º Grau', 'Percussão', 'sim'],
     ['Fábio Rocha', '', '7º Grau', 'Percussão', 'sim'],
+  ],
+  'Orquestra 10º ano': [
+    ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
+    ['Rodrigo Carvalho', 'Chefe', '10º Grau', 'Violino I', 'sim'],
+    ['Marta Ribeiro', '', '10º Grau', 'Violino I', 'sim'],
+    ['Guilherme Santos', '', '10º Grau', 'Violino I', 'sim'],
+    ['Leonor Costa', 'Chefe', '10º Grau', 'Violino II', 'sim'],
+    ['Duarte Fernandes', '', '10º Grau', 'Violino II', 'sim'],
+    ['Francisca Martins', 'Chefe', '10º Grau', "Viola d'arco", 'sim'],
+    ['Tomás Silva', '', '10º Grau', "Viola d'arco", 'sim'],
+    ['Beatriz Neves', 'Chefe', '10º Grau', 'Violoncelo', 'sim'],
+    ['Simão Pereira', '', '10º Grau', 'Violoncelo', 'sim'],
+    ['Afonso Lopes', 'Chefe', '10º Grau', 'Contrabaixo', 'sim'],
+    ['Matilde Pinto', 'Chefe', '10º Grau', 'Flauta', 'sim'],
+    ['Inês Castro', 'Chefe', '10º Grau', 'Clarinete', 'sim'],
+    ['Tiago Moreira', 'Chefe', '10º Grau', 'Trompete', 'sim'],
   ],
   Alunos: [
     ['Nome', 'Chefes de Naipe', 'Grau', 'Naipe', 'Ativo'],
@@ -773,6 +790,7 @@ export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
     { properties: { sheetId: 8, title: 'Critérios' } },
     { properties: { sheetId: 9, title: 'PlanosPalco' } },
     { properties: { sheetId: 10, title: 'Provas' } },
+    { properties: { sheetId: 11, title: 'Orquestra 10º ano' } },
   ];
 
   if (isAppsScript(spreadsheetId)) {

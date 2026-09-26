@@ -11,15 +11,22 @@ interface RepertoireListProps {
   onDelete: (piece: Piece) => void;
 }
 
-export default function RepertoireList({ pieces, orchestras = ['Académica', 'Juvenil', 'Artave'], isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
+export default function RepertoireList({ pieces, orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'], isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
   const [search, setSearch] = useState('');
   const [filterOrquestra, setFilterOrquestra] = useState('');
 
   // Garante que apenas orquestras musicais reais aparecem (exclui abas administrativas como "Alunos", "Chefes de Naipe")
   const validOrchestras = React.useMemo(() => {
-    const nonOrchestraPattern = /^alunos?$|chefe|geral|todos/i;
-    const filtered = orchestras.filter((o) => !nonOrchestraPattern.test(o.trim()));
-    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
+    const filtered = list
+      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
+      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
+    const unique = Array.from(new Set(filtered));
+    defaultOrchestras.forEach((def) => {
+      if (!unique.includes(def)) unique.push(def);
+    });
+    return unique;
   }, [orchestras]);
 
   const filtered = pieces.filter((p) => {

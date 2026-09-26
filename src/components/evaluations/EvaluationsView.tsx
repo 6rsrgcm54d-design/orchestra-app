@@ -54,7 +54,7 @@ export default function EvaluationsView({
   evaluations,
   students,
   criteria,
-  orchestras = ['Académica', 'Juvenil', 'Artave'],
+  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
   levelTemplates: propLevelTemplates,
   isLoading,
   onUpdateEvaluation,
@@ -116,14 +116,18 @@ export default function EvaluationsView({
     const set = new Set<string>();
     orchestras.forEach((o) => {
       if (o && !/^alunos?$|chefe|geral/i.test(o.trim())) {
-        set.add(o.trim());
+        const canonical = /^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o.trim();
+        set.add(canonical);
       }
     });
     students.forEach((s) => {
       if (s.orquestra && !/^alunos?$|chefe|geral/i.test(s.orquestra.trim())) {
-        set.add(s.orquestra.trim());
+        const canonical = /^10[º°]?\s*ano$/i.test(s.orquestra.trim()) ? 'Orquestra 10º ano' : s.orquestra.trim();
+        set.add(canonical);
       }
     });
+    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+    defaultOrchestras.forEach((def) => set.add(def));
     return Array.from(set);
   }, [orchestras, students]);
 

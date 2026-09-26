@@ -40,11 +40,13 @@ const DEFAULT_SHEETS_META: SheetsMeta = {
     { properties: { sheetId: 0, title: 'Académica' } },
     { properties: { sheetId: 1, title: 'Juvenil' } },
     { properties: { sheetId: 2, title: 'Artave' } },
-    { properties: { sheetId: 3, title: 'Repertório' } },
-    { properties: { sheetId: 4, title: 'Avaliações' } },
-    { properties: { sheetId: 5, title: 'Critérios' } },
-    { properties: { sheetId: 6, title: 'PlanosPalco' } },
-    { properties: { sheetId: 7, title: 'Concertos' } },
+    { properties: { sheetId: 3, title: 'Orquestra 10º ano' } },
+    { properties: { sheetId: 4, title: 'Repertório' } },
+    { properties: { sheetId: 5, title: 'Avaliações' } },
+    { properties: { sheetId: 6, title: 'Critérios' } },
+    { properties: { sheetId: 7, title: 'PlanosPalco' } },
+    { properties: { sheetId: 8, title: 'Concertos' } },
+    { properties: { sheetId: 9, title: 'Provas' } },
   ],
 };
 
@@ -125,7 +127,16 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
 
   const reconnect = useCallback(async () => {
     const saved = safeStorage.getItem(STORAGE_KEY) || LOCAL_STORAGE_ID;
-    if (sheetsMeta) return;
+    if (sheetsMeta) {
+      // Atualiza abas em segundo plano para detetar abas novas (ex: Orquestra 10º ano)
+      getSpreadsheetMeta(saved)
+        .then((meta) => {
+          setSheetsMeta(meta);
+          safeStorage.setItem('orchestra_cache_sheets_meta', JSON.stringify(meta));
+        })
+        .catch(() => {});
+      return;
+    }
     setIsConnecting(true);
     try {
       const meta = await getSpreadsheetMeta(saved);
@@ -163,7 +174,17 @@ export function SheetsProvider({ children }: { children: React.ReactNode }) {
 
   const getSheetId = useCallback(
     (tabName: string): number | undefined => {
-      return sheetsMeta?.sheets.find((s) => s.properties.title === tabName)?.properties.sheetId;
+      const direct = sheetsMeta?.sheets.find((s) => s.properties.title === tabName)?.properties.sheetId;
+      if (direct !== undefined) return direct;
+      const norm = (str: string) =>
+        str
+          .toLowerCase()
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .replace(/orquestra\s*/i, '')
+          .trim();
+      const targetNorm = norm(tabName);
+      return sheetsMeta?.sheets.find((s) => norm(s.properties.title) === targetNorm)?.properties.sheetId;
     },
     [sheetsMeta]
   );

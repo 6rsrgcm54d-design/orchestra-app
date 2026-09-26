@@ -9,6 +9,7 @@ interface DashboardProps {
   pieces: Piece[];
   evaluations: Evaluation[];
   concerts?: Concert[];
+  orchestras?: string[];
   onNavigate?: (module: 'concerts' | 'repertoire' | 'students') => void;
 }
 
@@ -134,10 +135,16 @@ function NaipeSectionList({
   );
 }
 
-export default function Dashboard({ students, pieces, evaluations, concerts = [], onNavigate }: DashboardProps) {
-  const orchestras = Array.from(
-    new Set(students.map((s) => s.orquestra).filter((o): o is string => !!o))
-  );
+export default function Dashboard({ students, pieces, evaluations, concerts = [], orchestras: propOrchestras, onNavigate }: DashboardProps) {
+  const orchestras = React.useMemo(() => {
+    if (propOrchestras && propOrchestras.length > 0) {
+      return propOrchestras;
+    }
+    const fromStudents = Array.from(
+      new Set(students.map((s) => s.orquestra).filter((o): o is string => !!o))
+    );
+    return fromStudents.length > 0 ? fromStudents : ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+  }, [propOrchestras, students]);
 
   const hasMultipleOrchestras = orchestras.length > 1;
   const [selectedOrchestraTab, setSelectedOrchestraTab] = useState<string>('todas');
@@ -247,7 +254,7 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
         {selectedOrchestraTab !== 'todas' ? (
           <NaipeSectionList
             students={displayedStudents}
-            title={`Orquestra ${selectedOrchestraTab}`}
+            title={selectedOrchestraTab.toLowerCase().startsWith('orquestra') ? selectedOrchestraTab : `Orquestra ${selectedOrchestraTab}`}
             subtitle={`${displayedStudents.length} alunos`}
           />
         ) : hasMultipleOrchestras ? (
@@ -261,7 +268,7 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
                 >
                   <NaipeSectionList
                     students={orqStudents}
-                    title={`Orquestra ${o}`}
+                    title={o.toLowerCase().startsWith('orquestra') ? o : `Orquestra ${o}`}
                     subtitle={`${orqStudents.length} alunos`}
                   />
                 </div>

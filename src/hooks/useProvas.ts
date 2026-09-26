@@ -207,7 +207,8 @@ function rowToProva(row: string[], rowIndex: number, mapping: HeaderMapping): Pr
   const ordem = mapping.colOrdem !== -1 ? (row[mapping.colOrdem] || '').trim() : '';
   const nomeAluno = mapping.colNome !== -1 ? (row[mapping.colNome] || '').trim() : '';
   const naipe = mapping.colNaipe !== -1 ? (row[mapping.colNaipe] || '').trim() : '';
-  const orquestra = mapping.colOrquestra !== -1 ? (row[mapping.colOrquestra] || '').trim() : '';
+  const rawOrquestra = mapping.colOrquestra !== -1 ? (row[mapping.colOrquestra] || '').trim() : '';
+  const orquestra = /^10[º°]?\s*ano$/i.test(rawOrquestra) ? 'Orquestra 10º ano' : rawOrquestra;
   const afinacao = mapping.colAfinacao !== -1 ? parsePercentVal(row[mapping.colAfinacao]) : null;
   const precisaoRitmica = mapping.colPrecisao !== -1 ? parsePercentVal(row[mapping.colPrecisao]) : null;
   const tempo = mapping.colTempo !== -1 ? parsePercentVal(row[mapping.colTempo]) : null;
@@ -425,10 +426,11 @@ export function useProvas() {
           if (rows.length > 1) {
             const targetName = student.nome.trim().toLowerCase();
             const targetOrch = (student.orquestra || '').trim().toLowerCase();
+            const normOrch = (o: string) => /^10[º°]?\s*ano$/i.test(o.trim()) ? 'orquestra 10º ano' : o.trim().toLowerCase();
             for (let i = 1; i < rows.length; i++) {
               const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
               const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 3] || '').trim().toLowerCase();
-              if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
+              if (rName === targetName && (!targetOrch || !rOrch || normOrch(rOrch) === normOrch(targetOrch))) {
                 targetRowIndex = i + 1; // 1-based
                 break;
               }
@@ -507,7 +509,7 @@ export function useProvas() {
               chefeNaipe: '',
               grau: '',
               naipe: mapping.colNaipe !== -1 && r[mapping.colNaipe] ? r[mapping.colNaipe] : '',
-              orquestra: mapping.colOrquestra !== -1 && r[mapping.colOrquestra] ? r[mapping.colOrquestra] : '',
+              orquestra: mapping.colOrquestra !== -1 && r[mapping.colOrquestra] ? (/^10[º°]?\s*ano$/i.test(r[mapping.colOrquestra].trim()) ? 'Orquestra 10º ano' : r[mapping.colOrquestra]) : '',
             }));
           }
         }

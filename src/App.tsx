@@ -329,12 +329,17 @@ function MainApp() {
     recordSyncSuccess,
   ]);
 
-  // Abre sempre com os dados da última vez; só faz sincronização de rede se a cache estiver vazia
+  // Abre sempre com os dados da última vez; faz sincronização completa se vazia, ou atualiza metadados e alunos em 2º plano
   useEffect(() => {
     if (!config) return;
     const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0 || concerts.length > 0 || provas.length > 0;
     if (!hasCachedData) {
       syncAll();
+    } else {
+      // Atualiza metadados e alunos em segundo plano para detetar novas abas criadas no Google Sheets (ex: Orquestra 10º ano)
+      refreshMeta().then(() => {
+        loadStudents();
+      }).catch(() => {});
     }
   }, []);
 
@@ -402,8 +407,15 @@ function MainApp() {
   // Orquestras musicais reais (exclui abas administrativas/de alunos como "Alunos", "Chefes de Naipe", etc.)
   const musicalOrchestras = React.useMemo(() => {
     const nonOrchestraPattern = /^alunos?$|chefe|geral|todos/i;
-    const filtered = orchestras.filter((o) => !nonOrchestraPattern.test(o.trim()));
-    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave'];
+    const filtered = orchestras
+      .filter((o) => !nonOrchestraPattern.test(o.trim()))
+      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
+    const unique = Array.from(new Set(filtered));
+    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+    defaultOrchestras.forEach((def) => {
+      if (!unique.includes(def)) unique.push(def);
+    });
+    return unique;
   }, [orchestras]);
 
   const spreadsheetTitle = sheetsMeta?.title;
@@ -417,6 +429,7 @@ function MainApp() {
             pieces={pieces}
             evaluations={evaluations}
             concerts={concerts}
+            orchestras={musicalOrchestras}
             onNavigate={(mod) => setActiveModule(mod as NavModule)}
           />
         );

@@ -19,6 +19,10 @@ const NON_STUDENT_TABS = new Set([
   'concertos',
   'alunos',
   'aluno',
+  'provas',
+  'prova',
+  'chefes de naipe',
+  'chefe de naipe',
 ]);
 
 interface ColumnMapping {
@@ -181,7 +185,7 @@ function parseStudentRow(
     grau,
     naipe: naipe || rawNaipe,
     ativo,
-    orquestra: orquestraVal || tabName,
+    orquestra: /^10[º°]?\s*ano$/i.test((orquestraVal || tabName).trim()) ? 'Orquestra 10º ano' : (orquestraVal || tabName),
   };
 }
 
@@ -220,6 +224,19 @@ function studentToRow(s: Omit<Student, 'id' | 'rowIndex'>): (string | boolean)[]
   return [s.nome, s.chefeNaipe, s.grau, s.naipe, s.ativo ? 'sim' : 'não'];
 }
 
+function resolveTargetTab(targetOrquestra: string, availableTabs: string[]): string {
+  if (!targetOrquestra) return availableTabs[0] || 'Alunos';
+  if (availableTabs.includes(targetOrquestra)) return targetOrquestra;
+  // Se o aluno pertence à 'Orquestra 10º ano', mas a aba no Google Sheets se chama '10º ano' ou '10º Ano'
+  if (/10[º°]?\s*ano/i.test(targetOrquestra)) {
+    const match = availableTabs.find((t) => /10[º°]?\s*ano/i.test(t));
+    if (match) return match;
+  }
+  const ciMatch = availableTabs.find((t) => t.toLowerCase().trim() === targetOrquestra.toLowerCase().trim());
+  if (ciMatch) return ciMatch;
+  return targetOrquestra;
+}
+
 const CACHE_KEY = 'orchestra_cache_students';
 
 function getInitialStudents(): Student[] {
@@ -247,7 +264,7 @@ function getInitialStudents(): Student[] {
   }
   // Se ainda não houver cache guardado, inicializa logo com os dados das orquestras/abas
   const initialList: Student[] = [];
-  ['Académica', 'Juvenil', 'Artave'].forEach((tab) => {
+  ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'].forEach((tab) => {
     const raw = INITIAL_LOCAL_DATA[tab];
     if (raw && raw.length > 1) {
       const header = raw[0];
@@ -271,7 +288,7 @@ export function useStudents() {
 
   // Detect which tabs contain students (orquestras reais)
   const studentTabs = useMemo(() => {
-    const DEFAULT_TABS = ['Académica', 'Juvenil', 'Artave'];
+    const DEFAULT_TABS = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
     if (!sheetsMeta?.sheets || sheetsMeta.sheets.length === 0) {
       return DEFAULT_TABS;
     }
@@ -279,8 +296,24 @@ export function useStudents() {
       .map((s) => s.properties.title)
       .filter((title) => !NON_STUDENT_TABS.has(title.toLowerCase().trim()));
 
+    // Garante que 'Orquestra 10º ano' está incluída se a aba ainda não foi apanhada pelo sheetsMeta
+    const has10 = filtered.some((t) => /10[º°]?\s*ano/i.test(t));
+    if (!has10) {
+      filtered.push('Orquestra 10º ano');
+    }
+
     return filtered.length > 0 ? filtered : DEFAULT_TABS;
   }, [sheetsMeta]);
+
+  // Lista de orquestras com nomes amigáveis para a interface
+  const publicOrchestras = useMemo(() => {
+    const mapped = studentTabs.map((t) => (/^10[º°]?\s*ano$/i.test(t.trim()) ? 'Orquestra 10º ano' : t));
+    const unique = Array.from(new Set(mapped));
+    if (!unique.some((o) => /10[º°]?\s*ano/i.test(o))) {
+      unique.push('Orquestra 10º ano');
+    }
+    return unique;
+  }, [studentTabs]);
 
   const load = useCallback(async () => {
     if (!config) return;
@@ -344,7 +377,7 @@ export function useStudents() {
   const add = useCallback(
     async (student: Omit<Student, 'id' | 'rowIndex'>) => {
       if (!config) return;
-      const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
+      const targetTab = resolveTargetTab(student.orquestra || '', studentTabs);
       const toastId = toast.loading(`A adicionar aluno em ${targetTab}...`);
       try {
         await appendRows(config.spreadsheetId, `${targetTab}!A:E`, [studentToRow(student)]);
@@ -360,7 +393,7 @@ export function useStudents() {
   const update = useCallback(
     async (student: Student) => {
       if (!config) return;
-      const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
+      const targetTab = resolveTargetTab(student.orquestra || '', studentTabs);
       const toastId = toast.loading('A guardar...');
       try {
         const range = `${targetTab}!A${student.rowIndex}:E${student.rowIndex}`;
@@ -384,7 +417,7 @@ export function useStudents() {
       });
 
       if (!config) return;
-      const targetTab = student.orquestra || studentTabs[0] || 'Alunos';
+      const targetTab = resolveTargetTab(student.orquestra || '', studentTabs);
       const sheetId = getSheetId(targetTab) ?? 0;
       const toastId = toast.loading('A eliminar...');
       try {
@@ -405,7 +438,7 @@ export function useStudents() {
 
   return {
     students,
-    orchestras: studentTabs,
+    orchestras: publicOrchestras,
     isLoading,
     load,
     add,

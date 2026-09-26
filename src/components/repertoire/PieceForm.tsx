@@ -19,13 +19,20 @@ const EMPTY: Omit<Piece, 'id' | 'rowIndex'> = {
   orquestra: 'Académica',
 };
 
-export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil', 'Artave', 'Todas'], onSave, onClose }: PieceFormProps) {
+export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano', 'Todas'], onSave, onClose }: PieceFormProps) {
   // Garante que apenas orquestras musicais reais aparecem
   const validOrchestras = React.useMemo(() => {
+    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
     const nonOrchestraPattern = /^alunos?$|chefe|geral/i;
-    const filtered = orchestras.filter((o) => !nonOrchestraPattern.test(o.trim()));
-    if (!filtered.includes('Todas')) filtered.push('Todas');
-    return filtered.length > 0 ? filtered : ['Académica', 'Juvenil', 'Artave', 'Todas'];
+    const filtered = orchestras
+      .filter((o) => !nonOrchestraPattern.test(o.trim()))
+      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
+    const unique = Array.from(new Set(filtered));
+    defaultOrchestras.forEach((def) => {
+      if (!unique.includes(def)) unique.push(def);
+    });
+    if (!unique.includes('Todas')) unique.push('Todas');
+    return unique;
   }, [orchestras]);
 
   const [form, setForm] = useState<Omit<Piece, 'id' | 'rowIndex'>>(

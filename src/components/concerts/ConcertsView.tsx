@@ -15,7 +15,7 @@ interface ConcertsViewProps {
 
 export default function ConcertsView({
   concerts,
-  orchestras = ['Académica', 'Juvenil', 'Artave'],
+  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
   isLoading,
   onAdd,
   onUpdate,
@@ -25,6 +25,19 @@ export default function ConcertsView({
   const [filterOrquestra, setFilterOrquestra] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingConcert, setEditingConcert] = useState<Concert | undefined>();
+
+  const validOrchestras = React.useMemo(() => {
+    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
+    const filtered = list
+      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
+      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
+    const unique = Array.from(new Set(filtered));
+    defaultOrchestras.forEach((def) => {
+      if (!unique.includes(def)) unique.push(def);
+    });
+    return unique;
+  }, [orchestras]);
 
   const filtered = concerts
     .filter((c) => {
@@ -127,7 +140,7 @@ export default function ConcertsView({
             className="text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg px-3 py-2 text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
           >
             <option value="">Todas as Orquestras</option>
-            {orchestras.map((o) => (
+            {validOrchestras.map((o) => (
               <option key={o} value={o}>{o}</option>
             ))}
           </select>
@@ -296,7 +309,7 @@ export default function ConcertsView({
       {isModalOpen && (
         <ConcertFormModal
           concert={editingConcert}
-          orchestras={orchestras}
+          orchestras={validOrchestras}
           onSave={handleSaveModal}
           onClose={() => setIsModalOpen(false)}
         />

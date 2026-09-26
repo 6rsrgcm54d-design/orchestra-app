@@ -198,7 +198,7 @@ export interface Student {
   grau: string; // "Grau"
   naipe: string; // "Naipe"
   ativo?: boolean;
-  orquestra?: string; // ex: "Académica", "Juvenil", "Artave"
+  orquestra?: string; // ex: "Académica", "Juvenil", "Artave", "Orquestra 10º ano"
 }
 
 // ─── Repertoire ──────────────────────────────────────────────────────────────
@@ -273,7 +273,7 @@ export interface StagePlan {
 export interface Concert {
   id: string;
   rowIndex: number;
-  orquestra: string; // "Académica", "Juvenil", "Artave", "Todas"
+  orquestra: string; // "Académica", "Juvenil", "Artave", "Orquestra 10º ano", "Todas"
   data: string; // YYYY-MM-DD
   horaEnsaioGeral: string; // ex: "15:00"
   horaConcerto: string; // ex: "21:00"
