@@ -62,14 +62,18 @@ interface ProvaCellInputProps {
 }
 
 function ProvaCellInput({ id, value, onCommit, onNavigate, title }: ProvaCellInputProps) {
-  const [text, setText] = useState<string>(
-    value !== null && value !== undefined ? String(value) : ''
-  );
+  const formatVal = (v: number | null | undefined): string => {
+    if (v === null || v === undefined) return '';
+    const n = v > 0 && v <= 1 ? Math.round(v * 100) : Math.round(v);
+    return String(n);
+  };
+
+  const [text, setText] = useState<string>(formatVal(value));
   const [isFocused, setIsFocused] = useState(false);
 
   useEffect(() => {
     if (!isFocused) {
-      setText(value !== null && value !== undefined ? String(value) : '');
+      setText(formatVal(value));
     }
   }, [value, isFocused]);
 
@@ -82,11 +86,14 @@ function ProvaCellInput({ id, value, onCommit, onNavigate, title }: ProvaCellInp
     }
     let num = parseFloat(clean);
     if (isNaN(num)) {
-      setText(value !== null && value !== undefined ? String(value) : '');
+      setText(formatVal(value));
       return;
     }
-    // Se o utilizador digitou na escala 0-10 com decimal (ex: 8.5 ou 7.5), converte para 85 ou 75
-    if (num > 0 && num <= 10 && clean.includes('.')) {
+    // Se veio ou foi digitado decimal <= 1 (ex: 0.45 para 45, ou 0.7 para 70)
+    if (num > 0 && num <= 1 && (clean.includes('.') || clean === '1')) {
+      num = num * 100;
+    } else if (num > 1 && num <= 10 && clean.includes('.')) {
+      // Se o utilizador digitou na escala 0-10 com decimal (ex: 8.5 ou 7.5), converte para 85 ou 75
       num = num * 10;
     }
     const clamped = Math.min(100, Math.max(0, num));
@@ -719,12 +726,18 @@ export default function ProvasView({
                 filteredStudents.map((student, idx) => {
                   const key = studentKey(student.nome, student.orquestra);
                   const p = provaMap[key] || provaMap[studentKey(student.nome, '')];
-                  const finalScore = p?.classificacaoFinal;
-                  const isEvaluated = finalScore !== null && finalScore !== undefined;
+                  const rawScore = p?.classificacaoFinal;
+                  const finalScore =
+                    rawScore !== null && rawScore !== undefined
+                      ? rawScore > 0 && rawScore <= 1
+                        ? Math.round(rawScore * 100)
+                        : Math.round(rawScore)
+                      : null;
+                  const isEvaluated = finalScore !== null;
 
                   let scoreBadgeClass =
                     'px-2.5 py-1 rounded-lg text-xs font-black inline-flex items-center justify-center min-w-[50px] ';
-                  if (finalScore !== null && finalScore !== undefined) {
+                  if (finalScore !== null) {
                     if (finalScore >= 90) {
                       scoreBadgeClass += 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30';
                     } else if (finalScore >= 75) {
@@ -781,7 +794,7 @@ export default function ProvasView({
                               value={val}
                               onCommit={(newVal) => handleParamChange(student, param.key, newVal)}
                               onNavigate={(dir) => handleNavigate(idx, colIdx, dir)}
-                              title={`${param.label}: ${val !== null && val !== undefined ? `${val}%` : 'Sem nota'}`}
+                              title={`${param.label}: ${val !== null && val !== undefined ? (val > 0 && val <= 1 ? Math.round(val * 100) : Math.round(val)) : 'Sem nota'}`}
                             />
                           </td>
                         );
@@ -790,7 +803,7 @@ export default function ProvasView({
                       {/* Classificação Final */}
                       <td className="py-2 px-3 text-center">
                         <span className={scoreBadgeClass}>
-                          {finalScore !== null && finalScore !== undefined ? `${finalScore}%` : '—'}
+                          {finalScore !== null ? finalScore : '—'}
                         </span>
                       </td>
 

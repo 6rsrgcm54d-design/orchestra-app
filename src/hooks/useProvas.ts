@@ -60,12 +60,33 @@ export function colToLetter(col: number): string {
   return letter || 'A';
 }
 
-export function parsePercentVal(val: any): number | null {
+export function parseScoreVal(val: any): number | null {
   if (val === undefined || val === null || val === '') return null;
-  const clean = String(val).replace('%', '').trim();
+  const str = String(val).trim();
+  if (str === '' || str === '—' || str === '-') return null;
+
+  // Remove % se houver e normaliza vírgula para ponto
+  const clean = str.replace('%', '').trim().replace(',', '.');
   if (clean === '') return null;
+
   const num = parseFloat(clean);
-  return isNaN(num) ? null : Math.min(100, Math.max(0, num));
+  if (isNaN(num)) return null;
+
+  // Se veio do Sheets em formato decimal (ex: 0.45 para 45, 0.7 para 70, 0.85 para 85, ou 1 para 100)
+  if (num > 0 && num <= 1 && (clean.includes('.') || clean === '1')) {
+    return Math.min(100, Math.max(0, Math.round(num * 100)));
+  }
+
+  // Número normal 0-100 (ex: 45, 70, 85, 100)
+  return Math.min(100, Math.max(0, Math.round(num)));
+}
+
+export const parsePercentVal = parseScoreVal;
+
+export function formatScoreForSheet(val: number | null | undefined): string {
+  if (val === null || val === undefined || isNaN(val)) return '';
+  const rounded = Math.min(100, Math.max(0, Math.round(val)));
+  return String(rounded);
 }
 
 export interface HeaderMapping {
@@ -145,7 +166,7 @@ export function buildRowValues(
   const row: string[] = new Array(colCount).fill('');
 
   const finalScore =
-    params.classificacaoFinal !== undefined
+    params.classificacaoFinal !== undefined && params.classificacaoFinal !== null
       ? params.classificacaoFinal
       : calcClassificacaoFinal(params);
 
@@ -170,14 +191,14 @@ export function buildRowValues(
   setVal(colNome, student.nome);
   setVal(colNaipe, student.naipe || '');
   setVal(colOrquestra, student.orquestra || '');
-  setVal(colAfinacao, params.afinacao !== null && params.afinacao !== undefined ? `${params.afinacao}%` : '');
-  setVal(colPrecisao, params.precisaoRitmica !== null && params.precisaoRitmica !== undefined ? `${params.precisaoRitmica}%` : '');
-  setVal(colTempo, params.tempo !== null && params.tempo !== undefined ? `${params.tempo}%` : '');
-  setVal(colArticulacao, params.articulacao !== null && params.articulacao !== undefined ? `${params.articulacao}%` : '');
-  setVal(colDinamicas, params.dinamicas !== null && params.dinamicas !== undefined ? `${params.dinamicas}%` : '');
-  setVal(colFraseado, params.fraseado !== null && params.fraseado !== undefined ? `${params.fraseado}%` : '');
-  setVal(colTimbre, params.timbre !== null && params.timbre !== undefined ? `${params.timbre}%` : '');
-  setVal(colClassificacao, finalScore !== null && finalScore !== undefined ? `${finalScore}%` : '');
+  setVal(colAfinacao, formatScoreForSheet(params.afinacao));
+  setVal(colPrecisao, formatScoreForSheet(params.precisaoRitmica));
+  setVal(colTempo, formatScoreForSheet(params.tempo));
+  setVal(colArticulacao, formatScoreForSheet(params.articulacao));
+  setVal(colDinamicas, formatScoreForSheet(params.dinamicas));
+  setVal(colFraseado, formatScoreForSheet(params.fraseado));
+  setVal(colTimbre, formatScoreForSheet(params.timbre));
+  setVal(colClassificacao, formatScoreForSheet(finalScore));
 
   return row;
 }

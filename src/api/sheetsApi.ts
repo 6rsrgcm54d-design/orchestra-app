@@ -328,9 +328,9 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
   ],
   Provas: [
     ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final'],
-    ['1', 'Beatriz Esteves Ribeiro', 'Violino I', 'Académica', '85%', '80%', '85%', '80%', '75%', '85%', '80%', '80%'],
-    ['2', 'Beatriz Gonçalves Dias', 'Violino I', 'Académica', '80%', '75%', '80%', '70%', '70%', '75%', '75%', '75%'],
-    ['3', 'Diogo Pego Machado', 'Violino I', 'Académica', '90%', '95%', '90%', '85%', '90%', '90%', '90%', '90%'],
+    ['1', 'Beatriz Esteves Ribeiro', 'Violino I', 'Académica', '85', '80', '85', '80', '75', '85', '80', '80'],
+    ['2', 'Beatriz Gonçalves Dias', 'Violino I', 'Académica', '80', '75', '80', '70', '70', '75', '75', '75'],
+    ['3', 'Diogo Pego Machado', 'Violino I', 'Académica', '90', '95', '90', '85', '90', '90', '90', '90'],
   ],
   PlanosPalco: [
     ['PlanosPalco_JSON'],

@@ -108,14 +108,14 @@ export function exportProvasToCSV(
     p.nomeAluno,
     p.naipe || '',
     p.orquestra || '',
-    p.afinacao !== null && p.afinacao !== undefined ? `${p.afinacao}%` : '',
-    p.precisaoRitmica !== null && p.precisaoRitmica !== undefined ? `${p.precisaoRitmica}%` : '',
-    p.tempo !== null && p.tempo !== undefined ? `${p.tempo}%` : '',
-    p.articulacao !== null && p.articulacao !== undefined ? `${p.articulacao}%` : '',
-    p.dinamicas !== null && p.dinamicas !== undefined ? `${p.dinamicas}%` : '',
-    p.fraseado !== null && p.fraseado !== undefined ? `${p.fraseado}%` : '',
-    p.timbre !== null && p.timbre !== undefined ? `${p.timbre}%` : '',
-    p.classificacaoFinal !== null && p.classificacaoFinal !== undefined ? `${p.classificacaoFinal}%` : '',
+    p.afinacao !== null && p.afinacao !== undefined ? String(p.afinacao > 0 && p.afinacao <= 1 ? Math.round(p.afinacao * 100) : Math.round(p.afinacao)) : '',
+    p.precisaoRitmica !== null && p.precisaoRitmica !== undefined ? String(p.precisaoRitmica > 0 && p.precisaoRitmica <= 1 ? Math.round(p.precisaoRitmica * 100) : Math.round(p.precisaoRitmica)) : '',
+    p.tempo !== null && p.tempo !== undefined ? String(p.tempo > 0 && p.tempo <= 1 ? Math.round(p.tempo * 100) : Math.round(p.tempo)) : '',
+    p.articulacao !== null && p.articulacao !== undefined ? String(p.articulacao > 0 && p.articulacao <= 1 ? Math.round(p.articulacao * 100) : Math.round(p.articulacao)) : '',
+    p.dinamicas !== null && p.dinamicas !== undefined ? String(p.dinamicas > 0 && p.dinamicas <= 1 ? Math.round(p.dinamicas * 100) : Math.round(p.dinamicas)) : '',
+    p.fraseado !== null && p.fraseado !== undefined ? String(p.fraseado > 0 && p.fraseado <= 1 ? Math.round(p.fraseado * 100) : Math.round(p.fraseado)) : '',
+    p.timbre !== null && p.timbre !== undefined ? String(p.timbre > 0 && p.timbre <= 1 ? Math.round(p.timbre * 100) : Math.round(p.timbre)) : '',
+    p.classificacaoFinal !== null && p.classificacaoFinal !== undefined ? String(p.classificacaoFinal > 0 && p.classificacaoFinal <= 1 ? Math.round(p.classificacaoFinal * 100) : Math.round(p.classificacaoFinal)) : '',
   ]);
 
   const csvContent = [header, ...rows]

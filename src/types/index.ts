@@ -344,7 +344,9 @@ export function calcClassificacaoFinal(params: {
     params.dinamicas,
     params.fraseado,
     params.timbre,
-  ].filter((v): v is number => typeof v === 'number' && !isNaN(v) && v >= 0);
+  ]
+    .filter((v): v is number => typeof v === 'number' && !isNaN(v) && v >= 0)
+    .map((v) => (v > 0 && v <= 1 ? Math.round(v * 100) : Math.round(v)));
 
   if (values.length === 0) return null;
   const avg = values.reduce((sum, v) => sum + v, 0) / values.length;
