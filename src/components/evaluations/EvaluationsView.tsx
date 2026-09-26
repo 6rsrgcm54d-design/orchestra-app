@@ -468,9 +468,41 @@ export default function EvaluationsView({
 
     const clean = val.trim().replace(',', '.');
     if (clean === '' || clean === '0') {
+      const isCB = isCbOrchestra(student.orquestra);
+      const existing = evalMap[key] || evalMap[keyNameOnly];
+      const keepObs = isCB ? (existing?.observacoes || '') : '';
+
+      if (keepObs) {
+        const updated: Evaluation = {
+          id: existing?.id || `eval-${student.id || student.nome.toLowerCase().replace(/\s+/g, '-')}`,
+          rowIndex: existing?.rowIndex ?? -1,
+          ordem: student.numero || existing?.ordem || '',
+          nomeAluno: student.nome,
+          grau: student.grau || existing?.grau || '',
+          naipe: student.naipe || existing?.naipe || '',
+          orquestra: student.orquestra || existing?.orquestra || '',
+          pontuacao: 0,
+          classificacao20: undefined,
+          data: new Date().toISOString().split('T')[0],
+          observacoes: keepObs,
+        };
+        setEvalMap((prev) => ({
+          ...prev,
+          [key]: updated,
+          [keyNameOnly]: updated,
+        }));
+      } else {
+        setEvalMap((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          delete next[keyNameOnly];
+          return next;
+        });
+      }
+
       saveTimeoutsRef.current[key] = setTimeout(() => {
         commitScore20(student, val);
-      }, 700);
+      }, 500);
       return;
     }
 
@@ -516,9 +548,10 @@ export default function EvaluationsView({
     student: Student,
     currentIndex: number
   ) => {
+    const inputVal = (e.currentTarget as HTMLInputElement).value;
     if (e.key === 'Enter' || e.key === 'ArrowDown') {
       e.preventDefault();
-      commitScore20(student);
+      commitScore20(student, inputVal);
       let nextIdx = currentIndex + 1;
       while (nextIdx < filteredStudents.length && !inputRefs.current[nextIdx]) {
         nextIdx++;
@@ -529,7 +562,7 @@ export default function EvaluationsView({
       }
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      commitScore20(student);
+      commitScore20(student, inputVal);
       let prevIdx = currentIndex - 1;
       while (prevIdx >= 0 && !inputRefs.current[prevIdx]) {
         prevIdx--;
@@ -541,55 +574,46 @@ export default function EvaluationsView({
     }
   };
 
-  // Limpar a avaliação de um aluno (sem apagar o aluno da base de dados)
+  // Limpar a avaliação de um aluno de forma imediata (sem apagar o aluno da base de dados)
   const handleClearEvaluation = (student: Student) => {
     const key = studentKey(student.nome, student.orquestra);
     const keyNameOnly = studentKey(student.nome, '');
     const existing = evalMap[key] || evalMap[keyNameOnly];
 
-    if (!existing || (!existing.pontuacao && !existing.observacoes)) return;
-
-    const is20 = uses20Scale(student.orquestra, student.grau);
-    const isCB = isCbOrchestra(student.orquestra);
-    const promptMsg = is20 && !isCB
-      ? `Deseja limpar a classificação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota de 0 a 20)`
-      : is20 && isCB
-      ? `Deseja limpar a classificação e a observação de ${student.nome} (${student.grau || '6º-8º Grau'})?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`
-      : `Deseja limpar o nível e a observação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`;
-
-    if (window.confirm(promptMsg)) {
-      if (saveTimeoutsRef.current[key]) {
-        clearTimeout(saveTimeoutsRef.current[key]);
-        delete saveTimeoutsRef.current[key];
-      }
-      if (saveTimeoutsRef.current[keyNameOnly]) {
-        clearTimeout(saveTimeoutsRef.current[keyNameOnly]);
-        delete saveTimeoutsRef.current[keyNameOnly];
-      }
-
-      setEvalMap((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        delete next[keyNameOnly];
-        return next;
-      });
-
-      setScore20Inputs((prev) => {
-        const next = { ...prev };
-        delete next[key];
-        delete next[keyNameOnly];
-        return next;
-      });
-
-      if (onSaveSingleEvaluation) {
-        onSaveSingleEvaluation(student, 0, '', existing.rowIndex);
-      } else if (onDelete) {
-        onDelete(existing);
-      }
-      toast.success(
-        `Classificação de ${student.nome} limpa. Aluno mantido na base de dados.`
-      );
+    if (saveTimeoutsRef.current[key]) {
+      clearTimeout(saveTimeoutsRef.current[key]);
+      delete saveTimeoutsRef.current[key];
     }
+    if (saveTimeoutsRef.current[keyNameOnly]) {
+      clearTimeout(saveTimeoutsRef.current[keyNameOnly]);
+      delete saveTimeoutsRef.current[keyNameOnly];
+    }
+
+    setEvalMap((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      delete next[keyNameOnly];
+      return next;
+    });
+
+    setScore20Inputs((prev) => {
+      const next = { ...prev };
+      delete next[key];
+      delete next[keyNameOnly];
+      return next;
+    });
+
+    if (onSaveSingleEvaluation) {
+      onSaveSingleEvaluation(student, 0, '', existing?.rowIndex).catch((e) => {
+        console.error('Erro ao limpar avaliação no Sheets:', e);
+      });
+    }
+    if (existing && onDelete) {
+      onDelete(existing);
+    }
+    toast.success(
+      `Classificação de ${student.nome} limpa. Aluno mantido na base de dados.`
+    );
   };
 
   // Guardar todas as avaliações no Google Sheets sincronizando ambas as abas
@@ -1212,7 +1236,7 @@ export default function EvaluationsView({
                                     }
                                     onChange={(e) => handleScore20Change(student, e.target.value)}
                                     onKeyDown={(e) => handleKeyDownScore20(e, student, idx)}
-                                    onBlur={() => commitScore20(student)}
+                                    onBlur={(e) => commitScore20(student, e.target.value)}
                                     placeholder="0 - 20"
                                     className={`w-20 sm:w-24 px-3 py-1.5 text-center text-sm font-black font-mono rounded-lg border transition-all ${
                                       currentScore > 0
