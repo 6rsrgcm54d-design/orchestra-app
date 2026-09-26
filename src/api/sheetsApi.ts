@@ -102,6 +102,19 @@ function doPost(e) {
   }
 
   if (action === 'update') {
+    if (data.range) {
+      try {
+        var cleanRange = String(data.range);
+        if (cleanRange.indexOf('!') !== -1) {
+          cleanRange = cleanRange.split('!')[1].replace(/^'+|'+$/g, '');
+        }
+        var targetRng = sheet.getRange(cleanRange);
+        if (targetRng) {
+          targetRng.setValues(data.values);
+          return jsonResponse({ success: true });
+        }
+      } catch (err) {}
+    }
     if (data.rowIndex) {
       var row = data.values[0];
       sheet.getRange(data.rowIndex, 1, 1, row.length).setValues([row]);
@@ -339,33 +352,15 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
   ],
   Avaliações: [
     ['Ordem', 'Nome Aluno', 'Grau', 'Naipe', 'Orquestra', 'Classificação', 'Observações'],
-    ['1', 'Maria Santos', '8º Grau', 'Violino I', 'Artave', '5', 'A Maria atingiu o nível excelente! Deve continuar.'],
-    ['2', 'João Ferreira', '7º Grau', 'Violino I', 'Artave', '4', 'O João demonstrou um desempenho muito bom e consistente no naipe.'],
-    ['3', 'Ana Rodrigues', '8º Grau', 'Violino I', 'Artave', '5', 'A Ana atingiu o nível excelente! Deve continuar.'],
-    ['1', 'Tiago Silva', '2º Grau', 'Violino I', 'Juvenil', '3', 'O Tiago atingiu um nível satisfatório, devendo reforçar o estudo regular das peças.'],
-    ['2', 'Lucas Pereira', '2º Grau', 'Violino II', 'Juvenil', '4', 'O Lucas demonstrou um desempenho muito bom e consistente no naipe.'],
   ],
   'Avaliações CB': [
     ['Ordem', 'Nome Aluno', 'Grau', 'Naipe', 'Orquestra', 'Nível', 'Observações'],
-    ['1', 'Beatriz Esteves Ribeiro', '2º Grau', 'Violino I', 'Académica', '5', 'A Beatriz atingiu o nível excelente! Deve continuar o ótimo trabalho.'],
-    ['2', 'Beatriz Gonçalves Dias', '2º Grau', 'Violino I', 'Académica', '4', 'A Beatriz demonstrou um desempenho muito bom e consistente no naipe.'],
-    ['3', 'Diogo Pego Machado', '3º Grau', 'Violino I', 'Académica', '5', 'O Diogo atingiu o nível excelente! Deve continuar o ótimo trabalho.'],
-    ['1', 'Tiago Silva', '2º Grau', 'Violino I', 'Juvenil', '3', 'O Tiago atingiu um nível satisfatório, devendo reforçar o estudo regular das peças.'],
-    ['2', 'Lucas Pereira', '2º Grau', 'Violino II', 'Juvenil', '4', 'O Lucas demonstrou um desempenho muito bom e consistente no naipe.'],
   ],
   'Avaliações Secundário': [
     ['Ordem', 'Nome Aluno', 'Grau', 'Naipe', 'Orquestra', 'Classificação Final'],
-    ['1', 'Maria Santos', '8º Grau', 'Violino I', 'Artave', '18'],
-    ['2', 'João Ferreira', '7º Grau', 'Violino I', 'Artave', '16.5'],
-    ['3', 'Ana Rodrigues', '8º Grau', 'Violino I', 'Artave', '19'],
-    ['1', 'Leonor Silva Martins', '10º Ano', 'Violino I', 'Orquestra 10º ano', '17'],
-    ['2', 'Tomás Afonso Pereira', '10º Ano', 'Violino I', 'Orquestra 10º ano', '15.5'],
   ],
   Provas: [
     ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final'],
-    ['1', 'Beatriz Esteves Ribeiro', 'Violino I', 'Académica', '85', '80', '85', '80', '75', '85', '80', '80'],
-    ['2', 'Beatriz Gonçalves Dias', 'Violino I', 'Académica', '80', '75', '80', '70', '70', '75', '75', '75'],
-    ['3', 'Diogo Pego Machado', 'Violino I', 'Académica', '90', '95', '90', '85', '90', '90', '90', '90'],
   ],
   PlanosPalco: [
     ['PlanosPalco_JSON'],
@@ -527,7 +522,7 @@ function getLocalTab(tabName: string): string[][] {
   if (saved) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 1) {
+      if (Array.isArray(parsed) && parsed.length >= 1) {
         return parsed;
       }
     } catch {

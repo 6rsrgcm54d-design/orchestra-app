@@ -336,9 +336,10 @@ function MainApp() {
     if (!hasCachedData) {
       syncAll();
     } else {
-      // Atualiza metadados e alunos em segundo plano para detetar novas abas criadas no Google Sheets (ex: Orquestra 10º ano)
+      // Atualiza metadados, alunos e avaliações em segundo plano para manter tudo sincronizado com o Google Sheets
       refreshMeta().then(() => {
         loadStudents();
+        loadEvals();
       }).catch(() => {});
     }
   }, []);

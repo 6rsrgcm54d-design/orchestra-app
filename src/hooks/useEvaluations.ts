@@ -278,7 +278,7 @@ function rowToEvaluation(row: string[], rowIndex: number, mapping: HeaderMapping
       classificacao20 = parsed;
     }
   }
-  if (!pontuacao && observacoes) {
+  if (mapping.colClassificacao === -1 && !pontuacao && observacoes) {
     pontuacao = deduceScore(observacoes);
   }
 
@@ -313,30 +313,11 @@ const CACHE_CRIT_KEY = 'orchestra_cache_criteria';
 
 function getInitialEvaluations(): Evaluation[] {
   const saved = safeStorage.getItem(CACHE_EVALS_KEY);
-  if (saved) {
+  if (saved !== null) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch {}
-  }
-
-  const allInitial: Evaluation[] = [];
-  ['Avaliações CB', 'Avaliações Secundário', 'Avaliações'].forEach((tab) => {
-    const raw = INITIAL_LOCAL_DATA[tab] || [];
-    if (raw.length > 1) {
-      const mapping = parseHeader(raw[0]);
-      raw.slice(1).forEach((row, i) => {
-        const ev = rowToEvaluation(row, i + 2, mapping);
-        if (ev.pontuacao > 0 || (ev.observacoes && ev.observacoes.trim().length > 0)) {
-          allInitial.push(ev);
-        }
-      });
-    }
-  });
-
-  if (allInitial.length > 0) {
-    safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(allInitial));
-    return allInitial;
   }
   return [];
 }
@@ -669,15 +650,7 @@ export function useEvaluations() {
             const classColIdx = mapping.colClassificacao !== -1 ? mapping.colClassificacao : 5;
             const obsColIdx = mapping.colObservacoes !== -1 ? mapping.colObservacoes : 6;
 
-            let foundRowIndex = -1;
-            if (currentTab === tabName && rowIndex && rowIndex > 1 && rowIndex <= rows.length) {
-              const rName = cleanStudentName(rows[rowIndex - 1][nameColIdx]);
-              if (rName === targetNormName) {
-                foundRowIndex = rowIndex;
-              }
-            }
-
-            if (foundRowIndex === -1) {
+            if (isClearing) {
               for (let i = 1; i < rows.length; i++) {
                 const rName = cleanStudentName(rows[i][nameColIdx]);
                 if (rName === targetNormName) {
@@ -687,41 +660,80 @@ export function useEvaluations() {
                       continue;
                     }
                   }
-                  foundRowIndex = i + 1; // 1-based
-                  break;
+                  const clearRowIndex = i + 1;
+                  const existingRow = [...rows[i]];
+                  while (existingRow.length <= Math.max(classColIdx, obsColIdx)) {
+                    existingRow.push('');
+                  }
+                  existingRow[classColIdx] = '';
+                  if (mapping.colObservacoes !== -1) {
+                    existingRow[obsColIdx] = '';
+                  } else if (existingRow.length > 6) {
+                    existingRow[6] = '';
+                  }
+                  const endLetter = colIndexToA1(existingRow.length - 1);
+                  await updateRange(
+                    config.spreadsheetId,
+                    formatSheetRange(currentTab, `A${clearRowIndex}:${endLetter}${clearRowIndex}`),
+                    [existingRow]
+                  );
                 }
               }
-            }
-
-            if (foundRowIndex > 1) {
-              const existingRow = [...rows[foundRowIndex - 1]];
-              while (existingRow.length <= Math.max(classColIdx, obsColIdx)) {
-                existingRow.push('');
+            } else {
+              let foundRowIndex = -1;
+              if (currentTab === tabName && rowIndex && rowIndex > 1 && rowIndex <= rows.length) {
+                const rName = cleanStudentName(rows[rowIndex - 1][nameColIdx]);
+                if (rName === targetNormName) {
+                  foundRowIndex = rowIndex;
+                }
               }
 
-              const scoreStr = levelOrScore > 0 ? String(levelOrScore) : '';
-              existingRow[classColIdx] = scoreStr;
-
-              if (mapping.colObservacoes !== -1) {
-                existingRow[obsColIdx] = observacoes || '';
-              } else if (isCB && currentTab === tabs.cbTab) {
-                existingRow[6] = observacoes || '';
+              if (foundRowIndex === -1) {
+                for (let i = 1; i < rows.length; i++) {
+                  const rName = cleanStudentName(rows[i][nameColIdx]);
+                  if (rName === targetNormName) {
+                    if (mapping.colOrquestra !== -1 && targetNormOrch) {
+                      const rOrch = normalizeOrchestra(rows[i][mapping.colOrquestra]).toLowerCase();
+                      if (rOrch && rOrch !== targetNormOrch) {
+                        continue;
+                      }
+                    }
+                    foundRowIndex = i + 1; // 1-based
+                    break;
+                  }
+                }
               }
 
-              const endLetter = colIndexToA1(existingRow.length - 1);
-              await updateRange(
-                config.spreadsheetId,
-                formatSheetRange(currentTab, `A${foundRowIndex}:${endLetter}${foundRowIndex}`),
-                [existingRow]
-              );
-            } else if (!isClearing && currentTab === tabName) {
-              // Se não existe na aba de destino e NÃO é limpeza, cria nova linha
-              const scoreStr = levelOrScore > 0 ? String(levelOrScore) : '';
-              const newRow = isCB
-                ? [student.numero || '', student.nome, student.grau || '', student.naipe || '', student.orquestra || '', scoreStr, observacoes || '']
-                : [student.numero || '', student.nome, student.grau || '', student.naipe || '', student.orquestra || '', scoreStr];
-              const endCol = isCB ? 'G' : 'F';
-              await appendRows(config.spreadsheetId, formatSheetRange(currentTab, `A:${endCol}`), [newRow]);
+              if (foundRowIndex > 1) {
+                const existingRow = [...rows[foundRowIndex - 1]];
+                while (existingRow.length <= Math.max(classColIdx, obsColIdx)) {
+                  existingRow.push('');
+                }
+
+                const scoreStr = levelOrScore > 0 ? String(levelOrScore) : '';
+                existingRow[classColIdx] = scoreStr;
+
+                if (mapping.colObservacoes !== -1) {
+                  existingRow[obsColIdx] = observacoes || '';
+                } else if (isCB && currentTab === tabs.cbTab) {
+                  existingRow[6] = observacoes || '';
+                }
+
+                const endLetter = colIndexToA1(existingRow.length - 1);
+                await updateRange(
+                  config.spreadsheetId,
+                  formatSheetRange(currentTab, `A${foundRowIndex}:${endLetter}${foundRowIndex}`),
+                  [existingRow]
+                );
+              } else if (currentTab === tabName) {
+                // Se não existe na aba de destino e NÃO é limpeza, cria nova linha
+                const scoreStr = levelOrScore > 0 ? String(levelOrScore) : '';
+                const newRow = isCB
+                  ? [student.numero || '', student.nome, student.grau || '', student.naipe || '', student.orquestra || '', scoreStr, observacoes || '']
+                  : [student.numero || '', student.nome, student.grau || '', student.naipe || '', student.orquestra || '', scoreStr];
+                const endCol = isCB ? 'G' : 'F';
+                await appendRows(config.spreadsheetId, formatSheetRange(currentTab, `A:${endCol}`), [newRow]);
+              }
             }
           } catch (tabErr) {
             if (!isClearing) throw tabErr;
@@ -824,89 +836,21 @@ export function useEvaluations() {
 
   const removeEvaluation = useCallback(
     async (ev: Evaluation) => {
-      const targetNormName = cleanStudentName(ev.nomeAluno);
-      const targetNormOrch = normalizeOrchestra(ev.orquestra).toLowerCase();
-
-      setEvaluations((prev) => {
-        const next = prev.filter((e) => {
-          if (e.id === ev.id) return false;
-          const eNormName = cleanStudentName(e.nomeAluno);
-          const eNormOrch = normalizeOrchestra(e.orquestra).toLowerCase();
-          if (eNormName === targetNormName) {
-            if (!targetNormOrch || !eNormOrch || eNormOrch === targetNormOrch) return false;
-          }
-          return true;
-        });
-        safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(next));
-        return next;
-      });
-
-      if (!config) {
-        toast.success('Avaliação limpa localmente.');
-        return;
-      }
-
-      try {
-        const tabs = getEvalTabs(sheetsMeta);
-        const tabsToProcess = Array.from(
-          new Set([
-            getTargetEvalTab(ev.orquestra, sheetsMeta),
-            tabs.secundarioTab,
-            tabs.cbTab,
-            'Avaliações',
-            'Avaliações CB',
-            'Avaliações Secundário',
-          ])
-        ).filter(
-          (t) =>
-            !sheetsMeta?.sheets?.length ||
-            sheetsMeta.sheets.some((s) => s.properties.title.toLowerCase() === t.toLowerCase())
-        );
-
-        for (const currentTab of tabsToProcess) {
-          try {
-            const rows = await readRange(config.spreadsheetId, formatSheetRange(currentTab, 'A:G'));
-            if (!rows || rows.length <= 1) continue;
-
-            const mapping = parseHeader(rows[0]);
-            const nameColIdx = mapping.colNome !== -1 ? mapping.colNome : 1;
-            const classColIdx = mapping.colClassificacao !== -1 ? mapping.colClassificacao : 5;
-            const obsColIdx = mapping.colObservacoes !== -1 ? mapping.colObservacoes : 6;
-
-            for (let i = 1; i < rows.length; i++) {
-              const rName = cleanStudentName(rows[i][nameColIdx]);
-              if (rName === targetNormName) {
-                if (mapping.colOrquestra !== -1 && targetNormOrch) {
-                  const rOrch = normalizeOrchestra(rows[i][mapping.colOrquestra]).toLowerCase();
-                  if (rOrch && rOrch !== targetNormOrch) {
-                    continue;
-                  }
-                }
-                const targetRowIndex = i + 1;
-                const existingRow = [...rows[i]];
-                while (existingRow.length <= Math.max(classColIdx, obsColIdx)) {
-                  existingRow.push('');
-                }
-                existingRow[classColIdx] = '';
-                if (mapping.colObservacoes !== -1) {
-                  existingRow[obsColIdx] = '';
-                }
-                const endLetter = colIndexToA1(existingRow.length - 1);
-                await updateRange(
-                  config.spreadsheetId,
-                  formatSheetRange(currentTab, `A${targetRowIndex}:${endLetter}${targetRowIndex}`),
-                  [existingRow]
-                );
-              }
-            }
-          } catch {}
-        }
-        toast.success(`Classificação de ${ev.nomeAluno} limpa no Google Sheets.`);
-      } catch (err) {
-        console.error('Erro ao limpar avaliação no Sheets:', err);
-      }
+      await saveSingleEvaluation(
+        {
+          nome: ev.nomeAluno,
+          orquestra: ev.orquestra,
+          grau: ev.grau,
+          naipe: ev.naipe,
+          numero: ev.ordem,
+        },
+        0,
+        '',
+        ev.rowIndex
+      );
+      toast.success(`Classificação de ${ev.nomeAluno} limpa no Google Sheets.`);
     },
-    [config, sheetsMeta]
+    [saveSingleEvaluation]
   );
 
   const ensureHeaders = useCallback(async () => {

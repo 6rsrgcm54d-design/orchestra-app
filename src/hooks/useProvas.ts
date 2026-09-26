@@ -252,21 +252,11 @@ const CACHE_PROVAS_KEY = 'orchestra_cache_provas';
 
 function getInitialProvas(): ProvaRecord[] {
   const saved = safeStorage.getItem(CACHE_PROVAS_KEY);
-  if (saved) {
+  if (saved !== null) {
     try {
       const parsed = JSON.parse(saved);
       if (Array.isArray(parsed)) return parsed;
     } catch {}
-  }
-  const raw = INITIAL_LOCAL_DATA['Provas'] || [];
-  if (raw.length > 1) {
-    const mapping = parseHeader(raw[0]);
-    const list = raw
-      .slice(1)
-      .map((row, i) => rowToProva(row, i + 2, mapping))
-      .filter((p) => p.classificacaoFinal !== null || p.afinacao !== null || p.precisaoRitmica !== null);
-    safeStorage.setItem(CACHE_PROVAS_KEY, JSON.stringify(list));
-    return list;
   }
   return [];
 }

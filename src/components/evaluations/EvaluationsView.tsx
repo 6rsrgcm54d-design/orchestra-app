@@ -603,12 +603,13 @@ export default function EvaluationsView({
       return next;
     });
 
+    setHasUnsavedChanges(true);
+
     if (onSaveSingleEvaluation) {
       onSaveSingleEvaluation(student, 0, '', existing?.rowIndex).catch((e) => {
         console.error('Erro ao limpar avaliação no Sheets:', e);
       });
-    }
-    if (existing && onDelete) {
+    } else if (existing && onDelete) {
       onDelete(existing);
     }
     toast.success(
