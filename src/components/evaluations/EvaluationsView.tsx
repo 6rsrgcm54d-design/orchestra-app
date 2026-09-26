@@ -25,7 +25,7 @@ import {
   DEFAULT_LEVEL_TEMPLATES,
   getStoredLevelTemplates,
 } from '../../utils/nameParser';
-import { isCbOrchestra } from '../../hooks/useEvaluations';
+import { isCbOrchestra, uses20Scale, normalizeOrchestra } from '../../hooks/useEvaluations';
 import LevelTemplatesModal from './LevelTemplatesModal';
 import EvaluationForm from './EvaluationForm';
 
@@ -50,7 +50,8 @@ interface EvaluationsViewProps {
 }
 
 function studentKey(nome: string, orquestra?: string): string {
-  return `${(nome || '').trim().toLowerCase()}|${(orquestra || '').trim().toLowerCase()}`;
+  const norm = normalizeOrchestra(orquestra);
+  return `${(nome || '').trim().toLowerCase()}|${(norm || '').trim().toLowerCase()}`;
 }
 
 function getScore20Badge(score?: number | null) {
@@ -144,14 +145,15 @@ export default function EvaluationsView({
           map[keyNameOnly] = ev;
         }
 
-        if (!isCbOrchestra(ev.orquestra) && ev.pontuacao > 0) {
+        const is20 = uses20Scale(ev.orquestra, ev.grau);
+        if (is20 && ev.pontuacao > 0) {
           sMap[key] = String(ev.classificacao20 ?? ev.pontuacao);
         }
       }
     });
 
     setEvalMap(map);
-    setScore20Inputs((prev) => ({ ...sMap, ...prev }));
+    setScore20Inputs(sMap);
   }, [evaluations]);
 
   // Orquestras musicais disponíveis
@@ -350,18 +352,66 @@ export default function EvaluationsView({
   const commitScore20 = useCallback(
     (student: Student, explicitVal?: string) => {
       const key = studentKey(student.nome, student.orquestra);
+      const keyNameOnly = studentKey(student.nome, '');
       if (saveTimeoutsRef.current[key]) {
         clearTimeout(saveTimeoutsRef.current[key]);
         delete saveTimeoutsRef.current[key];
+      }
+      if (saveTimeoutsRef.current[keyNameOnly]) {
+        clearTimeout(saveTimeoutsRef.current[keyNameOnly]);
+        delete saveTimeoutsRef.current[keyNameOnly];
       }
 
       const valStr = explicitVal !== undefined ? explicitVal : score20Inputs[key];
       if (valStr === undefined) return;
 
       const clean = valStr.trim().replace(',', '.');
-      const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
+      const existing = evalMap[key] || evalMap[keyNameOnly];
+      const isCB = isCbOrchestra(student.orquestra);
+      const keepObs = isCB ? (existing?.observacoes || '') : '';
 
-      if (clean === '') {
+      // Se o utilizador apagou a nota (campo vazio ou 0)
+      if (clean === '' || clean === '0') {
+        setScore20Inputs((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          delete next[keyNameOnly];
+          return next;
+        });
+
+        if (keepObs) {
+          const updated: Evaluation = {
+            id: existing?.id || `eval-${student.id || student.nome.toLowerCase().replace(/\s+/g, '-')}`,
+            rowIndex: existing?.rowIndex ?? -1,
+            ordem: student.numero || existing?.ordem || '',
+            nomeAluno: student.nome,
+            grau: student.grau || existing?.grau || '',
+            naipe: student.naipe || existing?.naipe || '',
+            orquestra: student.orquestra || existing?.orquestra || '',
+            pontuacao: 0,
+            classificacao20: undefined,
+            data: new Date().toISOString().split('T')[0],
+            observacoes: keepObs,
+          };
+          setEvalMap((prev) => ({
+            ...prev,
+            [key]: updated,
+            [keyNameOnly]: updated,
+          }));
+        } else {
+          setEvalMap((prev) => {
+            const next = { ...prev };
+            delete next[key];
+            delete next[keyNameOnly];
+            return next;
+          });
+        }
+
+        if (onSaveSingleEvaluation) {
+          onSaveSingleEvaluation(student, 0, keepObs, existing?.rowIndex).catch((e) => {
+            console.error('Erro ao limpar nota 0-20:', e);
+          });
+        }
         return;
       }
 
@@ -379,17 +429,17 @@ export default function EvaluationsView({
           pontuacao: rounded,
           classificacao20: rounded,
           data: new Date().toISOString().split('T')[0],
-          observacoes: '',
+          observacoes: keepObs,
         };
 
         setEvalMap((prev) => ({
           ...prev,
           [key]: updated,
-          [studentKey(student.nome, '')]: updated,
+          [keyNameOnly]: updated,
         }));
 
         if (onSaveSingleEvaluation) {
-          onSaveSingleEvaluation(student, rounded, '', existing?.rowIndex).catch((e) => {
+          onSaveSingleEvaluation(student, rounded, keepObs, existing?.rowIndex).catch((e) => {
             console.error('Erro ao gravar nota 0-20:', e);
           });
         }
@@ -403,16 +453,33 @@ export default function EvaluationsView({
   // Digitação contínua com suporte a teclado numérico e auto-save debounced
   const handleScore20Change = (student: Student, val: string) => {
     const key = studentKey(student.nome, student.orquestra);
+    const keyNameOnly = studentKey(student.nome, '');
     setScore20Inputs((prev) => ({ ...prev, [key]: val }));
     setHasUnsavedChanges(true);
 
+    if (saveTimeoutsRef.current[key]) {
+      clearTimeout(saveTimeoutsRef.current[key]);
+      delete saveTimeoutsRef.current[key];
+    }
+    if (saveTimeoutsRef.current[keyNameOnly]) {
+      clearTimeout(saveTimeoutsRef.current[keyNameOnly]);
+      delete saveTimeoutsRef.current[keyNameOnly];
+    }
+
     const clean = val.trim().replace(',', '.');
-    if (clean === '') return;
+    if (clean === '' || clean === '0') {
+      saveTimeoutsRef.current[key] = setTimeout(() => {
+        commitScore20(student, val);
+      }, 700);
+      return;
+    }
 
     const num = parseFloat(clean);
     if (!isNaN(num) && num >= 0 && num <= 20) {
       const rounded = Math.round(num * 10) / 10;
-      const existing = evalMap[key] || evalMap[studentKey(student.nome, '')];
+      const existing = evalMap[key] || evalMap[keyNameOnly];
+      const isCB = isCbOrchestra(student.orquestra);
+      const keepObs = isCB ? (existing?.observacoes || '') : '';
       const updated: Evaluation = {
         id: existing?.id || `eval-${student.id || student.nome.toLowerCase().replace(/\s+/g, '-')}`,
         rowIndex: existing?.rowIndex ?? -1,
@@ -424,21 +491,18 @@ export default function EvaluationsView({
         pontuacao: rounded,
         classificacao20: rounded,
         data: new Date().toISOString().split('T')[0],
-        observacoes: '',
+        observacoes: keepObs,
       };
 
       setEvalMap((prev) => ({
         ...prev,
         [key]: updated,
-        [studentKey(student.nome, '')]: updated,
+        [keyNameOnly]: updated,
       }));
 
-      if (saveTimeoutsRef.current[key]) {
-        clearTimeout(saveTimeoutsRef.current[key]);
-      }
       saveTimeoutsRef.current[key] = setTimeout(() => {
         if (onSaveSingleEvaluation) {
-          onSaveSingleEvaluation(student, rounded, '', existing?.rowIndex).catch((e) => {
+          onSaveSingleEvaluation(student, rounded, keepObs, existing?.rowIndex).catch((e) => {
             console.error('Erro no auto-save 0-20:', e);
           });
         }
@@ -485,10 +549,13 @@ export default function EvaluationsView({
 
     if (!existing || (!existing.pontuacao && !existing.observacoes)) return;
 
+    const is20 = uses20Scale(student.orquestra, student.grau);
     const isCB = isCbOrchestra(student.orquestra);
-    const promptMsg = isCB
-      ? `Deseja limpar o nível e a observação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`
-      : `Deseja limpar a classificação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota de 0 a 20)`;
+    const promptMsg = is20 && !isCB
+      ? `Deseja limpar a classificação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota de 0 a 20)`
+      : is20 && isCB
+      ? `Deseja limpar a classificação e a observação de ${student.nome} (${student.grau || '6º-8º Grau'})?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`
+      : `Deseja limpar o nível e a observação de ${student.nome}?\n\n(O aluno será mantido na base de dados, apagando apenas a nota e a observação)`;
 
     if (window.confirm(promptMsg)) {
       if (saveTimeoutsRef.current[key]) {
@@ -520,9 +587,7 @@ export default function EvaluationsView({
         onDelete(existing);
       }
       toast.success(
-        isCB
-          ? `Nível e observação de ${student.nome} limpos. Aluno mantido na base de dados.`
-          : `Classificação de ${student.nome} limpa. Aluno mantido na base de dados.`
+        `Classificação de ${student.nome} limpa. Aluno mantido na base de dados.`
       );
     }
   };
@@ -565,24 +630,24 @@ export default function EvaluationsView({
     orchestraStudents.forEach((s) => {
       const key = studentKey(s.nome, s.orquestra);
       const ev = evalMap[key] || evalMap[studentKey(s.nome, '')];
-      const isCB = isCbOrchestra(s.orquestra);
+      const is20 = uses20Scale(s.orquestra, s.grau);
 
       if (ev && ev.pontuacao > 0) {
         evaluatedCount++;
-        if (isCB) {
-          countCb++;
-          sumScoreCb += ev.pontuacao;
-          const lvl = Math.round(ev.pontuacao);
-          if (lvl >= 1 && lvl <= 5) {
-            distributionCb[lvl] = (distributionCb[lvl] || 0) + 1;
-          }
-        } else {
+        if (is20) {
           countSec++;
           sumScoreSec += ev.pontuacao;
           if (ev.pontuacao >= 18) distributionSec.excelente++;
           else if (ev.pontuacao >= 14) distributionSec.bom++;
           else if (ev.pontuacao >= 10) distributionSec.suficiente++;
           else distributionSec.insuficiente++;
+        } else {
+          countCb++;
+          sumScoreCb += ev.pontuacao;
+          const lvl = Math.round(ev.pontuacao);
+          if (lvl >= 1 && lvl <= 5) {
+            distributionCb[lvl] = (distributionCb[lvl] || 0) + 1;
+          }
         }
       }
     });
@@ -833,22 +898,26 @@ export default function EvaluationsView({
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3.5 flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-medium text-gray-400">
-                  {isSecundarioOnly ? 'Média Secundário' : isCbOnly ? 'Média CB' : 'Média Global'}
+                  {stats.countSec > 0 && stats.countCb > 0
+                    ? 'Médias (1-5 / 0-20)'
+                    : stats.countSec > 0
+                    ? 'Média (0 a 20)'
+                    : 'Média (1 a 5)'}
                 </p>
-                {isSecundarioOnly ? (
-                  <p className="text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 flex items-center gap-1">
-                    {stats.averageSec} <span className="text-xs text-gray-400 font-semibold">/ 20</span>
-                  </p>
-                ) : isCbOnly ? (
-                  <p className="text-xl font-black text-amber-500 mt-0.5 flex items-center gap-1">
-                    {stats.averageCb} <span className="text-xs">★</span>
-                  </p>
-                ) : (
+                {stats.countSec > 0 && stats.countCb > 0 ? (
                   <div className="flex items-center gap-2 mt-0.5">
                     <span className="text-sm font-black text-amber-500">★ {stats.averageCb}</span>
                     <span className="text-gray-300 dark:text-gray-600">|</span>
-                    <span className="text-sm font-black text-blue-500">{stats.averageSec} / 20</span>
+                    <span className="text-sm font-black text-blue-600 dark:text-blue-400">{stats.averageSec} / 20</span>
                   </div>
+                ) : stats.countSec > 0 ? (
+                  <p className="text-xl font-black text-blue-600 dark:text-blue-400 mt-0.5 flex items-center gap-1">
+                    {stats.averageSec} <span className="text-xs text-gray-400 font-semibold">/ 20</span>
+                  </p>
+                ) : (
+                  <p className="text-xl font-black text-amber-500 mt-0.5 flex items-center gap-1">
+                    {stats.averageCb} <span className="text-xs">★</span>
+                  </p>
                 )}
               </div>
               <div className="w-9 h-9 rounded-xl bg-amber-50 dark:bg-amber-900/30 text-amber-500 flex items-center justify-center">
@@ -858,7 +927,7 @@ export default function EvaluationsView({
 
             {/* Distribuição */}
             <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-200 dark:border-gray-700 p-3.5 flex flex-col justify-center">
-              {isSecundarioOnly ? (
+              {stats.countSec > 0 && stats.countCb === 0 ? (
                 <>
                   <p className="text-[10px] font-medium text-gray-400 mb-1">Escalões (0 a 20)</p>
                   <div className="grid grid-cols-4 gap-1 text-center">
@@ -879,7 +948,7 @@ export default function EvaluationsView({
               ) : (
                 <>
                   <p className="text-[10px] font-medium text-gray-400 mb-1">
-                    {isCbOnly ? 'Distribuição de Níveis (1 a 5)' : 'Distribuição CB (1 a 5)'}
+                    {stats.countSec > 0 ? 'Distribuição Níveis (1 a 5)' : 'Distribuição (1 a 5)'}
                   </p>
                   <div className="flex items-center gap-1">
                     {[5, 4, 3, 2, 1].map((lvl) => (
@@ -897,12 +966,12 @@ export default function EvaluationsView({
             </div>
           </div>
 
-          {/* Dica para inserção rápida no Secundário */}
-          {isSecundarioOnly && (
+          {/* Dica para inserção rápida */}
+          {(isSecundarioOnly || filteredStudents.some((s) => uses20Scale(s.orquestra, s.grau))) && (
             <div className="flex items-center gap-2 px-3.5 py-2 bg-blue-50/70 dark:bg-blue-950/30 text-blue-700 dark:text-blue-300 border border-blue-200 dark:border-blue-800/40 rounded-xl text-xs">
               <Keyboard size={15} className="text-blue-500 shrink-0" />
               <span>
-                <strong>Teclado Numérico Ativo:</strong> Digite a nota de <strong>0 a 20 valores</strong> e prima <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 font-mono text-[10px] font-bold shadow-xs">Enter</kbd> ou <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 font-mono text-[10px] font-bold shadow-xs">↓</kbd> para avançar instantaneamente para o aluno seguinte.
+                <strong>Teclado Numérico Ativo:</strong> Nos alunos com escala de <strong>0 a 20 valores</strong>, digite a nota e prima <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 font-mono text-[10px] font-bold shadow-xs">Enter</kbd> ou <kbd className="px-1.5 py-0.5 rounded bg-white dark:bg-gray-800 border border-blue-200 dark:border-blue-700 font-mono text-[10px] font-bold shadow-xs">↓</kbd> para avançar instantaneamente. Para limpar uma nota, apague o valor do campo ou clique no ícone do lixo.
               </span>
             </div>
           )}
@@ -991,15 +1060,10 @@ export default function EvaluationsView({
 
                     {isSecundarioOnly ? (
                       <th className="py-3 px-4 min-w-[240px] text-center">Classificação Final (0 a 20)</th>
-                    ) : isCbOnly ? (
-                      <>
-                        <th className="py-3 px-4 min-w-[190px] text-center">Classificação (1 a 5)</th>
-                        <th className="py-3 px-4 min-w-[280px]">Observações (Gerada Automaticamente)</th>
-                      </>
                     ) : (
                       <>
                         <th className="py-3 px-4 min-w-[210px] text-center">Classificação</th>
-                        <th className="py-3 px-4 min-w-[260px]">Observações (Curso Básico)</th>
+                        <th className="py-3 px-4 min-w-[260px]">Observações</th>
                       </>
                     )}
 
@@ -1027,12 +1091,13 @@ export default function EvaluationsView({
                       const currentObs = ev?.observacoes || '';
                       const isChefe = student.chefeNaipe && /chefe|sim/i.test(student.chefeNaipe);
                       const isCB = isCbOrchestra(student.orquestra);
+                      const is20 = uses20Scale(student.orquestra, student.grau);
 
                       return (
                         <tr
                           key={`${student.id || student.nome}-${idx}`}
                           className={`hover:bg-gray-50/70 dark:hover:bg-gray-700/30 transition-colors ${
-                            currentScore > 0 ? (isCB ? 'bg-amber-500/[0.02]' : 'bg-blue-500/[0.02]') : ''
+                            currentScore > 0 ? (is20 ? 'bg-blue-500/[0.02]' : 'bg-amber-500/[0.02]') : ''
                           }`}
                         >
                           {/* Ordem */}
@@ -1082,7 +1147,7 @@ export default function EvaluationsView({
                           </td>
 
                           {/* Classificação / Pontuação */}
-                          {isCB ? (
+                          {!is20 ? (
                             /* Modo Curso Básico: Níveis 1 a 5 */
                             <td className="py-3 px-4">
                               <div className="flex items-center justify-center gap-1.5">
@@ -1128,7 +1193,7 @@ export default function EvaluationsView({
                               </div>
                             </td>
                           ) : (
-                            /* Modo Secundário: Classificação 0 a 20 valores com teclado numérico */
+                            /* Modo 0 a 20 valores (Secundário & Académica 6º ao 8º Grau) com teclado numérico */
                             <td className="py-3 px-4">
                               <div className="flex items-center justify-center gap-3">
                                 <div className="relative">
@@ -1184,10 +1249,14 @@ export default function EvaluationsView({
                                     value={currentObs}
                                     onChange={(e) => handleObservationChange(student, e.target.value)}
                                     onBlur={() => handleObservationBlur(student)}
-                                    placeholder="Clique num nível (1-5) para gerar ou escreva aqui..."
+                                    placeholder={
+                                      is20
+                                        ? 'Observações sobre o desempenho do aluno...'
+                                        : 'Clique num nível (1-5) para gerar ou escreva aqui...'
+                                    }
                                     className="w-full px-2.5 py-1.5 text-xs bg-transparent hover:bg-white dark:hover:bg-gray-700/60 focus:bg-white dark:focus:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600 focus:border-orchestra-gold rounded-lg text-gray-900 dark:text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-orchestra-gold transition-all"
                                   />
-                                  {currentScore > 0 && (
+                                  {currentScore > 0 && !is20 && (
                                     <Sparkles
                                       size={12}
                                       className="absolute right-2 top-1/2 -translate-y-1/2 text-amber-500 opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity"
@@ -1231,7 +1300,8 @@ export default function EvaluationsView({
             .sort()
             .map(([studentName, evs]) => {
               const studentOrch = evs[0]?.orquestra;
-              const isCB = isCbOrchestra(studentOrch);
+              const studentGrau = evs[0]?.grau;
+              const is20 = uses20Scale(studentOrch, studentGrau);
               const validEvs = evs.filter((e) => e.pontuacao > 0);
               const avg = validEvs.length > 0
                 ? validEvs.reduce((sum, e) => sum + e.pontuacao, 0) / validEvs.length
@@ -1252,12 +1322,12 @@ export default function EvaluationsView({
                         {studentName}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {evs[0]?.naipe} · {studentOrch || ''} · {evs.length} registo(s)
+                        {evs[0]?.naipe} · {studentOrch || ''} {studentGrau ? `(${studentGrau})` : ''} · {evs.length} registo(s)
                       </p>
                     </div>
                     <div className="flex items-center gap-3">
                       <div className="text-right">
-                        {isCB ? (
+                        {!is20 ? (
                           <span className="text-amber-500 text-sm font-bold">
                             ★ {avg > 0 ? avg.toFixed(1) : '—'}
                           </span>
@@ -1279,13 +1349,13 @@ export default function EvaluationsView({
                   {isExpanded && (
                     <div className="border-t border-gray-100 dark:border-gray-700 divide-y divide-gray-100 dark:divide-gray-700">
                       {evs.map((ev) => {
-                        const evIsCb = isCbOrchestra(ev.orquestra);
-                        const badge20 = !evIsCb ? getScore20Badge(ev.pontuacao) : null;
+                        const evIs20 = uses20Scale(ev.orquestra, ev.grau);
+                        const badge20 = evIs20 ? getScore20Badge(ev.pontuacao) : null;
                         return (
                           <div key={ev.id} className="flex items-center justify-between px-4 py-3 text-xs">
                             <div>
                               <p className="font-semibold text-gray-900 dark:text-white">
-                                {ev.criterio || (evIsCb ? `Classificação: Nível ${ev.pontuacao}` : `Classificação Final`)}
+                                {ev.criterio || (!evIs20 ? `Classificação: Nível ${ev.pontuacao}` : `Classificação Final`)}
                               </p>
                               {ev.observacoes && (
                                 <p className="text-gray-500 dark:text-gray-400 mt-0.5 italic">
@@ -1294,7 +1364,7 @@ export default function EvaluationsView({
                               )}
                             </div>
                             <div className="flex items-center gap-3">
-                              {evIsCb ? (
+                              {!evIs20 ? (
                                 <span className="font-bold text-amber-500">
                                   Nível {ev.pontuacao}
                                 </span>

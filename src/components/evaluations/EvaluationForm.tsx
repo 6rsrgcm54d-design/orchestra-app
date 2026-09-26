@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { X, Star } from 'lucide-react';
 import type { Evaluation, Student, Criteria } from '../../types';
-import { isCbOrchestra } from '../../hooks/useEvaluations';
+import { isCbOrchestra, uses20Scale } from '../../hooks/useEvaluations';
 
 interface EvaluationFormProps {
   students: Student[];
@@ -21,7 +21,7 @@ export default function EvaluationForm({ students, criteria, onSave, onClose }: 
   });
 
   const selectedStudent = students.find((s) => s.nome === form.nomeAluno);
-  const isCB = !selectedStudent?.orquestra || isCbOrchestra(selectedStudent.orquestra);
+  const is20 = selectedStudent ? uses20Scale(selectedStudent.orquestra, selectedStudent.grau) : false;
 
   const handleStudentChange = (nome: string) => {
     const student = students.find((s) => s.nome === nome);
@@ -86,7 +86,7 @@ export default function EvaluationForm({ students, criteria, onSave, onClose }: 
 
           {/* Pontuação / Classificação */}
           <div>
-            {isCB ? (
+            {!is20 ? (
               <>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Pontuação (1 a 5) *</label>
                 <div className="flex gap-2">

@@ -35,12 +35,41 @@ export const USER_EVAL_HEADER_SEC = [
 
 export const USER_EVAL_HEADER = USER_EVAL_HEADER_CB;
 
+export function normalizeOrchestra(orch?: string): string {
+  if (!orch) return '';
+  const trimmed = orch.trim();
+  if (/^10[º°]?\s*ano$/i.test(trimmed)) return 'Orquestra 10º ano';
+  if (/^acad[eé]mica$/i.test(trimmed)) return 'Académica';
+  if (/^juvenil$/i.test(trimmed)) return 'Juvenil';
+  if (/^artave$/i.test(trimmed)) return 'Artave';
+  return trimmed;
+}
+
+export function getGrauNumber(grau?: string): number | null {
+  if (!grau) return null;
+  const match = String(grau).match(/(\d+)/);
+  return match ? parseInt(match[1], 10) : null;
+}
+
 export function isCbOrchestra(orquestra?: string): boolean {
   if (!orquestra) return true;
   const lower = orquestra.toLowerCase().trim();
   if (lower.includes('acad') || lower.includes('juv')) return true;
   if (lower.includes('artave') || lower.includes('10')) return false;
   return true;
+}
+
+export function uses20Scale(studentOrch?: string, studentGrau?: string): boolean {
+  if (!studentOrch) return false;
+  const lower = studentOrch.toLowerCase().trim();
+  // Artave e Orquestra 10º ano usam sempre a escala de 0 a 20
+  if (lower.includes('artave') || lower.includes('10')) return true;
+  // Alunos da Orquestra Académica do 6º ao 8º grau (ou superior) usam 0 a 20
+  if (lower.includes('acad')) {
+    const grauNum = getGrauNumber(studentGrau);
+    if (grauNum !== null && grauNum >= 6) return true;
+  }
+  return false;
 }
 
 export interface EvalTabsInfo {
@@ -463,19 +492,25 @@ export function useEvaluations() {
       rowIndex?: number
     ) => {
       const isCB = isCbOrchestra(student.orquestra);
+      const is20 = uses20Scale(student.orquestra, student.grau);
       const tabName = getTargetEvalTab(student.orquestra, sheetsMeta);
       const isClearing = levelOrScore <= 0 && (!observacoes || observacoes.trim().length === 0);
 
       // 1. Atualiza estado local imediatamente (UI super rápida)
       if (isClearing) {
+        const targetNormName = student.nome.trim().toLowerCase();
+        const targetNormOrch = normalizeOrchestra(student.orquestra).toLowerCase();
         setEvaluations((prev) => {
-          const next = prev.filter(
-            (e) =>
-              !(
-                e.nomeAluno.trim().toLowerCase() === student.nome.trim().toLowerCase() &&
-                (!e.orquestra || !student.orquestra || e.orquestra.trim().toLowerCase() === student.orquestra.trim().toLowerCase())
-              )
-          );
+          const next = prev.filter((e) => {
+            const eNormName = e.nomeAluno.trim().toLowerCase();
+            const eNormOrch = normalizeOrchestra(e.orquestra).toLowerCase();
+            if (eNormName === targetNormName) {
+              if (!targetNormOrch || !eNormOrch || eNormOrch === targetNormOrch) {
+                return false;
+              }
+            }
+            return true;
+          });
           safeStorage.setItem(CACHE_EVALS_KEY, JSON.stringify(next));
           return next;
         });
@@ -487,9 +522,9 @@ export function useEvaluations() {
           nomeAluno: student.nome,
           grau: student.grau || '',
           naipe: student.naipe || '',
-          orquestra: student.orquestra || '',
+          orquestra: normalizeOrchestra(student.orquestra),
           pontuacao: levelOrScore,
-          classificacao20: !isCB ? levelOrScore : undefined,
+          classificacao20: is20 ? levelOrScore : undefined,
           data: new Date().toISOString().split('T')[0],
           observacoes,
         };
@@ -506,12 +541,11 @@ export function useEvaluations() {
         let targetRowIndex = rowIndex && rowIndex > 1 ? rowIndex : -1;
         if (targetRowIndex <= 1 && rows.length > 1) {
           const targetName = student.nome.trim().toLowerCase();
-          const targetOrch = (student.orquestra || '').trim().toLowerCase();
-          const normOrch = (o: string) => /^10[º°]?\s*ano$/i.test(o.trim()) ? 'orquestra 10º ano' : o.trim().toLowerCase();
+          const targetOrch = normalizeOrchestra(student.orquestra).toLowerCase();
           for (let i = 1; i < rows.length; i++) {
             const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
-            const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
-            if (rName === targetName && (!targetOrch || !rOrch || normOrch(rOrch) === normOrch(targetOrch))) {
+            const rOrch = normalizeOrchestra(rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').toLowerCase();
+            if (rName === targetName && (!targetOrch || !rOrch || rOrch === targetOrch)) {
               targetRowIndex = i + 1; // 1-based
               break;
             }
@@ -588,7 +622,7 @@ export function useEvaluations() {
         const tabs = getEvalTabs(sheetsMeta);
         const evalMap = new Map<string, Evaluation>();
         validEvals.forEach((ev) => {
-          const key = `${(ev.nomeAluno || '').trim().toLowerCase()}|${(ev.orquestra || '').trim().toLowerCase()}`;
+          const key = `${(ev.nomeAluno || '').trim().toLowerCase()}|${normalizeOrchestra(ev.orquestra).toLowerCase()}`;
           evalMap.set(key, ev);
           evalMap.set((ev.nomeAluno || '').trim().toLowerCase(), ev);
         });
@@ -601,7 +635,7 @@ export function useEvaluations() {
         if (cbStudents.length > 0) {
           const rowsCb: string[][] = [USER_EVAL_HEADER_CB];
           cbStudents.forEach((s, idx) => {
-            const key = `${(s.nome || '').trim().toLowerCase()}|${(s.orquestra || '').trim().toLowerCase()}`;
+            const key = `${(s.nome || '').trim().toLowerCase()}|${normalizeOrchestra(s.orquestra).toLowerCase()}`;
             const ev = evalMap.get(key) || evalMap.get((s.nome || '').trim().toLowerCase());
             rowsCb.push([
               s.numero || String(idx + 1),
@@ -620,7 +654,7 @@ export function useEvaluations() {
         if (secStudents.length > 0) {
           const rowsSec: string[][] = [USER_EVAL_HEADER_SEC];
           secStudents.forEach((s, idx) => {
-            const key = `${(s.nome || '').trim().toLowerCase()}|${(s.orquestra || '').trim().toLowerCase()}`;
+            const key = `${(s.nome || '').trim().toLowerCase()}|${normalizeOrchestra(s.orquestra).toLowerCase()}`;
             const ev = evalMap.get(key) || evalMap.get((s.nome || '').trim().toLowerCase());
             rowsSec.push([
               s.numero || String(idx + 1),
@@ -658,10 +692,17 @@ export function useEvaluations() {
 
   const removeEvaluation = useCallback(
     async (ev: Evaluation) => {
-      const matchEval = (e: Evaluation) =>
-        e.id === ev.id ||
-        (e.nomeAluno.trim().toLowerCase() === ev.nomeAluno.trim().toLowerCase() &&
-          (!e.orquestra || !ev.orquestra || e.orquestra.trim().toLowerCase() === ev.orquestra.trim().toLowerCase()));
+      const targetNormName = ev.nomeAluno.trim().toLowerCase();
+      const targetNormOrch = normalizeOrchestra(ev.orquestra).toLowerCase();
+      const matchEval = (e: Evaluation) => {
+        if (e.id === ev.id) return true;
+        const eNormName = e.nomeAluno.trim().toLowerCase();
+        const eNormOrch = normalizeOrchestra(e.orquestra).toLowerCase();
+        if (eNormName === targetNormName) {
+          if (!targetNormOrch || !eNormOrch || eNormOrch === targetNormOrch) return true;
+        }
+        return false;
+      };
 
       setEvaluations((prev) => {
         const next = prev.filter((e) => !matchEval(e));
@@ -670,7 +711,7 @@ export function useEvaluations() {
       });
 
       if (!config) {
-        toast.success('Avaliação removida localmente.');
+        toast.success('Avaliação limpa localmente.');
         return;
       }
 
@@ -682,13 +723,10 @@ export function useEvaluations() {
         const mapping = rows.length > 0 ? parseHeader(rows[0]) : parseHeader(isCB ? USER_EVAL_HEADER_CB : USER_EVAL_HEADER_SEC);
 
         if (targetRowIndex <= 1 && rows.length > 1) {
-          const targetName = ev.nomeAluno.trim().toLowerCase();
-          const targetOrch = (ev.orquestra || '').trim().toLowerCase();
-          const normOrch = (o: string) => /^10[º°]?\s*ano$/i.test(o.trim()) ? 'orquestra 10º ano' : o.trim().toLowerCase();
           for (let i = 1; i < rows.length; i++) {
             const rName = (rows[i][mapping.colNome !== -1 ? mapping.colNome : 1] || '').trim().toLowerCase();
-            const rOrch = (rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').trim().toLowerCase();
-            if (rName === targetName && (!targetOrch || !rOrch || normOrch(rOrch) === normOrch(targetOrch))) {
+            const rOrch = normalizeOrchestra(rows[i][mapping.colOrquestra !== -1 ? mapping.colOrquestra : 4] || '').toLowerCase();
+            if (rName === targetNormName && (!targetNormOrch || !rOrch || rOrch === targetNormOrch)) {
               targetRowIndex = i + 1;
               break;
             }
