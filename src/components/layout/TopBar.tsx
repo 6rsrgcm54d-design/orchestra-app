@@ -9,6 +9,7 @@ const MODULE_LABELS: Record<NavModule, string> = {
   students: 'Gestão de Alunos',
   stagePlan: 'Plano de Palco',
   repertoire: 'Repertório',
+  lessonPlans: 'Planos de Aula',
   concerts: 'Agenda de Concertos',
   evaluations: 'Avaliações',
   provas: 'Provas de Orquestra',

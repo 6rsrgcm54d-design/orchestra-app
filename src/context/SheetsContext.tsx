@@ -28,7 +28,7 @@ interface SheetsMeta {
   sheets: Array<{ properties: { sheetId: number; title: string } }>;
 }
 
-const REQUIRED_TABS = ['Alunos', 'Repertório', 'Avaliações', 'Critérios', 'PlanosPalco', 'Concertos'];
+const REQUIRED_TABS = ['Alunos', 'Repertório', 'Avaliações', 'Critérios', 'PlanosPalco', 'Concertos', 'Planos de Aula'];
 
 const SheetsContext = createContext<SheetsContextValue | null>(null);
 
@@ -49,6 +49,7 @@ const DEFAULT_SHEETS_META: SheetsMeta = {
     { properties: { sheetId: 9, title: 'Provas' } },
     { properties: { sheetId: 10, title: 'Avaliações CB' } },
     { properties: { sheetId: 11, title: 'Avaliações Secundário' } },
+    { properties: { sheetId: 12, title: 'Planos de Aula' } },
   ],
 };
 

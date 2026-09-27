@@ -269,6 +269,27 @@ export interface StagePlan {
   data: StagePlanData;
 }
 
+// ─── Lesson Plans (Planos de Aula) ──────────────────────────────────────────
+
+export interface LessonPlanItem {
+  id: string;
+  obra: string; // Título da Obra ou Atividade Geral (ex: Aquecimento, Beethoven 5)
+  minuto: number | string; // Minutos / Duração prevista (ex: 15, 30, 45)
+  atividade: string; // Descrição detalhada da atividade / compassos / foco
+  notas?: string; // Observações adicionais
+}
+
+export interface LessonPlan {
+  id: string; // ID único do plano
+  rowIndex?: number; // Índice de linha de início no Sheets
+  orquestra: string; // "Académica", "Juvenil", "Artave", "Orquestra 10º ano", "Todas"
+  data: string; // YYYY-MM-DD
+  hora: string; // Horário da aula / ensaio (ex: "15:00 - 17:00" ou "15:00")
+  titulo?: string; // Título ou tema opcional da aula
+  itens: LessonPlanItem[]; // Lista de atividades por obra e minutos
+  notas?: string; // Observações gerais do plano de aula
+}
+
 // ─── Concerts ───────────────────────────────────────────────────────────────
 
 export interface Concert {
@@ -359,5 +380,5 @@ export function calcClassificacaoFinal(params: {
 
 export type Theme = 'dark' | 'light';
 
-export type NavModule = 'dashboard' | 'students' | 'stagePlan' | 'repertoire' | 'concerts' | 'evaluations' | 'provas';
+export type NavModule = 'dashboard' | 'students' | 'stagePlan' | 'repertoire' | 'concerts' | 'lessonPlans' | 'evaluations' | 'provas';
 

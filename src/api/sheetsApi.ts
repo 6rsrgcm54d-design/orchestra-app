@@ -168,7 +168,8 @@ function initDefaultSheet(ss, name) {
     'Critérios': ['Nome do Critério', 'Descrição', 'Peso'],
     'PlanosPalco': ['PlanosPalco_JSON'],
     'Concertos': ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'],
-    'Provas': ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final']
+    'Provas': ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final'],
+    'Planos de Aula': ['ID Plano', 'Orquestra', 'Data', 'Hora', 'Obra', 'Minuto', 'Atividade', 'Notas']
   };
   if (headers[name]) {
     sheet.appendRow(headers[name]);
@@ -340,6 +341,79 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
       'Grande Auditório Europarque',
       'J. Brahms: Dança Húngara nº 5\nA. Vivaldi: As Quatro Estações (Primavera)',
       'Gravação ao vivo para transmissão digital.',
+    ],
+  ],
+  'Planos de Aula': [
+    ['ID Plano', 'Orquestra', 'Data', 'Hora', 'Obra', 'Minuto', 'Atividade', 'Notas'],
+    [
+      'plano-1',
+      'Académica',
+      '2026-10-03',
+      '15:00 - 17:00',
+      'Afinação e Aquecimento',
+      '15',
+      'Afinação por naipes (cordas e depois sopros), escalas em Ré Maior e arpejos conjuntos',
+      'Atenção à postura dos primeiros violinos',
+    ],
+    [
+      'plano-1',
+      'Académica',
+      '2026-10-03',
+      '15:00 - 17:00',
+      'Sinfonia nº 5 em Dó Menor',
+      '50',
+      'Trabalhar compassos 1 a 124 do 1º Andamento. Transições rítmicas e ataque f/p preciso',
+      'Repetir entrada inicial até sincronismo total',
+    ],
+    [
+      'plano-1',
+      'Académica',
+      '2026-10-03',
+      '15:00 - 17:00',
+      'Pausa / Intervalo',
+      '10',
+      'Descanso dos alunos e arejamento da sala',
+      '',
+    ],
+    [
+      'plano-1',
+      'Académica',
+      '2026-10-03',
+      '15:00 - 17:00',
+      'Suíte O Quebra-Nozes (Op. 71a)',
+      '45',
+      'Dança das Flautas e Marcha. Ajustar afinação entre flautas e cordas',
+      'Ensaio tutti final',
+    ],
+    [
+      'plano-2',
+      'Juvenil',
+      '2026-10-10',
+      '10:00 - 12:00',
+      'Aquecimento & Cordas Soltas',
+      '15',
+      'Exercícios de arco, sincronismo e ataque do grupo',
+      'Chamar chefes de naipe para apoio aos 1ºs graus',
+    ],
+    [
+      'plano-2',
+      'Juvenil',
+      '2026-10-10',
+      '10:00 - 12:00',
+      'Eine kleine Nachtmusik (K. 525)',
+      '45',
+      'Allegro inicial: compassos 1 a 50. Estudo lento de articulação staccato',
+      'Verificar arcadas nos 2ºs violinos',
+    ],
+    [
+      'plano-2',
+      'Juvenil',
+      '2026-10-10',
+      '10:00 - 12:00',
+      'Marcha Radetzky',
+      '40',
+      'Ritmo e dinâmica de palmas e percussão, compassos 1 a 64',
+      'Garantir pulsação firme e ritmo alegre',
     ],
   ],
   Critérios: [
@@ -744,6 +818,7 @@ export async function deleteRow(
     6: 'PlanosPalco',
     7: 'Concertos',
     8: 'Provas',
+    14: 'Planos de Aula',
   };
   const targetTab = tabName || DEFAULT_TAB_MAP[sheetId] || 'Alunos';
 
@@ -787,6 +862,28 @@ export async function deleteRow(
   await handleResponse<unknown>(res);
 }
 
+export async function clearTab(spreadsheetId: string, tabName: string): Promise<void> {
+  if (isAppsScript(spreadsheetId)) {
+    await callAppsScriptPost(spreadsheetId, {
+      action: 'clear',
+      sheet: tabName,
+    });
+    return;
+  }
+
+  if (isLocalId(spreadsheetId)) {
+    setLocalTab(tabName, []);
+    return;
+  }
+
+  const url = `${BASE_URL}/${spreadsheetId}/values/'${encodeURIComponent(tabName)}'!A:Z:clear`;
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: authHeaders(),
+  });
+  await handleResponse<unknown>(res);
+}
+
 export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
   title: string;
   sheets: Array<{ properties: { sheetId: number; title: string } }>;
@@ -806,6 +903,7 @@ export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
     { properties: { sheetId: 11, title: 'Orquestra 10º ano' } },
     { properties: { sheetId: 12, title: 'Avaliações CB' } },
     { properties: { sheetId: 13, title: 'Avaliações Secundário' } },
+    { properties: { sheetId: 14, title: 'Planos de Aula' } },
   ];
 
   if (isAppsScript(spreadsheetId)) {

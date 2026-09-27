@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award } from 'lucide-react';
-import type { Student, Piece, Evaluation, Concert } from '../../types';
+import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award, CalendarCheck } from 'lucide-react';
+import type { Student, Piece, Evaluation, Concert, LessonPlan, NavModule } from '../../types';
 import { formatNaipe, formatTimeDisplay, cleanTimeString } from '../../types';
 import { calcAverage } from '../../utils/csvExport';
 
@@ -9,8 +9,9 @@ interface DashboardProps {
   pieces: Piece[];
   evaluations: Evaluation[];
   concerts?: Concert[];
+  lessonPlans?: LessonPlan[];
   orchestras?: string[];
-  onNavigate?: (module: 'concerts' | 'repertoire' | 'students') => void;
+  onNavigate?: (module: NavModule) => void;
 }
 
 function StatCard({
@@ -135,7 +136,15 @@ function NaipeSectionList({
   );
 }
 
-export default function Dashboard({ students, pieces, evaluations, concerts = [], orchestras: propOrchestras, onNavigate }: DashboardProps) {
+export default function Dashboard({
+  students,
+  pieces,
+  evaluations,
+  concerts = [],
+  lessonPlans = [],
+  orchestras: propOrchestras,
+  onNavigate,
+}: DashboardProps) {
   const orchestras = React.useMemo(() => {
     if (propOrchestras && propOrchestras.length > 0) {
       return propOrchestras;
@@ -164,6 +173,11 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
     .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
     .slice(0, 3);
 
+  const upcomingLessonPlans = [...(lessonPlans || [])]
+    .filter((lp) => lp && lp.data)
+    .sort((a, b) => new Date(a.data).getTime() - new Date(b.data).getTime())
+    .slice(0, 3);
+
   const displayedStudents =
     selectedOrchestraTab === 'todas'
       ? students
@@ -188,10 +202,10 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
           color="bg-purple-50 dark:bg-purple-900/30"
         />
         <StatCard
-          icon={<Calendar size={20} className="text-amber-600" />}
-          label="Concertos Agendados"
-          value={concerts.length}
-          sub={concerts.length > 0 ? `${concerts.length} apresentações marcadas` : 'Sem concertos'}
+          icon={<CalendarCheck size={20} className="text-amber-600" />}
+          label="Planos de Aula"
+          value={(lessonPlans || []).length}
+          sub={(lessonPlans || []).length > 0 ? `${(lessonPlans || []).length} ensaios planeados` : 'Sem planos registados'}
           color="bg-amber-50 dark:bg-amber-900/30"
         />
         <StatCard
@@ -280,63 +294,122 @@ export default function Dashboard({ students, pieces, evaluations, concerts = []
         )}
       </div>
 
-      {/* Two column layout: Próximos Concertos & Avaliações / Repertório */}
+      {/* Two column layout: Próximos Concertos / Ensaios & Avaliações / Repertório */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Próximos Concertos */}
-        <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
-            <div className="flex items-center gap-2">
-              <Calendar size={18} className="text-orchestra-gold" />
-              <h2 className="font-bold text-gray-900 dark:text-white text-sm">Próximos Concertos</h2>
+        <div className="space-y-6">
+          {/* Planos de Aula & Ensaios */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <CalendarCheck size={18} className="text-orchestra-gold" />
+                <h2 className="font-bold text-gray-900 dark:text-white text-sm">Planos de Aula & Ensaios</h2>
+              </div>
+              {onNavigate && (
+                <button
+                  onClick={() => onNavigate('lessonPlans')}
+                  className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
+                >
+                  Ver todos <ChevronRight size={13} />
+                </button>
+              )}
             </div>
-            {onNavigate && (
-              <button
-                onClick={() => onNavigate('concerts')}
-                className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
-              >
-                Ver todos <ChevronRight size={13} />
-              </button>
+
+            {upcomingLessonPlans.length === 0 ? (
+              <p className="text-xs text-gray-400 py-6 text-center">Nenhum plano de aula registado.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingLessonPlans.map((lp) => {
+                  const totalM = (lp.itens || []).reduce((acc: number, it: any) => acc + (parseInt(String(it.minuto), 10) || 0), 0);
+                  return (
+                    <div
+                      key={lp.id}
+                      className="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-3 hover:border-amber-200 dark:hover:border-amber-700/60 transition-colors"
+                    >
+                      <div className="space-y-1 min-w-0">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[10px] font-bold rounded">
+                            {lp.orquestra}
+                          </span>
+                          <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                            📅 {lp.data} • {lp.hora}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-600 dark:text-gray-300 font-medium truncate">
+                          {lp.titulo || (lp.itens && lp.itens[0]?.obra ? `Foco: ${lp.itens[0].obra}` : 'Ensaio')}
+                        </p>
+                      </div>
+
+                      <div className="text-right flex-shrink-0">
+                        <span className="text-xs font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-800">
+                          {totalM} min
+                        </span>
+                        <p className="text-[10px] text-gray-400 mt-1">
+                          {(lp.itens || []).length} {(lp.itens || []).length === 1 ? 'obra' : 'obras'}
+                        </p>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
             )}
           </div>
 
-          {upcomingConcerts.length === 0 ? (
-            <p className="text-xs text-gray-400 py-6 text-center">Nenhum concerto agendado.</p>
-          ) : (
-            <div className="space-y-3">
-              {upcomingConcerts.map((c) => (
-                <div
-                  key={c.id}
-                  className="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-3"
+          {/* Próximos Concertos */}
+          <div className="bg-white dark:bg-gray-800 rounded-2xl border border-gray-200 dark:border-gray-700 p-5 shadow-sm space-y-4">
+            <div className="flex items-center justify-between pb-2 border-b border-gray-100 dark:border-gray-700">
+              <div className="flex items-center gap-2">
+                <Calendar size={18} className="text-orchestra-gold" />
+                <h2 className="font-bold text-gray-900 dark:text-white text-sm">Próximos Concertos</h2>
+              </div>
+              {onNavigate && (
+                <button
+                  onClick={() => onNavigate('concerts')}
+                  className="text-xs text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
                 >
-                  <div className="space-y-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="px-2 py-0.2 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[10px] font-bold rounded">
-                        {c.orquestra}
-                      </span>
-                      <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
-                        📅 {c.data}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
-                      <MapPin size={12} className="text-red-500 flex-shrink-0" />
-                      <span className="truncate">{c.local}</span>
-                    </div>
-                  </div>
-
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
-                      Concerto: {formatTimeDisplay(c.horaConcerto)}
-                    </p>
-                    {cleanTimeString(c.horaEnsaioGeral) && (
-                      <p className="text-[11px] text-gray-400">
-                        Ensaio: {formatTimeDisplay(c.horaEnsaioGeral)}
-                      </p>
-                    )}
-                  </div>
-                </div>
-              ))}
+                  Ver todos <ChevronRight size={13} />
+                </button>
+              )}
             </div>
-          )}
+
+            {upcomingConcerts.length === 0 ? (
+              <p className="text-xs text-gray-400 py-6 text-center">Nenhum concerto agendado.</p>
+            ) : (
+              <div className="space-y-3">
+                {upcomingConcerts.map((c) => (
+                  <div
+                    key={c.id}
+                    className="p-3.5 bg-gray-50 dark:bg-gray-900/40 rounded-xl border border-gray-100 dark:border-gray-700/60 flex items-center justify-between gap-3"
+                  >
+                    <div className="space-y-1 min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="px-2 py-0.2 bg-amber-100 dark:bg-amber-900/40 text-amber-900 dark:text-amber-200 text-[10px] font-bold rounded">
+                          {c.orquestra}
+                        </span>
+                        <span className="text-xs font-semibold text-gray-800 dark:text-gray-200">
+                          📅 {c.data}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-1 text-xs text-gray-600 dark:text-gray-400">
+                        <MapPin size={12} className="text-red-500 flex-shrink-0" />
+                        <span className="truncate">{c.local}</span>
+                      </div>
+                    </div>
+
+                    <div className="text-right flex-shrink-0">
+                      <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                        Concerto: {formatTimeDisplay(c.horaConcerto)}
+                      </p>
+                      {cleanTimeString(c.horaEnsaioGeral) && (
+                        <p className="text-[11px] text-gray-400">
+                          Ensaio: {formatTimeDisplay(c.horaEnsaioGeral)}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Avaliações Recentes & Repertório Resumo */}

@@ -14,6 +14,7 @@ import EvaluationsView from './components/evaluations/EvaluationsView';
 import ProvasView from './components/provas/ProvasView';
 import StagePlanView from './components/stagePlan/StagePlanView';
 import ConcertsView from './components/concerts/ConcertsView';
+import LessonPlansView from './components/lessonPlans/LessonPlansView';
 import ConnectSheetsModal from './components/layout/ConnectSheetsModal';
 import { useStudents } from './hooks/useStudents';
 import { useRepertoire } from './hooks/useRepertoire';
@@ -21,6 +22,7 @@ import { useEvaluations } from './hooks/useEvaluations';
 import { useProvas } from './hooks/useProvas';
 import { useStagePlans } from './hooks/useStagePlans';
 import { useConcerts } from './hooks/useConcerts';
+import { useLessonPlans } from './hooks/useLessonPlans';
 import type { Student, Piece, NavModule } from './types';
 import { Music2, Link2, Sparkles, HardDrive } from 'lucide-react';
 import { safeStorage } from './utils/storage';
@@ -284,6 +286,17 @@ function MainApp() {
     ensureHeaders: ensureProvasHeaders,
   } = useProvas();
 
+  const {
+    plans: lessonPlans,
+    isLoading: lessonPlansLoading,
+    load: loadLessonPlans,
+    addPlan: addLessonPlan,
+    updatePlan: updateLessonPlan,
+    deletePlan: deleteLessonPlan,
+    duplicatePlan: duplicateLessonPlan,
+    ensureHeader: ensureLessonPlansHeader,
+  } = useLessonPlans();
+
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
     return safeStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
   });
@@ -306,8 +319,17 @@ function MainApp() {
         ensurePlansHeader(),
         ensureConcertsHeader(),
         ensureProvasHeaders(),
+        ensureLessonPlansHeader(),
       ]);
-      await Promise.all([loadStudents(), loadPieces(), loadEvals(), loadPlans(), loadConcerts(), loadProvas()]);
+      await Promise.all([
+        loadStudents(),
+        loadPieces(),
+        loadEvals(),
+        loadPlans(),
+        loadConcerts(),
+        loadProvas(),
+        loadLessonPlans(),
+      ]);
       recordSyncSuccess();
     } finally {
       setIsSyncing(false);
@@ -320,19 +342,27 @@ function MainApp() {
     ensurePlansHeader,
     ensureConcertsHeader,
     ensureProvasHeaders,
+    ensureLessonPlansHeader,
     loadStudents,
     loadPieces,
     loadEvals,
     loadPlans,
     loadConcerts,
     loadProvas,
+    loadLessonPlans,
     recordSyncSuccess,
   ]);
 
   // Abre sempre com os dados da última vez; faz sincronização completa se vazia, ou atualiza metadados e alunos em 2º plano
   useEffect(() => {
     if (!config) return;
-    const hasCachedData = students.length > 0 || pieces.length > 0 || plans.length > 0 || concerts.length > 0 || provas.length > 0;
+    const hasCachedData =
+      students.length > 0 ||
+      pieces.length > 0 ||
+      plans.length > 0 ||
+      concerts.length > 0 ||
+      provas.length > 0 ||
+      lessonPlans.length > 0;
     if (!hasCachedData) {
       syncAll();
     } else {
@@ -355,6 +385,9 @@ function MainApp() {
         break;
       case 'concerts':
         await loadConcerts();
+        break;
+      case 'lessonPlans':
+        await loadLessonPlans();
         break;
       case 'evaluations':
         await loadEvals();
@@ -430,6 +463,7 @@ function MainApp() {
             pieces={pieces}
             evaluations={evaluations}
             concerts={concerts}
+            lessonPlans={lessonPlans}
             orchestras={musicalOrchestras}
             onNavigate={(mod) => setActiveModule(mod as NavModule)}
           />
@@ -454,6 +488,19 @@ function MainApp() {
             onAdd={handleAddPiece}
             onEdit={handleEditPiece}
             onDelete={removePiece}
+          />
+        );
+      case 'lessonPlans':
+        return (
+          <LessonPlansView
+            plans={lessonPlans}
+            orchestras={musicalOrchestras}
+            pieces={pieces}
+            isLoading={lessonPlansLoading}
+            onAdd={addLessonPlan}
+            onUpdate={updateLessonPlan}
+            onDelete={deleteLessonPlan}
+            onDuplicate={duplicateLessonPlan}
           />
         );
       case 'concerts':

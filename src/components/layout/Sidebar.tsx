@@ -11,6 +11,7 @@ import {
   ChevronRight,
   Music2,
   Award,
+  CalendarCheck,
 } from 'lucide-react';
 import type { NavModule } from '../../types';
 
@@ -27,6 +28,7 @@ const navItems: { id: NavModule; label: string; icon: React.ReactNode }[] = [
   { id: 'students', label: 'Alunos', icon: <Users size={20} /> },
   { id: 'stagePlan', label: 'Plano de Palco', icon: <Theater size={20} /> },
   { id: 'repertoire', label: 'Repertório', icon: <Music size={20} /> },
+  { id: 'lessonPlans', label: 'Planos de Aula', icon: <CalendarCheck size={20} /> },
   { id: 'concerts', label: 'Concertos', icon: <Calendar size={20} /> },
   { id: 'evaluations', label: 'Avaliações', icon: <Star size={20} /> },
   { id: 'provas', label: 'Provas', icon: <Award size={20} /> },
