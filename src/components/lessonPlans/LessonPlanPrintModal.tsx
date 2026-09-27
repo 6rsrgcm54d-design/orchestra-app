@@ -26,12 +26,14 @@ function formatDateFull(dateStr: string): string {
     }
     const d = new Date(normalized.includes('T') ? normalized : `${normalized}T00:00:00`);
     if (isNaN(d.getTime())) return dateStr;
-    return d.toLocaleDateString('pt-PT', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
+
+    const weekday = d.toLocaleDateString('pt-PT', { weekday: 'long' });
+    const day = d.getDate();
+    const month = d.toLocaleDateString('pt-PT', { month: 'long' });
+    const year = d.getFullYear();
+
+    // Sem "de" e "de": "domingo 27 setembro 2026"
+    return `${weekday.toLowerCase()} ${day} ${month.toLowerCase()} ${year}`;
   } catch {
     return dateStr;
   }
@@ -244,7 +246,7 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
     <body>
       <div class="header">
         <div>
-          <div class="badge-institution">Conservatório Bomfim • Gestão de Orquestras</div>
+          <div class="badge-institution">Gestão de Orquestras</div>
           <h1 class="title">Plano de Aula & Ensaio</h1>
           <div class="subtitle">Orquestra ${escapeHtml(plan.orquestra)}${plan.titulo ? ' • ' + escapeHtml(plan.titulo) : ''}</div>
         </div>
@@ -252,7 +254,7 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
           <span style="display: inline-block; background-color: #111827; color: #ffffff; padding: 4px 10px; font-size: 11px; font-weight: bold; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px;">
             ${escapeHtml(plan.orquestra)}
           </span>
-          <div style="font-size: 11px; color: #4b5563; font-weight: 600; margin-top: 4px; text-transform: capitalize;">
+          <div style="font-size: 11px; color: #4b5563; font-weight: 600; margin-top: 4px;">
             ${escapeHtml(formatDateFull(plan.data))}
           </div>
         </div>
@@ -261,7 +263,7 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
       <div class="meta-box">
         <div class="meta-item">
           <span class="meta-label">Data do Ensaio</span>
-          <span class="meta-val" style="text-transform: capitalize;">${escapeHtml(formatDateFull(plan.data))}</span>
+          <span class="meta-val">${escapeHtml(formatDateFull(plan.data))}</span>
         </div>
         <div class="meta-item">
           <span class="meta-label">Horário</span>
@@ -312,7 +314,7 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
       </div>
 
       <div class="footer">
-        <span>OrquestraApp • Conservatório Bomfim</span>
+        <span>OrchestraApp - Luís Machado</span>
         <span>Documento emitido em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     </body>
@@ -412,7 +414,7 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-widest font-black text-amber-700 mb-1">
-                Conservatório Bomfim • Gestão de Orquestras
+                Gestão de Orquestras
               </p>
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
                 Plano de Aula & Ensaio
@@ -427,7 +429,7 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
               <div className="inline-block bg-gray-900 text-white font-bold px-3 py-1 text-xs rounded uppercase tracking-wider">
                 {plan.orquestra}
               </div>
-              <p className="text-xs text-gray-600 font-medium capitalize">{formatDateFull(plan.data)}</p>
+              <p className="text-xs text-gray-600 font-medium">{formatDateFull(plan.data)}</p>
             </div>
           </div>
 
@@ -435,7 +437,7 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
           <div className="grid grid-cols-3 gap-4 p-3.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
             <div>
               <span className="text-gray-500 font-semibold block uppercase text-[10px]">Data do Ensaio</span>
-              <strong className="text-gray-900 text-sm font-bold capitalize">{formatDateFull(plan.data)}</strong>
+              <strong className="text-gray-900 text-sm font-bold">{formatDateFull(plan.data)}</strong>
             </div>
             <div>
               <span className="text-gray-500 font-semibold block uppercase text-[10px]">Horário</span>
@@ -518,7 +520,7 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
 
           {/* Rodapé da Folha */}
           <div className="text-[10px] text-gray-400 pt-3 flex items-center justify-between border-t border-gray-200">
-            <span>OrquestraApp • Conservatório Bomfim</span>
+            <span>OrchestraApp - Luís Machado</span>
             <span>Documento emitido em {new Date().toLocaleDateString('pt-PT')} às {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
