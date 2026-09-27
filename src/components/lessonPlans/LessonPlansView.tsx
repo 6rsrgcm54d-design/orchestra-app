@@ -540,10 +540,10 @@ export default function LessonPlansView({
                   <div className="flex items-center gap-3">
                     <button
                       onClick={() => setPrintPlan(plan)}
-                      className="text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1"
+                      className="text-amber-600 dark:text-amber-400 font-semibold hover:underline flex items-center gap-1.5"
                     >
-                      <Printer size={13} />
-                      Modo Estante
+                      <Printer size={14} />
+                      Imprimir / PDF
                     </button>
                     <button
                       onClick={() => handleEdit(plan)}

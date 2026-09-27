@@ -561,28 +561,32 @@ function MainApp() {
   if (!user) return null;
 
   return (
-    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden">
-      <Sidebar
-        activeModule={activeModule}
-        onNavigate={setActiveModule}
-        collapsed={sidebarCollapsed}
-        onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
-        onSignOut={signOut}
-      />
-
-      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
-        <TopBar
+    <div className="flex h-screen bg-gray-50 dark:bg-gray-900 overflow-hidden print:h-auto print:overflow-visible print:bg-white">
+      <div className="print:hidden">
+        <Sidebar
           activeModule={activeModule}
-          user={user}
-          spreadsheetTitle={spreadsheetTitle}
-          isLocalMode={isLocalMode}
-          lastSyncTime={lastSyncTime}
-          onSync={handleSync}
-          onDisconnect={disconnect}
-          onOpenConnect={() => setIsConnectModalOpen(true)}
-          isSyncing={isSyncing}
+          onNavigate={setActiveModule}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((c) => !c)}
+          onSignOut={signOut}
         />
-        <main className="flex-1 overflow-y-auto">{renderModule()}</main>
+      </div>
+
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden print:overflow-visible">
+        <div className="print:hidden">
+          <TopBar
+            activeModule={activeModule}
+            user={user}
+            spreadsheetTitle={spreadsheetTitle}
+            isLocalMode={isLocalMode}
+            lastSyncTime={lastSyncTime}
+            onSync={handleSync}
+            onDisconnect={disconnect}
+            onOpenConnect={() => setIsConnectModalOpen(true)}
+            isSyncing={isSyncing}
+          />
+        </div>
+        <main className="flex-1 overflow-y-auto print:overflow-visible">{renderModule()}</main>
       </div>
 
       {/* Modals */}

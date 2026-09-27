@@ -4,6 +4,7 @@ import {
   readRange,
   appendRows,
   updateRange,
+  deleteRow,
   clearTab,
   INITIAL_LOCAL_DATA,
   ensureSheetExists,
@@ -213,10 +214,10 @@ function plansToRows(plans: LessonPlan[]): string[][] {
 
 function getInitialPlans(): LessonPlan[] {
   const saved = safeStorage.getItem(CACHE_KEY);
-  if (saved) {
+  if (saved !== null) {
     try {
       const parsed = JSON.parse(saved);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) return parsed;
     } catch {}
   }
   const raw = INITIAL_LOCAL_DATA[DEFAULT_TAB] || [];
@@ -224,7 +225,7 @@ function getInitialPlans(): LessonPlan[] {
 }
 
 export function useLessonPlans() {
-  const { config, sheetsMeta, refreshMeta } = useSheets();
+  const { config, sheetsMeta, refreshMeta, getSheetId } = useSheets();
   const [plans, setPlans] = useState<LessonPlan[]>(getInitialPlans);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -263,6 +264,9 @@ export function useLessonPlans() {
         const loaded = parseRawRowsToPlans(rows);
         setPlans(loaded);
         safeStorage.setItem(CACHE_KEY, JSON.stringify(loaded));
+      } else {
+        setPlans([]);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify([]));
       }
     } catch (err) {
       console.warn('Aba Planos de Aula ainda não existe ou erro ao carregar:', err);
@@ -289,16 +293,29 @@ export function useLessonPlans() {
           return;
         }
 
-        // Se for Apps Script ou Google Sheets OAuth
-        if (isAppsScript(config.spreadsheetId)) {
-          await clearTab(config.spreadsheetId, tabName);
-          await appendRows(config.spreadsheetId, `'${tabName}'!A:H`, allRows.slice(1));
-        } else {
-          // Google Sheets OAuth REST
-          try {
-            await clearTab(config.spreadsheetId, tabName);
-          } catch {}
-          await updateRange(config.spreadsheetId, `'${tabName}'!A1:H${allRows.length}`, allRows);
+        // Lê linhas existentes atualmente na folha
+        let existingLen = 0;
+        try {
+          const currentRows = await readRange(config.spreadsheetId, `'${tabName}'!A:H`);
+          existingLen = currentRows ? currentRows.length : 0;
+        } catch {}
+
+        // Pad com strings vazias para limpar quaisquer linhas antigas
+        const paddedRows = [...allRows];
+        while (paddedRows.length < existingLen) {
+          paddedRows.push(['', '', '', '', '', '', '', '']);
+        }
+
+        await updateRange(config.spreadsheetId, `'${tabName}'!A1:H${paddedRows.length}`, paddedRows);
+
+        // Se sobram linhas vazias a mais no final, remove-as fisicamente de baixo para cima
+        if (existingLen > allRows.length) {
+          const sheetId = getSheetId(tabName) ?? 14;
+          for (let r = existingLen - 1; r >= allRows.length; r--) {
+            try {
+              await deleteRow(config.spreadsheetId, sheetId, r, tabName);
+            } catch {}
+          }
         }
 
         if (showToast) {
@@ -311,7 +328,7 @@ export function useLessonPlans() {
         }
       }
     },
-    [config, ensureTabExists]
+    [config, ensureTabExists, getSheetId]
   );
 
   const addPlan = useCallback(
@@ -351,16 +368,84 @@ export function useLessonPlans() {
 
   const deletePlan = useCallback(
     async (planId: string) => {
+      // 1. Atualização Otimista Imediata na UI e Cache
+      const targetPlan = plans.find((p) => p.id === planId);
       const next = plans.filter((p) => p.id !== planId);
-      const toastId = toast.loading('A eliminar plano de aula...');
+      setPlans(next);
+      safeStorage.setItem(CACHE_KEY, JSON.stringify(next));
+
+      if (!config) return;
+
+      const toastId = toast.loading('A eliminar plano de aula da base de dados...');
       try {
-        await persistPlans(next, false);
-        toast.success('Plano eliminado!', { id: toastId });
+        const tabName = getTargetTabName();
+        const sheetId = getSheetId(tabName) ?? 14;
+
+        // 2. Lê linhas da folha para identificar os índices exatos deste plano
+        const currentRows = await readRange(config.spreadsheetId, `'${tabName}'!A:H`);
+        const rowsToDelete: number[] = [];
+
+        if (currentRows && currentRows.length > 1) {
+          currentRows.forEach((row, idx) => {
+            if (idx === 0) return; // ignora linha de cabeçalho
+            const rowId = (row[0] || '').trim();
+            const rowOrch = (row[1] || '').trim().toLowerCase();
+            const rowData = (row[2] || '').trim();
+            const rowHora = (row[3] || '').trim();
+
+            const isMatch =
+              (rowId && rowId === planId) ||
+              (targetPlan &&
+                rowOrch === targetPlan.orquestra.trim().toLowerCase() &&
+                rowData === targetPlan.data.trim() &&
+                (!rowHora || !targetPlan.hora || rowHora === targetPlan.hora.trim()));
+
+            if (isMatch) {
+              rowsToDelete.push(idx); // 0-based
+            }
+          });
+        }
+
+        // 3. Elimina as linhas de baixo para cima (reverse order)
+        if (rowsToDelete.length > 0) {
+          rowsToDelete.sort((a, b) => b - a);
+          for (const rIdx of rowsToDelete) {
+            try {
+              await deleteRow(config.spreadsheetId, sheetId, rIdx, tabName);
+            } catch (delErr) {
+              console.warn(`Erro ao apagar linha ${rIdx}:`, delErr);
+            }
+          }
+        }
+
+        // 4. Assegura que o restante conteúdo fica perfeitamente atualizado
+        const remainingRows = plansToRows(next);
+        if (isLocalId(config.spreadsheetId)) {
+          await updateRange(config.spreadsheetId, `'${tabName}'!A1:H${remainingRows.length}`, remainingRows);
+        } else {
+          const existingLen = currentRows ? currentRows.length : 0;
+          if (existingLen > remainingRows.length) {
+            const padded = [...remainingRows];
+            while (padded.length < existingLen) {
+              padded.push(['', '', '', '', '', '', '', '']);
+            }
+            try {
+              await updateRange(config.spreadsheetId, `'${tabName}'!A1:H${padded.length}`, padded);
+            } catch {}
+          } else {
+            try {
+              await updateRange(config.spreadsheetId, `'${tabName}'!A1:H${remainingRows.length}`, remainingRows);
+            } catch {}
+          }
+        }
+
+        toast.success('Plano eliminado da base de dados com sucesso!', { id: toastId });
       } catch (err) {
-        toast.error('Erro ao eliminar plano', { id: toastId });
+        console.error('Erro ao eliminar plano no Sheets:', err);
+        toast.error(`Erro ao eliminar no Sheets: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
       }
     },
-    [plans, persistPlans]
+    [plans, config, getTargetTabName, getSheetId]
   );
 
   const duplicatePlan = useCallback(

@@ -94,6 +94,11 @@ function doPost(e) {
     sheet = initDefaultSheet(ss, sheetName);
   }
 
+  if (action === 'clear') {
+    sheet.clearContents();
+    return jsonResponse({ success: true });
+  }
+
   if (action === 'append') {
     data.values.forEach(function(row) {
       sheet.appendRow(row);
