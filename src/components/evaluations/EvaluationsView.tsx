@@ -1179,7 +1179,7 @@ export default function EvaluationsView({
                                 {[1, 2, 3, 4, 5].map((lvl) => {
                                   const isSelected = currentScore === lvl;
                                   let btnClasses =
-                                    'w-7 h-7 rounded-lg text-xs font-bold transition-all border flex items-center justify-center ';
+                                    'w-8 h-8 sm:w-9 sm:h-9 rounded-xl text-xs sm:text-sm font-bold transition-all border flex items-center justify-center active:scale-95 ';
 
                                   if (isSelected) {
                                     if (lvl === 5) {

@@ -208,7 +208,7 @@ function MainApp() {
   const { user, signOut } = useAuth();
   const { config, sheetsMeta, disconnect, connect, connectLocal, isConnecting, isLocalMode, refreshMeta } = useSheets();
   const [activeModule, setActiveModule] = useState<NavModule>('dashboard');
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => (typeof window !== 'undefined' ? window.innerWidth < 1180 : false));
   const [isSyncing, setIsSyncing] = useState(false);
   const [isConnectModalOpen, setIsConnectModalOpen] = useState(false);
 
@@ -584,6 +584,8 @@ function MainApp() {
             onDisconnect={disconnect}
             onOpenConnect={() => setIsConnectModalOpen(true)}
             isSyncing={isSyncing}
+            sidebarCollapsed={sidebarCollapsed}
+            onToggleSidebar={() => setSidebarCollapsed((c) => !c)}
           />
         </div>
         <main className="flex-1 overflow-y-auto print:overflow-visible">{renderModule()}</main>

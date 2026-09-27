@@ -433,7 +433,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[92vh] flex flex-col overflow-hidden border border-gray-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-gray-200">
         {/* Barra Superior com Ações */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 px-6 border-b border-gray-200 bg-gray-50 gap-3">
           <div>

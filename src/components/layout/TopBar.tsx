@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sun, Moon, RefreshCw, Unplug, Cloud, HardDrive } from 'lucide-react';
+import { Sun, Moon, RefreshCw, Unplug, Cloud, HardDrive, Menu } from 'lucide-react';
 import { useTheme } from '../../context/ThemeContext';
 import type { GoogleUser, NavModule } from '../../types';
 import { MAESTRO_AVATAR } from '../../assets/avatar';
@@ -25,6 +25,8 @@ interface TopBarProps {
   onDisconnect: () => void;
   onOpenConnect: () => void;
   isSyncing?: boolean;
+  sidebarCollapsed?: boolean;
+  onToggleSidebar?: () => void;
 }
 
 export default function TopBar({
@@ -37,32 +39,46 @@ export default function TopBar({
   onDisconnect,
   onOpenConnect,
   isSyncing,
+  sidebarCollapsed,
+  onToggleSidebar,
 }: TopBarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="flex items-center justify-between px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
-      {/* Left: page title */}
-      <div>
-        <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
-          {MODULE_LABELS[activeModule]}
-        </h1>
-        <div className="flex items-center gap-2 mt-0.5">
+    <header className="flex items-center justify-between px-4 sm:px-6 py-3 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800 sticky top-0 z-30">
+      {/* Left: toggle sidebar + page title */}
+      <div className="flex items-center gap-2.5 sm:gap-3">
+        {onToggleSidebar && (
           <button
-            onClick={onOpenConnect}
-            className="text-xs text-gray-500 dark:text-gray-400 hover:text-orchestra-gold transition-colors flex items-center gap-1.5 group"
-            title="Clica para alterar ou ligar a outra folha"
+            onClick={onToggleSidebar}
+            className="p-2 -ml-1 sm:-ml-2 text-gray-600 hover:text-gray-900 dark:text-gray-400 dark:hover:text-white rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+            title={sidebarCollapsed ? 'Expandir barra lateral' : 'Recolher barra lateral'}
+            aria-label="Alternar barra lateral"
           >
-            <span
-              className={`w-2 h-2 rounded-full inline-block ${
-                isLocalMode ? 'bg-amber-500' : 'bg-green-500'
-              }`}
-            />
-            <span className="group-hover:underline">{spreadsheetTitle || 'Fonte de Dados'}</span>
-            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 group-hover:text-orchestra-gold">
-              Alterar
-            </span>
+            <Menu size={20} />
           </button>
+        )}
+        <div>
+          <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+            {MODULE_LABELS[activeModule]}
+          </h1>
+          <div className="flex items-center gap-2 mt-0.5">
+            <button
+              onClick={onOpenConnect}
+              className="text-xs text-gray-500 dark:text-gray-400 hover:text-orchestra-gold transition-colors flex items-center gap-1.5 group"
+              title="Clica para alterar ou ligar a outra folha"
+            >
+              <span
+                className={`w-2 h-2 rounded-full inline-block ${
+                  isLocalMode ? 'bg-amber-500' : 'bg-green-500'
+                }`}
+              />
+              <span className="group-hover:underline">{spreadsheetTitle || 'Fonte de Dados'}</span>
+              <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 py-0.5 rounded text-gray-500 dark:text-gray-400 group-hover:text-orchestra-gold">
+                Alterar
+              </span>
+            </button>
+          </div>
         </div>
       </div>
 

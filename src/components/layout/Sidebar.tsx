@@ -54,7 +54,7 @@ export default function Sidebar({ activeModule, onNavigate, collapsed, onToggleC
       </div>
 
       {/* Nav Items */}
-      <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto">
+      <nav className="flex-1 py-4 px-2 space-y-1.5 overflow-y-auto">
         {navItems.map((item) => {
           const isActive = activeModule === item.id;
           return (
@@ -63,10 +63,10 @@ export default function Sidebar({ activeModule, onNavigate, collapsed, onToggleC
               onClick={() => onNavigate(item.id)}
               title={collapsed ? item.label : undefined}
               className={`
-                w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-150
-                text-sm font-medium group
+                w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-150
+                text-sm font-medium group min-h-[44px] active:scale-98
                 ${isActive
-                  ? 'bg-orchestra-gold text-orchestra-navy'
+                  ? 'bg-orchestra-gold text-orchestra-navy font-bold shadow-sm'
                   : 'text-white/70 hover:bg-white/10 hover:text-white'
                 }
               `}
@@ -79,11 +79,11 @@ export default function Sidebar({ activeModule, onNavigate, collapsed, onToggleC
       </nav>
 
       {/* Bottom */}
-      <div className="px-2 pb-4 space-y-1 border-t border-white/10 pt-3">
+      <div className="px-2 pb-4 space-y-1.5 border-t border-white/10 pt-3">
         <button
           onClick={onSignOut}
           title={collapsed ? 'Sair' : undefined}
-          className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-white/60 hover:bg-red-500/20 hover:text-red-400 transition-all"
+          className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-sm font-medium text-white/60 hover:bg-red-500/20 hover:text-red-400 transition-all min-h-[44px] active:scale-98"
         >
           <LogOut size={18} />
           {!collapsed && <span>Sair</span>}
@@ -91,7 +91,7 @@ export default function Sidebar({ activeModule, onNavigate, collapsed, onToggleC
 
         <button
           onClick={onToggleCollapse}
-          className="w-full flex items-center justify-center py-2 text-white/40 hover:text-white/70 transition-all"
+          className="w-full flex items-center justify-center py-2.5 text-white/40 hover:text-white/70 transition-all min-h-[40px] rounded-lg active:bg-white/5"
         >
           {collapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
         </button>
