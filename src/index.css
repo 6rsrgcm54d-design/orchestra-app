@@ -44,3 +44,24 @@
     overflow: hidden;
   }
 }
+
+@media print {
+  html,
+  html.dark,
+  body,
+  html.dark body,
+  #root {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #111827 !important;
+  }
+
+  aside,
+  header,
+  nav,
+  .print-hidden,
+  .print\\:hidden {
+    display: none !important;
+  }
+}
+
