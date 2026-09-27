@@ -246,7 +246,7 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
     <body>
       <div class="header">
         <div>
-          <div class="badge-institution">Gestão de Orquestras</div>
+          <div class="badge-institution">${escapeHtml(plan.orquestra ? (plan.orquestra.toLowerCase().startsWith('orquestra') ? plan.orquestra : 'Orquestra ' + plan.orquestra) : 'Orquestra')}</div>
           <h1 class="title">Plano de Aula & Ensaio</h1>
           <div class="subtitle">Orquestra ${escapeHtml(plan.orquestra)}${plan.titulo ? ' • ' + escapeHtml(plan.titulo) : ''}</div>
         </div>
@@ -311,11 +311,6 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
           Anotações do Maestro / Avaliação do Ensaio
         </div>
         <div class="conductor-box">Espaço reservado para apontamentos na estante durante o ensaio...</div>
-      </div>
-
-      <div class="footer">
-        <span>OrchestraApp - Luís Machado</span>
-        <span>Documento emitido em ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
       </div>
     </body>
     </html>
@@ -414,7 +409,7 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-widest font-black text-amber-700 mb-1">
-                Gestão de Orquestras
+                {plan.orquestra ? (plan.orquestra.toLowerCase().startsWith('orquestra') ? plan.orquestra : `Orquestra ${plan.orquestra}`) : 'Orquestra'}
               </p>
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
                 Plano de Aula & Ensaio
@@ -516,12 +511,6 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
             <div className="border border-gray-300 rounded-lg h-24 p-2.5 bg-gray-50/40 text-xs text-gray-400 italic">
               Espaço reservado para apontamentos na estante durante o ensaio...
             </div>
-          </div>
-
-          {/* Rodapé da Folha */}
-          <div className="text-[10px] text-gray-400 pt-3 flex items-center justify-between border-t border-gray-200">
-            <span>OrchestraApp - Luís Machado</span>
-            <span>Documento emitido em {new Date().toLocaleDateString('pt-PT')} às {new Date().toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit' })}</span>
           </div>
         </div>
       </div>

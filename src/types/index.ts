@@ -290,6 +290,32 @@ export interface LessonPlan {
   notas?: string; // Observações gerais do plano de aula
 }
 
+// ─── Weekly Rehearsal Plans (Planos Semanais / Convocatórias) ─────────────────
+
+export interface WeeklyPlanDay {
+  id: string;
+  diaSemana: string; // "Segunda-feira", "Terça-feira", "Quarta-feira", etc.
+  data: string; // YYYY-MM-DD
+  horario: string; // ex: "17:30 - 19:30"
+  local?: string; // ex: "Auditório", "Sala de Orquestra"
+  naipes?: string; // ex: "Tutti Geral", "Apenas Cordas", "Madeiras e Metais"
+  obras: string; // Obras a ensaiar e movimentos/compassos de estudo
+  observacoes?: string; // Recomendações específicas para o dia
+}
+
+export interface WeeklyPlan {
+  id: string;
+  rowIndex?: number;
+  orquestra: string; // "Orquestra Artave", "Académica", "Juvenil", "Orquestra 10º ano", "Todas"
+  anoLetivo: string; // default: "2026-2027"
+  semanaInicio: string; // YYYY-MM-DD
+  semanaFim: string; // YYYY-MM-DD
+  titulo?: string; // ex: "Semana 4 — Preparação para Concerto de Outono"
+  dias: WeeklyPlanDay[];
+  avisosGerais?: string; // Avisos para alunos e encarregados de educação
+  notasRodape?: string; // default: "Escola Profissional Artística do Vale do Ave  - Luís Machado"
+}
+
 // ─── Concerts ───────────────────────────────────────────────────────────────
 
 export interface Concert {
