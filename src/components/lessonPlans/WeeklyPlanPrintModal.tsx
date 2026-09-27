@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileDown, Mail, Share2, Info, Copy, Calendar, Clock, MapPin, Users, Music2 } from 'lucide-react';
+import { X, FileDown, Mail, Info, Copy, Calendar, MapPin, Users, Music2 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 
@@ -31,6 +31,7 @@ function formatDatePT(dateStr?: string): string {
     const day = d.getDate();
     const month = d.toLocaleDateString('pt-PT', { month: 'long' });
     const year = d.getFullYear();
+    // domingo 27 setembro 2026 sem "de" e "de"
     return `${day} ${month.toLowerCase()} ${year}`;
   } catch {
     return dateStr;
@@ -48,44 +49,85 @@ function formatDayOfWeek(dateStr?: string, fallback?: string): string {
     const d = new Date(normalized.includes('T') ? normalized : `${normalized}T00:00:00`);
     if (isNaN(d.getTime())) return fallback || '';
     const weekday = d.toLocaleDateString('pt-PT', { weekday: 'long' });
-    return weekday.charAt(0).toUpperCase() + weekday.slice(1);
+    return weekday.toUpperCase();
   } catch {
-    return fallback || '';
+    return fallback ? fallback.toUpperCase() : '';
   }
+}
+
+function formatWeekRange(startStr?: string, endStr?: string): string {
+  if (!startStr && !endStr) return '';
+  if (!startStr) return formatDatePT(endStr);
+  if (!endStr) return formatDatePT(startStr);
+
+  try {
+    const s = new Date(startStr.includes('T') ? startStr : `${startStr}T00:00:00`);
+    const e = new Date(endStr.includes('T') ? endStr : `${endStr}T00:00:00`);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) {
+      return `${startStr} a ${endStr}`;
+    }
+
+    const sDay = s.getDate();
+    const eDay = e.getDate();
+    const sMonth = s.toLocaleDateString('pt-PT', { month: 'long' }).toLowerCase();
+    const eMonth = e.toLocaleDateString('pt-PT', { month: 'long' }).toLowerCase();
+    const sYear = s.getFullYear();
+    const eYear = e.getFullYear();
+
+    if (sMonth === eMonth && sYear === eYear) {
+      return `${sDay} a ${eDay} ${sMonth} ${sYear}`;
+    }
+    if (sYear === eYear) {
+      return `${sDay} ${sMonth} a ${eDay} ${eMonth} ${sYear}`;
+    }
+    return `${sDay} ${sMonth} ${sYear} a ${eDay} ${eMonth} ${eYear}`;
+  } catch {
+    return `${startStr} a ${endStr}`;
+  }
+}
+
+function formatNaipeBadge(naipes?: string): string {
+  if (!naipes) return 'TUTTI';
+  let cleaned = naipes.trim();
+  if (/^tutti\s*geral$/i.test(cleaned) || /^tutti\s*\(.*\)$/i.test(cleaned)) {
+    return 'TUTTI';
+  }
+  cleaned = cleaned.replace(/tutti\s+geral/gi, 'Tutti');
+  return cleaned.toUpperCase();
 }
 
 export function generateWeeklyEmailBody(plan: WeeklyPlan): string {
   const orch = plan.orquestra || 'Orquestra Artave';
-  const start = formatDatePT(plan.semanaInicio);
-  const end = formatDatePT(plan.semanaFim);
+  const range = formatWeekRange(plan.semanaInicio, plan.semanaFim);
 
   let text = `Caros alunos e encarregados de educação,\n\n`;
-  text += `Segue o Plano Semanal de Ensaios da ${orch} para a semana de ${start} a ${end}:\n\n`;
+  text += `Segue o Plano Semanal de Ensaios da ${orch} para a semana de ${range}:\n\n`;
   text += `══════════════════════════════════════════════════\n`;
   text += `${orch.toUpperCase()} • ANO LETIVO ${plan.anoLetivo || '2026-2027'}\n`;
   text += `PLANO SEMANAL DE ENSAIOS\n`;
   text += `══════════════════════════════════════════════════\n\n`;
 
   (plan.dias || []).forEach((d) => {
-    const diaNome = d.diaSemana || formatDayOfWeek(d.data, 'Dia de Ensaio');
+    const diaNome = formatDayOfWeek(d.data, d.diaSemana || 'Dia de Ensaio');
     const dataFmt = formatDatePT(d.data);
-    text += `📅 ${diaNome.toUpperCase()}${dataFmt ? ` (${dataFmt})` : ''}\n`;
-    text += `⏰ Horário: ${d.horario || 'A definir'}\n`;
+    text += `📅 ${diaNome}${dataFmt ? ` (${dataFmt})` : ''}\n`;
+    text += `⏰ HORÁRIO: ${d.horario || 'A definir'}\n`;
     if (d.local) text += `📍 Local: ${d.local}\n`;
-    if (d.naipes) text += `👥 Convocatória: ${d.naipes}\n`;
+    const naipeTxt = formatNaipeBadge(d.naipes);
+    text += `👥 Convocatória: ${naipeTxt}\n`;
     text += `🎵 Obras & Programa de Estudo:\n`;
     const obrasLines = (d.obras || 'Trabalho de repertório').split('\n');
     obrasLines.forEach((line) => {
       text += `   ${line.trim().startsWith('•') || line.trim().startsWith('-') ? line.trim() : `• ${line.trim()}`}\n`;
     });
-    if (d.observacoes) {
-      text += `💡 Recomendações: ${d.observacoes}\n`;
+    if (d.observacoes && d.observacoes.trim()) {
+      text += `💡 Observações: ${d.observacoes.trim()}\n`;
     }
     text += `\n──────────────────────────────────────────────────\n\n`;
   });
 
-  if (plan.avisosGerais) {
-    text += `⚠️ AVISOS IMPORTANTES:\n${plan.avisosGerais}\n\n`;
+  if (plan.avisosGerais && plan.avisosGerais.trim()) {
+    text += `⚠️ AVISOS IMPORTANTES:\n${plan.avisosGerais.trim()}\n\n`;
   }
 
   text += `📄 O documento oficial em formato PDF segue em anexo para afixação e consulta nas pastas.\n\n`;
@@ -113,11 +155,20 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
   const ano = plan.anoLetivo || '2026-2027';
   const rodape = plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado';
 
+  // Observações só aparecem se pelo menos um dia tiver algo escrito
+  const hasAnyObservations = (plan.dias || []).some(
+    (d) => d.observacoes && d.observacoes.trim().length > 0
+  );
+
+  // Avisos gerais só aparecem se houver texto
+  const hasAvisos = Boolean(plan.avisosGerais && plan.avisosGerais.trim().length > 0);
+
   const daysHtml = (plan.dias || [])
     .map((d, idx) => {
-      const diaNome = d.diaSemana || formatDayOfWeek(d.data, 'Dia de Ensaio');
+      const diaNome = formatDayOfWeek(d.data, d.diaSemana || 'Dia de Ensaio');
       const dataFmt = formatDatePT(d.data);
       const bg = idx % 2 === 1 ? 'background-color: #fafaf9;' : 'background-color: #ffffff;';
+      const badgeText = formatNaipeBadge(d.naipes);
 
       const obrasFormatted = escapeHtml(d.obras || 'Trabalho de repertório geral')
         .split('\n')
@@ -125,7 +176,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
         .map((l) => {
           const trimmed = l.trim();
           if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-            return `<div style="margin: 2px 0 2px 8px; color: #1c1917; font-weight: 500;">${trimmed}</div>`;
+            return `<div style="margin: 2px 0 2px 8px; color: #1f2937; font-weight: 500;">${trimmed}</div>`;
           }
           return `<div style="margin: 3px 0; color: #111827; font-weight: 700;">• ${trimmed}</div>`;
         })
@@ -133,35 +184,41 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 
       return `
         <tr style="${bg} page-break-inside: avoid;">
-          <td style="border: 1px solid #d6d3d1; padding: 12px 10px; width: 140px; vertical-align: top;">
-            <div style="font-size: 13px; font-weight: 800; color: #1c1917; text-transform: uppercase; letter-spacing: 0.3px;">
+          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 145px; vertical-align: top;">
+            <div style="font-size: 13px; font-weight: 900; color: #111827; letter-spacing: 0.3px;">
               ${escapeHtml(diaNome)}
             </div>
-            <div style="font-size: 11px; color: #78716c; font-weight: 600; margin-top: 3px;">
+            <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 3px;">
               ${escapeHtml(dataFmt)}
             </div>
           </td>
-          <td style="border: 1px solid #d6d3d1; padding: 12px 10px; width: 130px; vertical-align: top;">
-            <div style="font-family: monospace; font-size: 13px; font-weight: 800; color: #b45309; background-color: #fef3c7; display: inline-block; padding: 2px 6px; border-radius: 4px; margin-bottom: 4px;">
+          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 155px; vertical-align: top;">
+            <div style="font-size: 16px; font-weight: 900; color: #111827; letter-spacing: -0.3px; line-height: 1.2;">
               ${escapeHtml(d.horario || 'A definir')}
             </div>
             ${
               d.local
-                ? `<div style="font-size: 11px; color: #57534e; font-weight: 600; margin-top: 2px;">📍 ${escapeHtml(d.local)}</div>`
+                ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 5px;">📍 ${escapeHtml(d.local)}</div>`
                 : ''
             }
           </td>
-          <td style="border: 1px solid #d6d3d1; padding: 12px 10px; width: 140px; vertical-align: top;">
-            <div style="font-size: 11px; font-weight: 800; color: #047857; background-color: #d1fae5; display: inline-block; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
-              ${escapeHtml(d.naipes || 'Tutti Geral')}
-            </div>
+          <td style="border: 1px solid #d1d5db; padding: 12px 8px; width: 105px; vertical-align: top; text-align: center;">
+            <span style="font-size: 11px; font-weight: 900; color: #065f46; background-color: #d1fae5; display: inline-block; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">
+              ${escapeHtml(badgeText)}
+            </span>
           </td>
-          <td style="border: 1px solid #d6d3d1; padding: 12px 10px; vertical-align: top; font-size: 12px; line-height: 1.5;">
+          <td style="border: 1px solid #d1d5db; padding: 12px 10px; vertical-align: top; font-size: 12px; line-height: 1.5;">
             ${obrasFormatted}
           </td>
-          <td style="border: 1px solid #d6d3d1; padding: 12px 10px; width: 150px; vertical-align: top; font-size: 11px; color: #57534e; font-style: italic; line-height: 1.4;">
-            ${escapeHtml(d.observacoes || '—')}
-          </td>
+          ${
+            hasAnyObservations
+              ? `
+            <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 150px; vertical-align: top; font-size: 11px; color: #4b5563; font-style: italic; line-height: 1.4;">
+              ${d.observacoes && d.observacoes.trim() ? escapeHtml(d.observacoes.trim()) : ''}
+            </td>
+          `
+              : ''
+          }
         </tr>
       `;
     })
@@ -185,14 +242,14 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
         }
         html, body {
           background: #ffffff !important;
-          color: #1c1917 !important;
+          color: #111827 !important;
           margin: 0;
           padding: 0;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           font-size: 13px;
         }
         .header {
-          border-bottom: 2.5px solid #1c1917;
+          border-bottom: 2.5px solid #111827;
           padding-bottom: 12px;
           margin-bottom: 16px;
           display: flex;
@@ -208,37 +265,29 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
           margin-bottom: 4px;
         }
         .title {
-          font-size: 25px;
+          font-size: 26px;
           font-weight: 900;
-          color: #1c1917;
+          color: #111827;
           margin: 0;
           letter-spacing: -0.5px;
         }
         .official-subtitle {
           font-size: 14px;
           font-weight: 800;
-          color: #44403c;
+          color: #4b5563;
           margin-top: 4px;
         }
         .week-badge-box {
           text-align: right;
-          background-color: #f5f5f4;
-          border: 1px solid #e7e5e4;
+          background-color: #f3f4f6;
+          border: 1px solid #e5e7eb;
           border-radius: 8px;
           padding: 8px 14px;
         }
         .week-range {
-          font-size: 12px;
-          font-weight: 800;
-          color: #1c1917;
-        }
-        .school-year {
-          font-size: 10px;
-          font-weight: 700;
-          text-transform: uppercase;
-          letter-spacing: 0.5px;
-          color: #78716c;
-          margin-top: 2px;
+          font-size: 13px;
+          font-weight: 900;
+          color: #111827;
         }
         table {
           width: 100%;
@@ -246,13 +295,13 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
           margin-bottom: 16px;
         }
         th {
-          background-color: #f5f5f4;
-          border: 1px solid #d6d3d1;
+          background-color: #f3f4f6;
+          border: 1px solid #d1d5db;
           padding: 9px 10px;
           font-size: 10px;
           text-transform: uppercase;
           letter-spacing: 0.6px;
-          color: #44403c;
+          color: #374151;
           font-weight: 900;
           text-align: left;
         }
@@ -274,7 +323,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
           margin-bottom: 4px;
         }
         .footer {
-          border-top: 1.5px solid #e7e5e4;
+          border-top: 1.5px solid #e5e7eb;
           padding-top: 8px;
           margin-top: 16px;
           display: flex;
@@ -282,7 +331,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
           align-items: center;
           font-size: 11px;
           font-weight: 700;
-          color: #44403c;
+          color: #4b5563;
         }
       </style>
     </head>
@@ -291,22 +340,21 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
         <div>
           <div class="institution-badge">Escola Profissional Artística do Vale do Ave</div>
           <h1 class="title">Plano Semanal de Ensaios</h1>
-          <div class="official-subtitle">${escapeHtml(orch)} Ano letivo ${escapeHtml(ano)} • Plano Semanal de Ensaios</div>
+          <div class="official-subtitle">${escapeHtml(orch)} • Ano letivo ${escapeHtml(ano)}</div>
         </div>
         <div class="week-badge-box">
-          <div class="school-year">Semana de Ensaios</div>
-          <div class="week-range">${escapeHtml(formatDatePT(plan.semanaInicio))} a ${escapeHtml(formatDatePT(plan.semanaFim))}</div>
+          <div class="week-range">${escapeHtml(formatWeekRange(plan.semanaInicio, plan.semanaFim))}</div>
         </div>
       </div>
 
       <table>
         <thead>
           <tr>
-            <th style="width: 140px;">Dia & Data</th>
-            <th style="width: 130px;">Horário & Sala</th>
-            <th style="width: 140px;">Convocatória</th>
+            <th style="width: 145px;">Dia & Data</th>
+            <th style="width: 155px;">Horário & Sala</th>
+            <th style="width: 105px; text-align: center;">Convocatória</th>
             <th>Obras a Ensaiar & Programa de Estudo</th>
-            <th style="width: 150px;">Observações</th>
+            ${hasAnyObservations ? '<th style="width: 150px;">Observações</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -315,11 +363,11 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
       </table>
 
       ${
-        plan.avisosGerais
+        hasAvisos
           ? `
         <div class="avisos-box">
-          <div class="avisos-title">📌 Avisos & Recomendações aos Alunos e Encarregados de Educação</div>
-          <div style="font-size: 12px; color: #78350f; line-height: 1.5; white-space: pre-line;">${escapeHtml(plan.avisosGerais)}</div>
+          <div class="avisos-title">📌 Informações & Avisos da Semana</div>
+          <div style="font-size: 12px; color: #78350f; line-height: 1.5; white-space: pre-line;">${escapeHtml(plan.avisosGerais || '')}</div>
         </div>
       `
           : ''
@@ -327,7 +375,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 
       <div class="footer">
         <span>${escapeHtml(rodape)}</span>
-        <span style="font-size: 9px; color: #a8a29e; font-weight: normal;">Emitido em ${new Date().toLocaleDateString('pt-PT')}</span>
+        <span style="font-size: 9px; color: #9ca3af; font-weight: normal;">Emitido em ${new Date().toLocaleDateString('pt-PT')}</span>
       </div>
     </body>
     </html>
@@ -353,13 +401,13 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
     printWeeklyPlanToPdf(plan);
   };
 
-  const handleSendEmail = () => {
+  const handleSendGmail = () => {
     const orch = plan.orquestra || 'Orquestra Artave';
-    const start = formatDatePT(plan.semanaInicio);
-    const end = formatDatePT(plan.semanaFim);
-    const subject = encodeURIComponent(`[${orch}] Convocatória e Plano Semanal de Ensaios (${start} a ${end})`);
+    const range = formatWeekRange(plan.semanaInicio, plan.semanaFim);
+    const subject = encodeURIComponent(`[${orch}] Convocatória e Plano Semanal de Ensaios (${range})`);
     const body = encodeURIComponent(generateWeeklyEmailBody(plan));
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+    window.open(gmailUrl, '_blank');
   };
 
   const handleCopyText = async () => {
@@ -375,6 +423,11 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
   const orch = plan.orquestra || 'Orquestra Artave';
   const ano = plan.anoLetivo || '2026-2027';
   const rodape = plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado';
+
+  const hasAnyObservations = (plan.dias || []).some(
+    (d) => d.observacoes && d.observacoes.trim().length > 0
+  );
+  const hasAvisos = Boolean(plan.avisosGerais && plan.avisosGerais.trim().length > 0);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto">
@@ -407,14 +460,14 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
               Copiar WhatsApp
             </button>
 
-            {/* Enviar E-mail */}
+            {/* Enviar com Gmail */}
             <button
-              onClick={handleSendEmail}
-              className="flex items-center gap-1.5 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95"
-              title="Abrir o cliente de email com assunto e corpo já preenchidos"
+              onClick={handleSendGmail}
+              className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95"
+              title="Abrir diretamente no Gmail com assunto e convocatória já preenchidos"
             >
               <Mail size={14} />
-              Enviar por E-mail
+              Enviar no Gmail
             </button>
 
             {/* Guardar PDF / Imprimir */}
@@ -448,80 +501,82 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
                 Plano Semanal de Ensaios
               </h1>
               <p className="text-base font-bold text-gray-800 mt-0.5">
-                {orch} Ano letivo {ano} • Plano Semanal de Ensaios
+                {orch} • Ano letivo {ano}
               </p>
             </div>
 
             <div className="text-right bg-stone-100 p-3 rounded-xl border border-stone-200">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-stone-500 block">
-                Semana de Ensaios
-              </span>
-              <strong className="text-sm font-bold text-stone-900">
-                {formatDatePT(plan.semanaInicio)} a {formatDatePT(plan.semanaFim)}
+              <strong className="text-sm font-black text-stone-900">
+                {formatWeekRange(plan.semanaInicio, plan.semanaFim)}
               </strong>
             </div>
           </div>
 
           {/* Tabela do Cronograma Semanal */}
           <div>
-            <h2 className="text-xs font-black uppercase tracking-wider text-gray-700 mb-2 flex items-center gap-1.5">
-              <Calendar size={14} className="text-amber-600" /> Agenda dos Dias de Ensaio
-            </h2>
-
             <table className="w-full text-left border-collapse border border-stone-300">
               <thead>
                 <tr className="bg-stone-100 text-stone-800 text-xs uppercase tracking-wider">
                   <th className="py-2.5 px-3 border border-stone-300 w-36 font-bold">Dia & Data</th>
-                  <th className="py-2.5 px-3 border border-stone-300 w-36 font-bold">Horário & Sala</th>
-                  <th className="py-2.5 px-3 border border-stone-300 w-36 font-bold">Convocatória</th>
+                  <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Horário & Sala</th>
+                  <th className="py-2.5 px-3 border border-stone-300 w-28 text-center font-bold">Convocatória</th>
                   <th className="py-2.5 px-3 border border-stone-300 font-bold">Obras a Ensaiar & Programa de Estudo</th>
-                  <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Observações</th>
+                  {hasAnyObservations && (
+                    <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Observações</th>
+                  )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200 text-sm">
-                {(plan.dias || []).map((item, idx) => (
-                  <tr key={idx} className={idx % 2 === 1 ? 'bg-stone-50/60' : 'bg-white'}>
-                    <td className="py-3 px-3 border border-stone-300 align-top">
-                      <div className="font-bold text-stone-900 text-sm">
-                        {item.diaSemana || formatDayOfWeek(item.data, 'Dia')}
-                      </div>
-                      <div className="text-xs text-stone-500 font-medium mt-0.5">
-                        {formatDatePT(item.data)}
-                      </div>
-                    </td>
-                    <td className="py-3 px-3 border border-stone-300 align-top">
-                      <span className="font-mono text-xs font-bold text-amber-900 bg-amber-100 px-2 py-0.5 rounded inline-block">
-                        {item.horario || 'A definir'}
-                      </span>
-                      {item.local && (
-                        <div className="text-xs text-stone-600 font-medium mt-1 flex items-center gap-1">
-                          <MapPin size={11} className="text-stone-400 flex-shrink-0" />
-                          <span>{item.local}</span>
+                {(plan.dias || []).map((item, idx) => {
+                  const badge = formatNaipeBadge(item.naipes);
+
+                  return (
+                    <tr key={idx} className={idx % 2 === 1 ? 'bg-stone-50/60' : 'bg-white'}>
+                      <td className="py-3 px-3 border border-stone-300 align-top">
+                        <div className="font-bold text-stone-900 text-sm">
+                          {formatDayOfWeek(item.data, item.diaSemana || 'Dia')}
                         </div>
+                        <div className="text-xs text-stone-500 font-medium mt-0.5">
+                          {formatDatePT(item.data)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-3 border border-stone-300 align-top">
+                        {/* Horário em tamanho de destaque */}
+                        <div className="text-base sm:text-lg font-black text-gray-900 leading-tight">
+                          {item.horario || 'A definir'}
+                        </div>
+                        {item.local && (
+                          <div className="text-xs text-stone-500 font-medium mt-1 flex items-center gap-1">
+                            <MapPin size={11} className="text-stone-400 flex-shrink-0" />
+                            <span>{item.local}</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-3 border border-stone-300 align-top text-center">
+                        <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded inline-block">
+                          {badge}
+                        </span>
+                      </td>
+                      <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-900 leading-relaxed whitespace-pre-line font-medium">
+                        {item.obras}
+                      </td>
+                      {hasAnyObservations && (
+                        <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-600 italic">
+                          {item.observacoes && item.observacoes.trim() ? item.observacoes.trim() : ''}
+                        </td>
                       )}
-                    </td>
-                    <td className="py-3 px-3 border border-stone-300 align-top">
-                      <span className="text-xs font-bold text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded inline-block uppercase">
-                        {item.naipes || 'Tutti Geral'}
-                      </span>
-                    </td>
-                    <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-900 leading-relaxed whitespace-pre-line font-medium">
-                      {item.obras}
-                    </td>
-                    <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-600 italic">
-                      {item.observacoes || '—'}
-                    </td>
-                  </tr>
-                ))}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
 
-          {/* Avisos Gerais da Semana */}
-          {plan.avisosGerais && (
+          {/* Informações & Avisos Gerais (apenas se preenchido) */}
+          {hasAvisos && (
             <div className="p-4 bg-amber-50/90 rounded-xl border border-amber-200">
               <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">
-                📌 Avisos & Recomendações aos Alunos e Encarregados de Educação
+                📌 Informações & Avisos da Semana
               </h3>
               <p className="text-xs text-amber-950 leading-relaxed whitespace-pre-line">
                 {plan.avisosGerais}

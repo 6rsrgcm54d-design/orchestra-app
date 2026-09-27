@@ -324,11 +324,13 @@ export default function LessonPlansView({
 
   const handleSendEmailDirect = (wp: WeeklyPlan) => {
     const orch = wp.orquestra || 'Orquestra Artave';
+    const range = `${formatDatePTShort(wp.semanaInicio)} a ${formatDatePTShort(wp.semanaFim)}`;
     const subject = encodeURIComponent(
-      `[${orch}] Convocatória e Plano Semanal de Ensaios (${wp.semanaInicio} a ${wp.semanaFim})`
+      `[${orch}] Convocatória e Plano Semanal de Ensaios (${range})`
     );
     const body = encodeURIComponent(generateWeeklyEmailBody(wp));
-    window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
+    window.open(gmailUrl, '_blank');
   };
 
   const handleCopyWhatsAppDirect = async (wp: WeeklyPlan) => {
@@ -779,8 +781,8 @@ export default function LessonPlansView({
                           </button>
                           <button
                             onClick={() => handleSendEmailDirect(wp)}
-                            className="p-1.5 text-gray-400 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/30 rounded-lg transition-all"
-                            title="Enviar por E-mail"
+                            className="p-1.5 text-gray-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 rounded-lg transition-all"
+                            title="Enviar no Gmail"
                           >
                             <Mail size={16} />
                           </button>
@@ -839,7 +841,7 @@ export default function LessonPlansView({
                                   </span>
                                   {dia.naipes && (
                                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">
-                                      {dia.naipes}
+                                      {dia.naipes.replace(/tutti\s+geral/gi, 'Tutti')}
                                     </span>
                                   )}
                                 </div>

@@ -57,10 +57,7 @@ export default function WeeklyPlanFormModal({
   const [semanaInicio, setSemanaInicio] = useState(initialStart);
   const [semanaFim, setSemanaFim] = useState(initialEnd);
   const [titulo, setTitulo] = useState(plan?.titulo || '');
-  const [avisosGerais, setAvisosGerais] = useState(
-    plan?.avisosGerais ||
-      'Avisos da Semana:\n1. Trazer pastas com partes marcadas a lápis.\n2. Afinação pontual na estante antes do início do ensaio.'
-  );
+  const [avisosGerais, setAvisosGerais] = useState(plan?.avisosGerais || '');
   const [notasRodape, setNotasRodape] = useState(
     plan?.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado'
   );
@@ -73,9 +70,9 @@ export default function WeeklyPlanFormModal({
         diaSemana: 'Segunda-feira',
         data: initialStart,
         horario: '17:30 - 19:30',
-        local: 'Auditório / Sala de Orquestra',
-        naipes: 'Tutti (Todos os naipes)',
-        obras: 'Indique as obras e andamentos a ensaiar...',
+        local: 'Sala de Orquestra',
+        naipes: 'Tutti',
+        obras: '',
         observacoes: '',
       },
     ];
@@ -107,8 +104,8 @@ export default function WeeklyPlanFormModal({
         diaSemana: nextWeekday,
         data: nextDate,
         horario: '17:30 - 19:30',
-        local: 'Auditório / Sala de Orquestra',
-        naipes: 'Tutti Geral',
+        local: 'Sala de Orquestra',
+        naipes: 'Tutti',
         obras: '',
         observacoes: '',
       },
@@ -462,7 +459,7 @@ export default function WeeklyPlanFormModal({
                         type="text"
                         value={dia.naipes || ''}
                         onChange={(e) => handleUpdateDay(dia.id, 'naipes', e.target.value)}
-                        placeholder="ex: Tutti Geral, Cordas..."
+                        placeholder="ex: Tutti, Cordas, Madeiras..."
                         className="w-full px-2.5 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-1 focus:ring-orchestra-gold"
                       />
                     </div>

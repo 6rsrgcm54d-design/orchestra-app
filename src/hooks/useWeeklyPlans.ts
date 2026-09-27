@@ -69,10 +69,10 @@ export function getInitialWeeklyPlans(): WeeklyPlan[] {
           diaSemana: 'Segunda-feira',
           data: fmt(monday),
           horario: '17:30 - 19:30',
-          local: 'Auditório / Sala de Orquestra',
-          naipes: 'Tutti (Todos os naipes)',
+          local: 'Sala de Orquestra',
+          naipes: 'Tutti',
           obras: 'L. v. Beethoven: Sinfonia nº 5 em Dó menor, Op. 67\n• Andamento I (Allegro con brio) — Estudo dos compassos 1 a 124\n• Foco: precisão rítmica dos motivos e ataques em tutti',
-          observacoes: 'Pontualidade na afinação (17h25 na estante). Trazer lápis.',
+          observacoes: '',
         },
         {
           id: 'dia-2',
@@ -83,27 +83,27 @@ export function getInitialWeeklyPlans(): WeeklyPlan[] {
             return fmt(d);
           })(),
           horario: '17:30 - 19:30',
-          local: 'Auditório / Sala de Orquestra',
-          naipes: 'Cordas & Madeiras',
+          local: 'Sala de Orquestra',
+          naipes: 'Cordas',
           obras: 'Arturo Márquez: Danzón nº 2\n• Trabalho de articulação, balance e dinâmicas nos solos de clarinete e oboé',
           observacoes: 'Trazer surdinas para os naipes de cordas.',
         },
         {
           id: 'dia-3',
-          diaSemana: 'Sábado',
+          diaSemana: 'Quarta-feira',
           data: (() => {
             const d = new Date(monday);
-            d.setDate(monday.getDate() + 5);
+            d.setDate(monday.getDate() + 2);
             return fmt(d);
           })(),
-          horario: '10:00 - 13:00',
-          local: 'Auditório Principal',
-          naipes: 'Tutti Geral (com Percussão e Metais)',
-          obras: 'Ensaio Geral do Programa Completo:\n1. Beethoven: Sinfonia nº 5\n2. Márquez: Danzón nº 2',
-          observacoes: 'Afixação oficial no placard. Trazer pastas organizadas.',
+          horario: '19:30 - 20:30',
+          local: 'Sala de Orquestra',
+          naipes: 'Tutti',
+          obras: 'Ensaio Geral do Programa Completo:\n• 1. Beethoven: Sinfonia nº 5\n• 2. Márquez: Danzón nº 2',
+          observacoes: '',
         },
       ],
-      avisosGerais: 'Avisos da Semana:\n1. Todos os alunos devem ter as partes marcadas a lápis.\n2. Qualquer impedimento justificado deve ser comunicado com 24h de antecedência à Direção Pedagógica.',
+      avisosGerais: '',
       notasRodape: 'Escola Profissional Artística do Vale do Ave  - Luís Machado',
     },
   ];
@@ -177,8 +177,8 @@ export function compileWeeklyPlanFromDailyPlans(
         diaSemana: daysOfWeekNames[idx],
         data: curDateStr,
         horario: idx === 2 ? '10:00 - 13:00' : '17:30 - 19:30',
-        local: 'Auditório / Sala de Orquestra',
-        naipes: 'Tutti Geral',
+        local: 'Sala de Orquestra',
+        naipes: 'Tutti',
         obras: 'Indicar as obras, andamentos e compassos a ensaiar...',
         observacoes: '',
       });
@@ -193,7 +193,7 @@ export function compileWeeklyPlanFromDailyPlans(
     semanaFim: endStr,
     titulo: `Plano Semanal de Ensaios — Semana de ${startStr}`,
     dias: days,
-    avisosGerais: 'Avisos da Semana:\n1. Trazer pastas com partes marcadas a lápis.\n2. Afinação pontual na estante antes do início do ensaio.',
+    avisosGerais: undefined,
     notasRodape: 'Escola Profissional Artística do Vale do Ave  - Luís Machado',
   };
 }
