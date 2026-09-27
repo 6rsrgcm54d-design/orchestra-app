@@ -85,7 +85,7 @@ function formatWeekRange(startStr?: string, endStr?: string): string {
   }
 }
 
-export function generateWeeklyEmailBody(plan: WeeklyPlan): string {
+export function generateWeeklyEmailBody(plan: WeeklyPlan, includePdfNotice: boolean = true): string {
   const orch = plan.orquestra || 'Orquestra Artave';
   const range = formatWeekRange(plan.semanaInicio, plan.semanaFim);
 
@@ -126,7 +126,10 @@ export function generateWeeklyEmailBody(plan: WeeklyPlan): string {
     text += `Avisos:\n${plan.avisosGerais.trim()}\n\n`;
   }
 
-  text += `O plano também se encontra em anexo em PDF.\n\n`;
+  if (includePdfNotice) {
+    text += `O plano também se encontra em anexo em PDF.\n\n`;
+  }
+
   text += `Com os melhores cumprimentos,\n`;
   text += `Luís Machado\n`;
   text += `${plan.notasRodape || 'Escola Profissional Artística do Vale do Ave'}\n`;
@@ -386,6 +389,8 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 }
 
 export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintModalProps) {
+  const [includePdfNotice, setIncludePdfNotice] = React.useState(true);
+
   const handlePrint = () => {
     printWeeklyPlanToPdf(plan);
   };
@@ -394,14 +399,22 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
     const orch = plan.orquestra || 'Orquestra Artave';
     const range = formatWeekRange(plan.semanaInicio, plan.semanaFim);
     const subject = encodeURIComponent(`[${orch}] Plano Semanal de Ensaios (${range})`);
-    const body = encodeURIComponent(generateWeeklyEmailBody(plan));
+    const body = encodeURIComponent(generateWeeklyEmailBody(plan, includePdfNotice));
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
     window.open(gmailUrl, '_blank');
+    if (includePdfNotice) {
+      toast.success(
+        'Gmail aberto num novo separador! Lembre-se de anexar o PDF clicando no clipe (📎) no Gmail.',
+        { duration: 7000 }
+      );
+    } else {
+      toast.success('Gmail aberto com o plano pronto a enviar!', { duration: 4000 });
+    }
   };
 
   const handleCopyText = async () => {
     try {
-      const text = generateWeeklyEmailBody(plan);
+      const text = generateWeeklyEmailBody(plan, includePdfNotice);
       await navigator.clipboard.writeText(text);
       toast.success('Texto do Plano Semanal copiado para a Área de Transferência! Pronto para colar no WhatsApp ou Email.');
     } catch {
@@ -476,6 +489,26 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
               <X size={18} />
             </button>
           </div>
+        </div>
+
+        {/* Barra de Apoio e Opção de Anexo */}
+        <div className="bg-amber-50/80 border-b border-amber-200/80 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-amber-850">Como enviar com PDF:</span>
+            <span>
+              1º Clique em <strong>"Guardar em PDF / Imprimir"</strong> ➔ 2º No Gmail aberto, anexe o PDF clicando no clipe (📎).
+            </span>
+          </div>
+
+          <label className="inline-flex items-center gap-1.5 cursor-pointer font-bold select-none text-stone-700 hover:text-stone-900 flex-shrink-0">
+            <input
+              type="checkbox"
+              checked={includePdfNotice}
+              onChange={(e) => setIncludePdfNotice(e.target.checked)}
+              className="rounded text-amber-600 focus:ring-amber-500 w-4 h-4 cursor-pointer"
+            />
+            <span>Mencionar anexo PDF no e-mail</span>
+          </label>
         </div>
 
         {/* Pré-visualização da Folha Oficial A4 */}

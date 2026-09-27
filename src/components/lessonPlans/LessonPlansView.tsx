@@ -331,6 +331,10 @@ export default function LessonPlansView({
     const body = encodeURIComponent(generateWeeklyEmailBody(wp));
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
     window.open(gmailUrl, '_blank');
+    toast.success(
+      'Gmail aberto num novo separador! Lembre-se de anexar o PDF clicando no clipe (📎) no Gmail.',
+      { duration: 7000 }
+    );
   };
 
   const handleCopyWhatsAppDirect = async (wp: WeeklyPlan) => {
