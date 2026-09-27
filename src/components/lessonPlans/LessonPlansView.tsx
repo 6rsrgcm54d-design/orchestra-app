@@ -315,7 +315,7 @@ export default function LessonPlansView({
   const handleDeleteWeekly = (wp: WeeklyPlan) => {
     if (
       window.confirm(
-        `Eliminar a convocatória semanal de "${wp.orquestra}" (Semana de ${wp.semanaInicio})?`
+        `Eliminar o plano semanal de "${wp.orquestra}" (Semana de ${wp.semanaInicio})?`
       )
     ) {
       deleteWeeklyPlan(wp.id);
@@ -326,7 +326,7 @@ export default function LessonPlansView({
     const orch = wp.orquestra || 'Orquestra Artave';
     const range = `${formatDatePTShort(wp.semanaInicio)} a ${formatDatePTShort(wp.semanaFim)}`;
     const subject = encodeURIComponent(
-      `[${orch}] Convocatória e Plano Semanal de Ensaios (${range})`
+      `[${orch}] Plano Semanal de Ensaios (${range})`
     );
     const body = encodeURIComponent(generateWeeklyEmailBody(wp));
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
@@ -350,12 +350,12 @@ export default function LessonPlansView({
         <div>
           <h1 className="text-xl font-bold text-gray-900 dark:text-white flex items-center gap-2">
             <CalendarCheck className="text-orchestra-gold" size={24} />
-            {viewMode === 'daily' ? 'Planos de Aula & Ensaios (Maestro)' : 'Convocatórias Semanais (Alunos)'}
+            {viewMode === 'daily' ? 'Planos de Aula & Ensaios (Maestro)' : 'Planos Semanais de Ensaios'}
           </h1>
           <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
             {viewMode === 'daily'
               ? 'Organização detalhada ao minuto para o maestro na estante: obras, tempos e atividades'
-              : 'Circulares e convocatórias semanais aos alunos: dias, horários, locais e repertório de estudo'}
+              : 'Planos semanais de ensaios aos alunos: dias, horas, locais e repertório de estudo'}
           </p>
         </div>
 
@@ -385,7 +385,7 @@ export default function LessonPlansView({
             }`}
           >
             <Calendar size={14} className={viewMode === 'weekly' ? 'text-amber-500' : 'text-gray-400'} />
-            <span>Convocatória Semanal</span>
+            <span>Plano Semanal</span>
             <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 font-bold">
               {weeklyPlans.length}
             </span>
@@ -474,7 +474,7 @@ export default function LessonPlansView({
             className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
           >
             <Plus size={16} />
-            Nova Convocatória Semanal
+            Novo Plano Semanal
           </button>
         )}
       </div>
@@ -702,7 +702,7 @@ export default function LessonPlansView({
         </>
       )}
 
-      {/* ──────────────── MODO 2: CONVOCATÓRIAS SEMANAIS (ALUNOS) ──────────────── */}
+      {/* ──────────────── MODO 2: PLANOS SEMANAIS DE ENSAIOS (ALUNOS) ──────────────── */}
       {viewMode === 'weekly' && (
         <>
           {weeklyLoading ? (
@@ -724,7 +724,7 @@ export default function LessonPlansView({
                 <Calendar size={28} />
               </div>
               <h3 className="font-bold text-base text-gray-800 dark:text-gray-200">
-                Nenhuma convocatória semanal encontrada
+                Nenhum plano semanal encontrado
               </h3>
               <p className="text-sm text-gray-400 max-w-md mx-auto">
                 Crie um plano semanal com os diferentes dias de ensaio e as obras a estudar para afixar no placard ou enviar diretamente por email aos alunos e famílias.
@@ -734,7 +734,7 @@ export default function LessonPlansView({
                 className="inline-flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
               >
                 <Plus size={16} />
-                Criar Primeira Convocatória Semanal
+                Criar Primeiro Plano Semanal
               </button>
             </div>
           ) : (
@@ -775,7 +775,7 @@ export default function LessonPlansView({
                           <button
                             onClick={() => setPrintWeeklyPlan(wp)}
                             className="p-1.5 text-gray-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30 rounded-lg transition-all"
-                            title="Gerar PDF de Convocatória A4 Limpo"
+                            title="Gerar PDF A4 Limpo"
                           >
                             <Printer size={16} />
                           </button>
@@ -853,7 +853,7 @@ export default function LessonPlansView({
 
                               {dia.observacoes && (
                                 <p className="text-[11px] text-stone-500 dark:text-gray-400 italic mt-1.5">
-                                  💡 {dia.observacoes}
+                                  {dia.observacoes}
                                 </p>
                               )}
                             </div>
@@ -864,7 +864,7 @@ export default function LessonPlansView({
                         {wp.avisosGerais && (
                           <div className="p-3 bg-amber-50/70 dark:bg-amber-950/20 rounded-xl border border-amber-200/60 dark:border-amber-900/40 text-xs text-amber-900 dark:text-amber-200">
                             <span className="font-bold block uppercase tracking-wider text-[10px] text-amber-800 dark:text-amber-300 mb-0.5">
-                              📌 Avisos Importantes:
+                              Avisos Importantes:
                             </span>
                             <p className="whitespace-pre-line leading-relaxed">{wp.avisosGerais}</p>
                           </div>
@@ -874,14 +874,14 @@ export default function LessonPlansView({
 
                     {/* Card Footer */}
                     <div className="px-5 py-3 bg-stone-50 dark:bg-gray-900/30 border-t border-stone-200/80 dark:border-gray-700/60 flex items-center justify-between text-xs text-stone-500 dark:text-gray-400">
-                      <span>{(wp.dias || []).length} dias convocados nesta semana</span>
+                      <span>{(wp.dias || []).length} dia(s) nesta semana</span>
                       <div className="flex items-center gap-3">
                         <button
                           onClick={() => setPrintWeeklyPlan(wp)}
                           className="text-amber-700 dark:text-amber-400 font-bold hover:underline flex items-center gap-1.5"
                         >
                           <Printer size={14} />
-                          Gerar Convocatória (PDF)
+                          Imprimir / PDF
                         </button>
                         <button
                           onClick={() => handleEditWeekly(wp)}

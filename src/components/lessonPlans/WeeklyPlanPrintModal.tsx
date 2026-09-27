@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, FileDown, Mail, Info, Copy, Calendar, MapPin, Users, Music2 } from 'lucide-react';
+import { X, FileDown, Mail, Info, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 
@@ -31,7 +31,6 @@ function formatDatePT(dateStr?: string): string {
     const day = d.getDate();
     const month = d.toLocaleDateString('pt-PT', { month: 'long' });
     const year = d.getFullYear();
-    // domingo 27 setembro 2026 sem "de" e "de"
     return `${day} ${month.toLowerCase()} ${year}`;
   } catch {
     return dateStr;
@@ -39,7 +38,7 @@ function formatDatePT(dateStr?: string): string {
 }
 
 function formatDayOfWeek(dateStr?: string, fallback?: string): string {
-  if (!dateStr) return fallback || '';
+  if (!dateStr) return fallback ? fallback.toUpperCase() : '';
   try {
     let normalized = dateStr.trim();
     const ptMatch = normalized.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
@@ -47,7 +46,7 @@ function formatDayOfWeek(dateStr?: string, fallback?: string): string {
       normalized = `${ptMatch[3]}-${ptMatch[2].padStart(2, '0')}-${ptMatch[1].padStart(2, '0')}`;
     }
     const d = new Date(normalized.includes('T') ? normalized : `${normalized}T00:00:00`);
-    if (isNaN(d.getTime())) return fallback || '';
+    if (isNaN(d.getTime())) return fallback ? fallback.toUpperCase() : '';
     const weekday = d.toLocaleDateString('pt-PT', { weekday: 'long' });
     return weekday.toUpperCase();
   } catch {
@@ -86,22 +85,12 @@ function formatWeekRange(startStr?: string, endStr?: string): string {
   }
 }
 
-function formatNaipeBadge(naipes?: string): string {
-  if (!naipes) return 'TUTTI';
-  let cleaned = naipes.trim();
-  if (/^tutti\s*geral$/i.test(cleaned) || /^tutti\s*\(.*\)$/i.test(cleaned)) {
-    return 'TUTTI';
-  }
-  cleaned = cleaned.replace(/tutti\s+geral/gi, 'Tutti');
-  return cleaned.toUpperCase();
-}
-
 export function generateWeeklyEmailBody(plan: WeeklyPlan): string {
   const orch = plan.orquestra || 'Orquestra Artave';
   const range = formatWeekRange(plan.semanaInicio, plan.semanaFim);
 
-  let text = `Caros alunos e encarregados de educação,\n\n`;
-  text += `Segue o Plano Semanal de Ensaios da ${orch} para a semana de ${range}:\n\n`;
+  let text = `Bom dia,\n\n`;
+  text += `Segue o Plano Semanal de Ensaios da ${orch} (${range}):\n\n`;
   text += `══════════════════════════════════════════════════\n`;
   text += `${orch.toUpperCase()} • ANO LETIVO ${plan.anoLetivo || '2026-2027'}\n`;
   text += `PLANO SEMANAL DE ENSAIOS\n`;
@@ -110,27 +99,34 @@ export function generateWeeklyEmailBody(plan: WeeklyPlan): string {
   (plan.dias || []).forEach((d) => {
     const diaNome = formatDayOfWeek(d.data, d.diaSemana || 'Dia de Ensaio');
     const dataFmt = formatDatePT(d.data);
-    text += `📅 ${diaNome}${dataFmt ? ` (${dataFmt})` : ''}\n`;
-    text += `⏰ HORÁRIO: ${d.horario || 'A definir'}\n`;
-    if (d.local) text += `📍 Local: ${d.local}\n`;
-    const naipeTxt = formatNaipeBadge(d.naipes);
-    text += `👥 Convocatória: ${naipeTxt}\n`;
-    text += `🎵 Obras & Programa de Estudo:\n`;
-    const obrasLines = (d.obras || 'Trabalho de repertório').split('\n');
-    obrasLines.forEach((line) => {
-      text += `   ${line.trim().startsWith('•') || line.trim().startsWith('-') ? line.trim() : `• ${line.trim()}`}\n`;
-    });
+    text += `${diaNome}${dataFmt ? ` (${dataFmt})` : ''}\n`;
+
+    const obrasClean = (d.obras || 'Trabalho de repertório')
+      .split('\n')
+      .map((l) => l.trim().replace(/^[•\-\*]\s*/, ''))
+      .filter(Boolean);
+
+    const horas = d.horario ? d.horario.trim() : 'A definir';
+    if (obrasClean.length <= 1) {
+      text += `${horas} — ${obrasClean[0] || 'Trabalho de repertório'}\n`;
+    } else {
+      text += `${horas} — ${obrasClean.join(' / ')}\n`;
+    }
+
+    if (d.local && d.local.trim()) {
+      text += `Local: ${d.local.trim()}\n`;
+    }
     if (d.observacoes && d.observacoes.trim()) {
-      text += `💡 Observações: ${d.observacoes.trim()}\n`;
+      text += `Observações: ${d.observacoes.trim()}\n`;
     }
     text += `\n──────────────────────────────────────────────────\n\n`;
   });
 
   if (plan.avisosGerais && plan.avisosGerais.trim()) {
-    text += `⚠️ AVISOS IMPORTANTES:\n${plan.avisosGerais.trim()}\n\n`;
+    text += `Avisos:\n${plan.avisosGerais.trim()}\n\n`;
   }
 
-  text += `📄 O documento oficial em formato PDF segue em anexo para afixação e consulta nas pastas.\n\n`;
+  text += `O plano também se encontra em anexo em PDF.\n\n`;
   text += `Com os melhores cumprimentos,\n`;
   text += `Luís Machado\n`;
   text += `${plan.notasRodape || 'Escola Profissional Artística do Vale do Ave'}\n`;
@@ -168,7 +164,6 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
       const diaNome = formatDayOfWeek(d.data, d.diaSemana || 'Dia de Ensaio');
       const dataFmt = formatDatePT(d.data);
       const bg = idx % 2 === 1 ? 'background-color: #fafaf9;' : 'background-color: #ffffff;';
-      const badgeText = formatNaipeBadge(d.naipes);
 
       const obrasFormatted = escapeHtml(d.obras || 'Trabalho de repertório geral')
         .split('\n')
@@ -184,7 +179,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 
       return `
         <tr style="${bg} page-break-inside: avoid;">
-          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 145px; vertical-align: top;">
+          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
             <div style="font-size: 13px; font-weight: 900; color: #111827; letter-spacing: 0.3px;">
               ${escapeHtml(diaNome)}
             </div>
@@ -192,20 +187,15 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
               ${escapeHtml(dataFmt)}
             </div>
           </td>
-          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 155px; vertical-align: top;">
+          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
             <div style="font-size: 16px; font-weight: 900; color: #111827; letter-spacing: -0.3px; line-height: 1.2;">
               ${escapeHtml(d.horario || 'A definir')}
             </div>
             ${
               d.local
-                ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 5px;">📍 ${escapeHtml(d.local)}</div>`
+                ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 4px;">${escapeHtml(d.local)}</div>`
                 : ''
             }
-          </td>
-          <td style="border: 1px solid #d1d5db; padding: 12px 8px; width: 105px; vertical-align: top; text-align: center;">
-            <span style="font-size: 11px; font-weight: 900; color: #065f46; background-color: #d1fae5; display: inline-block; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.5px;">
-              ${escapeHtml(badgeText)}
-            </span>
           </td>
           <td style="border: 1px solid #d1d5db; padding: 12px 10px; vertical-align: top; font-size: 12px; line-height: 1.5;">
             ${obrasFormatted}
@@ -213,7 +203,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
           ${
             hasAnyObservations
               ? `
-            <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 150px; vertical-align: top; font-size: 11px; color: #4b5563; font-style: italic; line-height: 1.4;">
+            <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 170px; vertical-align: top; font-size: 11px; color: #374151; font-weight: 600; line-height: 1.4;">
               ${d.observacoes && d.observacoes.trim() ? escapeHtml(d.observacoes.trim()) : ''}
             </td>
           `
@@ -350,11 +340,10 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
       <table>
         <thead>
           <tr>
-            <th style="width: 145px;">Dia & Data</th>
-            <th style="width: 155px;">Horário & Sala</th>
-            <th style="width: 105px; text-align: center;">Convocatória</th>
-            <th>Obras a Ensaiar & Programa de Estudo</th>
-            ${hasAnyObservations ? '<th style="width: 150px;">Observações</th>' : ''}
+            <th style="width: 160px;">Dia & Data</th>
+            <th style="width: 160px;">Horas</th>
+            <th>Repertório</th>
+            ${hasAnyObservations ? '<th style="width: 170px;">Observações</th>' : ''}
           </tr>
         </thead>
         <tbody>
@@ -366,7 +355,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
         hasAvisos
           ? `
         <div class="avisos-box">
-          <div class="avisos-title">📌 Informações & Avisos da Semana</div>
+          <div class="avisos-title">Avisos da Semana</div>
           <div style="font-size: 12px; color: #78350f; line-height: 1.5; white-space: pre-line;">${escapeHtml(plan.avisosGerais || '')}</div>
         </div>
       `
@@ -404,7 +393,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
   const handleSendGmail = () => {
     const orch = plan.orquestra || 'Orquestra Artave';
     const range = formatWeekRange(plan.semanaInicio, plan.semanaFim);
-    const subject = encodeURIComponent(`[${orch}] Convocatória e Plano Semanal de Ensaios (${range})`);
+    const subject = encodeURIComponent(`[${orch}] Plano Semanal de Ensaios (${range})`);
     const body = encodeURIComponent(generateWeeklyEmailBody(plan));
     const gmailUrl = `https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`;
     window.open(gmailUrl, '_blank');
@@ -414,7 +403,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
     try {
       const text = generateWeeklyEmailBody(plan);
       await navigator.clipboard.writeText(text);
-      toast.success('Texto da Convocatória copiado para a Área de Transferência! Pronto para colar no WhatsApp ou Email.');
+      toast.success('Texto do Plano Semanal copiado para a Área de Transferência! Pronto para colar no WhatsApp ou Email.');
     } catch {
       toast.error('Não foi possível copiar o texto automaticamente.');
     }
@@ -437,7 +426,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-gray-900">
-                Convocatória & Plano Semanal de Ensaios
+                Plano Semanal de Ensaios
               </span>
               <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 text-amber-800 border border-amber-200">
                 A4 Limpo • Alunos
@@ -445,7 +434,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
             </div>
             <p className="text-xs text-gray-500 mt-0.5 flex items-center gap-1">
               <Info size={12} className="text-amber-600 flex-shrink-0" />
-              <span>Layout oficial para afixar no placard do conservatório ou enviar por email para casa.</span>
+              <span>Layout oficial para afixar no placard da escola ou enviar por email para casa.</span>
             </p>
           </div>
 
@@ -454,7 +443,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
             <button
               onClick={handleCopyText}
               className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95"
-              title="Copiar texto formatado com emojis para colar no WhatsApp ou Teams"
+              title="Copiar texto para colar no WhatsApp ou Teams"
             >
               <Copy size={14} />
               Copiar WhatsApp
@@ -464,7 +453,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
             <button
               onClick={handleSendGmail}
               className="flex items-center gap-1.5 px-3 py-2 bg-red-600 hover:bg-red-700 text-white font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95"
-              title="Abrir diretamente no Gmail com assunto e convocatória já preenchidos"
+              title="Abrir diretamente no Gmail com assunto e plano semanal já preenchidos"
             >
               <Mail size={14} />
               Enviar no Gmail
@@ -489,7 +478,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
           </div>
         </div>
 
-        {/* Pré-visualização da Folha Oficial de Convocatória A4 */}
+        {/* Pré-visualização da Folha Oficial A4 */}
         <div className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 max-h-[80vh] overflow-y-auto">
           {/* Cabeçalho Oficial */}
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
@@ -517,19 +506,16 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
             <table className="w-full text-left border-collapse border border-stone-300">
               <thead>
                 <tr className="bg-stone-100 text-stone-800 text-xs uppercase tracking-wider">
-                  <th className="py-2.5 px-3 border border-stone-300 w-36 font-bold">Dia & Data</th>
-                  <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Horário & Sala</th>
-                  <th className="py-2.5 px-3 border border-stone-300 w-28 text-center font-bold">Convocatória</th>
-                  <th className="py-2.5 px-3 border border-stone-300 font-bold">Obras a Ensaiar & Programa de Estudo</th>
+                  <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Dia & Data</th>
+                  <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Horas</th>
+                  <th className="py-2.5 px-3 border border-stone-300 font-bold">Repertório</th>
                   {hasAnyObservations && (
-                    <th className="py-2.5 px-3 border border-stone-300 w-40 font-bold">Observações</th>
+                    <th className="py-2.5 px-3 border border-stone-300 w-44 font-bold">Observações</th>
                   )}
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200 text-sm">
                 {(plan.dias || []).map((item, idx) => {
-                  const badge = formatNaipeBadge(item.naipes);
-
                   return (
                     <tr key={idx} className={idx % 2 === 1 ? 'bg-stone-50/60' : 'bg-white'}>
                       <td className="py-3 px-3 border border-stone-300 align-top">
@@ -541,27 +527,21 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
                         </div>
                       </td>
                       <td className="py-3 px-3 border border-stone-300 align-top">
-                        {/* Horário em tamanho de destaque */}
+                        {/* Horas em tamanho de destaque */}
                         <div className="text-base sm:text-lg font-black text-gray-900 leading-tight">
                           {item.horario || 'A definir'}
                         </div>
                         {item.local && (
-                          <div className="text-xs text-stone-500 font-medium mt-1 flex items-center gap-1">
-                            <MapPin size={11} className="text-stone-400 flex-shrink-0" />
-                            <span>{item.local}</span>
+                          <div className="text-xs text-stone-500 font-medium mt-1">
+                            {item.local}
                           </div>
                         )}
-                      </td>
-                      <td className="py-3 px-3 border border-stone-300 align-top text-center">
-                        <span className="text-xs font-black text-emerald-800 bg-emerald-100 px-2 py-0.5 rounded inline-block">
-                          {badge}
-                        </span>
                       </td>
                       <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-900 leading-relaxed whitespace-pre-line font-medium">
                         {item.obras}
                       </td>
                       {hasAnyObservations && (
-                        <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-600 italic">
+                        <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-700 font-medium leading-relaxed">
                           {item.observacoes && item.observacoes.trim() ? item.observacoes.trim() : ''}
                         </td>
                       )}
@@ -572,11 +552,11 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
             </table>
           </div>
 
-          {/* Informações & Avisos Gerais (apenas se preenchido) */}
+          {/* Avisos Gerais da Semana (apenas se preenchido) */}
           {hasAvisos && (
             <div className="p-4 bg-amber-50/90 rounded-xl border border-amber-200">
               <h3 className="text-xs font-bold text-amber-900 uppercase tracking-wider mb-1">
-                📌 Informações & Avisos da Semana
+                Avisos da Semana
               </h3>
               <p className="text-xs text-amber-950 leading-relaxed whitespace-pre-line">
                 {plan.avisosGerais}

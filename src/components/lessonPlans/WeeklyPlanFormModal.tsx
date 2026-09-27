@@ -71,7 +71,7 @@ export default function WeeklyPlanFormModal({
         data: initialStart,
         horario: '17:30 - 19:30',
         local: 'Sala de Orquestra',
-        naipes: 'Tutti',
+        naipes: '',
         obras: '',
         observacoes: '',
       },
@@ -105,7 +105,7 @@ export default function WeeklyPlanFormModal({
         data: nextDate,
         horario: '17:30 - 19:30',
         local: 'Sala de Orquestra',
-        naipes: 'Tutti',
+        naipes: '',
         obras: '',
         observacoes: '',
       },
@@ -185,14 +185,14 @@ export default function WeeklyPlanFormModal({
         data: dp.data,
         horario: dp.hora || '17:30 - 19:30',
         local: 'Auditório / Sala de Orquestra',
-        naipes: `Orquestra ${dp.orquestra}`,
+        naipes: '',
         obras: obrasText || 'Trabalho de repertório geral',
         observacoes: dp.notas || '',
       };
     });
 
     setDias(compiledDays);
-    toast.success(`✨ ${compiledDays.length} ensaio(s) importado(s) com sucesso dos planos de aula diários!`);
+    toast.success(`${compiledDays.length} ensaio(s) importado(s) com sucesso dos planos de aula diários!`);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -236,7 +236,7 @@ export default function WeeklyPlanFormModal({
                 {plan ? 'Editar Plano Semanal de Ensaios' : 'Novo Plano Semanal de Ensaios'}
               </h2>
               <p className="text-xs text-gray-500 dark:text-gray-400">
-                Convocatória oficial para afixar no placard e enviar aos alunos e encarregados de educação
+                Plano oficial para afixar no placard e enviar aos alunos
               </p>
             </div>
           </div>
@@ -255,7 +255,7 @@ export default function WeeklyPlanFormModal({
             {/* Orquestra */}
             <div>
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
-                Orquestra Convocada *
+                Orquestra *
               </label>
               <input
                 type="text"
@@ -349,10 +349,10 @@ export default function WeeklyPlanFormModal({
             <div className="flex items-center justify-between">
               <div>
                 <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-1.5">
-                  <Calendar size={16} className="text-amber-500" /> Dias de Ensaio Convocados ({dias.length})
+                  <Calendar size={16} className="text-amber-500" /> Dias de Ensaio ({dias.length})
                 </h3>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
-                  Defina os horários, locais, naipes e as obras que os alunos devem estudar para cada dia
+                  Defina as datas, horários, locais, observações e as obras a ensaiar
                 </p>
               </div>
 
@@ -449,34 +449,18 @@ export default function WeeklyPlanFormModal({
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Convocatória / Naipes */}
-                    <div className="sm:col-span-1">
-                      <label className="block text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1">
-                        Naipes Convocados
-                      </label>
-                      <input
-                        type="text"
-                        value={dia.naipes || ''}
-                        onChange={(e) => handleUpdateDay(dia.id, 'naipes', e.target.value)}
-                        placeholder="ex: Tutti, Cordas, Madeiras..."
-                        className="w-full px-2.5 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-1 focus:ring-orchestra-gold"
-                      />
-                    </div>
-
-                    {/* Observações / Recomendações */}
-                    <div className="sm:col-span-2">
-                      <label className="block text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1">
-                        Observações Específicas
-                      </label>
-                      <input
-                        type="text"
-                        value={dia.observacoes || ''}
-                        onChange={(e) => handleUpdateDay(dia.id, 'observacoes', e.target.value)}
-                        placeholder="ex: Afinação pontual às 17h25; trazer surdinas..."
-                        className="w-full px-2.5 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-1 focus:ring-orchestra-gold"
-                      />
-                    </div>
+                  {/* Observações / Notas do Dia */}
+                  <div>
+                    <label className="block text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1">
+                      Observações (opcional — Tutti, Cordas, Sopros, afinação...)
+                    </label>
+                    <input
+                      type="text"
+                      value={dia.observacoes || ''}
+                      onChange={(e) => handleUpdateDay(dia.id, 'observacoes', e.target.value)}
+                      placeholder="ex: Tutti, Cordas, Sopros, afinação pontual às 17h25..."
+                      className="w-full px-2.5 py-1.5 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white focus:ring-1 focus:ring-orchestra-gold"
+                    />
                   </div>
 
                   {/* Obras a Ensaiar & Programa de Estudo */}
