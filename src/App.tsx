@@ -23,6 +23,7 @@ import { useProvas } from './hooks/useProvas';
 import { useStagePlans } from './hooks/useStagePlans';
 import { useConcerts } from './hooks/useConcerts';
 import { useLessonPlans } from './hooks/useLessonPlans';
+import { useWeeklyPlans } from './hooks/useWeeklyPlans';
 import type { Student, Piece, NavModule } from './types';
 import { Music2, Link2, Sparkles, HardDrive } from 'lucide-react';
 import { safeStorage } from './utils/storage';
@@ -297,6 +298,11 @@ function MainApp() {
     ensureHeader: ensureLessonPlansHeader,
   } = useLessonPlans();
 
+  const {
+    load: loadWeeklyPlans,
+    ensureHeader: ensureWeeklyPlansHeader,
+  } = useWeeklyPlans();
+
   const [lastSyncTime, setLastSyncTime] = useState<string>(() => {
     return safeStorage.getItem('orchestra_last_sync_time') || 'Dados guardados';
   });
@@ -320,6 +326,7 @@ function MainApp() {
         ensureConcertsHeader(),
         ensureProvasHeaders(),
         ensureLessonPlansHeader(),
+        ensureWeeklyPlansHeader(),
       ]);
       await Promise.all([
         loadStudents(),
@@ -329,6 +336,7 @@ function MainApp() {
         loadConcerts(),
         loadProvas(),
         loadLessonPlans(),
+        loadWeeklyPlans(),
       ]);
       recordSyncSuccess();
     } finally {
@@ -343,6 +351,7 @@ function MainApp() {
     ensureConcertsHeader,
     ensureProvasHeaders,
     ensureLessonPlansHeader,
+    ensureWeeklyPlansHeader,
     loadStudents,
     loadPieces,
     loadEvals,
@@ -350,6 +359,7 @@ function MainApp() {
     loadConcerts,
     loadProvas,
     loadLessonPlans,
+    loadWeeklyPlans,
     recordSyncSuccess,
   ]);
 
@@ -370,6 +380,7 @@ function MainApp() {
       refreshMeta().then(() => {
         loadStudents();
         loadEvals();
+        loadWeeklyPlans();
       }).catch(() => {});
     }
   }, []);
@@ -387,7 +398,7 @@ function MainApp() {
         await loadConcerts();
         break;
       case 'lessonPlans':
-        await loadLessonPlans();
+        await Promise.all([loadLessonPlans(), loadWeeklyPlans()]);
         break;
       case 'evaluations':
         await loadEvals();

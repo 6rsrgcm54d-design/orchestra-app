@@ -174,7 +174,8 @@ function initDefaultSheet(ss, name) {
     'PlanosPalco': ['PlanosPalco_JSON'],
     'Concertos': ['Orquestra', 'Data', 'Hora Ensaio Geral', 'Hora Concerto', 'Local', 'Programa', 'Notas'],
     'Provas': ['Ordem', 'Nome Aluno', 'Naipe', 'Orquestra', 'Afinação', 'Precisão Rítmica', 'Tempo', 'Articulação', 'Dinâmicas', 'Fraseado', 'Timbre', 'Classificação final'],
-    'Planos de Aula': ['ID Plano', 'Orquestra', 'Data', 'Hora', 'Obra', 'Minuto', 'Atividade', 'Notas']
+    'Planos de Aula': ['ID Plano', 'Orquestra', 'Data', 'Hora', 'Obra', 'Minuto', 'Atividade', 'Notas'],
+    'Planos Semanais': ['ID Plano Semanal', 'Orquestra', 'Ano Letivo', 'Semana Inicio', 'Semana Fim', 'Titulo', 'Dia Semana', 'Data Ensaio', 'Horario', 'Local', 'Naipes', 'Obras', 'Observacoes Dia', 'Avisos Gerais', 'Notas Rodape']
   };
   if (headers[name]) {
     sheet.appendRow(headers[name]);
@@ -909,6 +910,7 @@ export async function getSpreadsheetMeta(spreadsheetId: string): Promise<{
     { properties: { sheetId: 12, title: 'Avaliações CB' } },
     { properties: { sheetId: 13, title: 'Avaliações Secundário' } },
     { properties: { sheetId: 14, title: 'Planos de Aula' } },
+    { properties: { sheetId: 15, title: 'Planos Semanais' } },
   ];
 
   if (isAppsScript(spreadsheetId)) {

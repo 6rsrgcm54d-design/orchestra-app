@@ -19,6 +19,9 @@ import {
   MapPin,
   Users,
   CheckCircle2,
+  CloudUpload,
+  Cloud,
+  RefreshCw,
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { LessonPlan, LessonPlanItem, Piece, WeeklyPlan } from '../../types';
@@ -27,6 +30,7 @@ import LessonPlanPrintModal from './LessonPlanPrintModal';
 import WeeklyPlanFormModal from './WeeklyPlanFormModal';
 import WeeklyPlanPrintModal, { generateWeeklyEmailBody } from './WeeklyPlanPrintModal';
 import { useWeeklyPlans } from '../../hooks/useWeeklyPlans';
+import { useSheets } from '../../context/SheetsContext';
 import { parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 
 interface LessonPlansViewProps {
@@ -160,7 +164,10 @@ export default function LessonPlansView({
     updateWeeklyPlan,
     deleteWeeklyPlan,
     duplicateWeeklyPlan,
+    syncWithSheets,
   } = useWeeklyPlans();
+
+  const { isLocalMode } = useSheets();
 
   const [isWeeklyFormModalOpen, setIsWeeklyFormModalOpen] = useState(false);
   const [editingWeeklyPlan, setEditingWeeklyPlan] = useState<WeeklyPlan | undefined>();
@@ -474,13 +481,25 @@ export default function LessonPlansView({
             Novo Plano de Aula
           </button>
         ) : (
-          <button
-            onClick={handleAddWeekly}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
-          >
-            <Plus size={16} />
-            Novo Plano Semanal
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => syncWithSheets()}
+              disabled={weeklyLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:border-amber-400 hover:text-amber-700 dark:hover:text-amber-300 rounded-lg font-bold text-xs transition-all shadow-xs cursor-pointer"
+              title="Guardar e sincronizar os planos semanais com a folha Google Sheets"
+            >
+              <CloudUpload size={15} className={weeklyLoading ? 'animate-bounce text-amber-500' : 'text-amber-600'} />
+              <span>Guardar no Sheets</span>
+            </button>
+
+            <button
+              onClick={handleAddWeekly}
+              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow cursor-pointer"
+            >
+              <Plus size={16} />
+              Novo Plano Semanal
+            </button>
+          </div>
         )}
       </div>
 
@@ -710,6 +729,17 @@ export default function LessonPlansView({
       {/* ──────────────── MODO 2: PLANOS SEMANAIS DE ENSAIOS (ALUNOS) ──────────────── */}
       {viewMode === 'weekly' && (
         <>
+          {isLocalMode && (
+            <div className="p-3 bg-amber-50/90 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-700/60 rounded-xl text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3 shadow-xs">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500 flex-shrink-0 animate-ping" />
+                <span>
+                  <strong>Modo Local:</strong> Os planos estão guardados neste navegador. Para os gravar e sincronizar com o Google Sheets, ligue a sua folha no botão <strong>"Ligar ao Google Sheets"</strong> ou <strong>"Alterar"</strong> no topo da página.
+                </span>
+              </div>
+            </div>
+          )}
+
           {weeklyLoading ? (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               {[1, 2].map((i) => (

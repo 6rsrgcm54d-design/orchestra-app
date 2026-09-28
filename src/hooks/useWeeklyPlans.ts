@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import {
   readRange,
@@ -274,12 +274,12 @@ function weeklyPlansToRows(plans: WeeklyPlan[]): string[][] {
   plans.forEach((plan) => {
     if (!plan.dias || plan.dias.length === 0) {
       rows.push([
-        plan.id,
-        plan.orquestra,
-        plan.anoLetivo,
-        plan.semanaInicio,
-        plan.semanaFim,
-        plan.titulo || '',
+        String(plan.id || ''),
+        String(plan.orquestra || ''),
+        String(plan.anoLetivo || '2026-2027'),
+        String(plan.semanaInicio || ''),
+        String(plan.semanaFim || ''),
+        String(plan.titulo || ''),
         '',
         '',
         '',
@@ -287,27 +287,27 @@ function weeklyPlansToRows(plans: WeeklyPlan[]): string[][] {
         '',
         '',
         '',
-        plan.avisosGerais || '',
-        plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado',
+        String(plan.avisosGerais || ''),
+        String(plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado'),
       ]);
     } else {
       plan.dias.forEach((d) => {
         rows.push([
-          plan.id,
-          plan.orquestra,
-          plan.anoLetivo,
-          plan.semanaInicio,
-          plan.semanaFim,
-          plan.titulo || '',
-          d.diaSemana || '',
-          d.data || '',
-          d.horario || '',
-          d.local || '',
-          d.naipes || '',
-          d.obras || '',
-          d.observacoes || '',
-          plan.avisosGerais || '',
-          plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado',
+          String(plan.id || ''),
+          String(plan.orquestra || ''),
+          String(plan.anoLetivo || '2026-2027'),
+          String(plan.semanaInicio || ''),
+          String(plan.semanaFim || ''),
+          String(plan.titulo || ''),
+          String(d.diaSemana || ''),
+          String(d.data || ''),
+          String(d.horario || ''),
+          String(d.local || ''),
+          String(d.naipes || ''),
+          String(d.obras || ''),
+          String(d.observacoes || ''),
+          String(plan.avisosGerais || ''),
+          String(plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado'),
         ]);
       });
     }
@@ -338,17 +338,14 @@ export function useWeeklyPlans() {
     if (!config) return DEFAULT_TAB;
     const tabName = getTargetTabName();
     if (!isAppsScript(config.spreadsheetId) && !isLocalId(config.spreadsheetId)) {
-      if (sheetsMeta?.sheets && !sheetsMeta.sheets.some((s: { properties: { title: string } }) => s.properties.title.toLowerCase() === tabName.toLowerCase())) {
-        try {
-          await ensureSheetExists(config.spreadsheetId, sheetsMeta.sheets, tabName, HEADER);
-          await refreshMeta();
-        } catch (e) {
-          console.warn('Erro ao criar aba de Planos Semanais:', e);
-        }
+      try {
+        await ensureSheetExists(config.spreadsheetId, sheetsMeta?.sheets, tabName, HEADER);
+      } catch (e) {
+        console.warn('Erro ao verificar/criar aba de Planos Semanais:', e);
       }
     }
     return tabName;
-  }, [config, sheetsMeta, getTargetTabName, refreshMeta]);
+  }, [config, sheetsMeta, getTargetTabName]);
 
   const load = useCallback(async () => {
     if (!config) return;
@@ -362,17 +359,37 @@ export function useWeeklyPlans() {
     try {
       const tabName = await ensureTabExists();
 
-      const rows = await readRange(config.spreadsheetId, `'${tabName}'!A1:O150`);
+      let rows: string[][] = [];
+      try {
+        rows = await readRange(config.spreadsheetId, `'${tabName}'!A:O`);
+      } catch (readErr) {
+        console.warn(`Aba ${tabName} ainda não existe ou erro ao ler:`, readErr);
+      }
+
       if (rows && rows.length > 1) {
         const parsed = parseRowsToWeeklyPlans(rows);
-        setWeeklyPlans(parsed);
-        safeStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+        if (parsed.length > 0) {
+          setWeeklyPlans(parsed);
+          safeStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+        } else {
+          // Se a folha estiver vazia mas tivermos planos locais, envia para a folha
+          const local = getInitialWeeklyPlans();
+          if (local.length > 0) {
+            setWeeklyPlans(local);
+            const initialRows = weeklyPlansToRows(local);
+            await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${initialRows.length}`, initialRows);
+          }
+        }
       } else {
-        const initial = getInitialWeeklyPlans();
-        setWeeklyPlans(initial);
-        safeStorage.setItem(CACHE_KEY, JSON.stringify(initial));
-        const initialRows = weeklyPlansToRows(initial);
-        await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${initialRows.length}`, initialRows);
+        // Folha recém-criada ou sem dados: sincroniza dados locais existentes para o Sheets
+        const local = getInitialWeeklyPlans();
+        setWeeklyPlans(local);
+        if (local.length > 0) {
+          const initialRows = weeklyPlansToRows(local);
+          try {
+            await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${initialRows.length}`, initialRows);
+          } catch {}
+        }
       }
     } catch (err) {
       console.warn('Erro ao carregar planos semanais do Sheets, a usar cache local:', err);
@@ -382,6 +399,13 @@ export function useWeeklyPlans() {
     }
   }, [config, ensureTabExists]);
 
+  // Carrega automaticamente sempre que a configuração de conexão estiver pronta
+  useEffect(() => {
+    if (config?.spreadsheetId) {
+      load();
+    }
+  }, [config?.spreadsheetId, load]);
+
   const persistWeeklyPlans = useCallback(
     async (next: WeeklyPlan[], showToast = true) => {
       setWeeklyPlans(next);
@@ -389,21 +413,36 @@ export function useWeeklyPlans() {
 
       if (!config) return;
 
-      const toastId = showToast ? toast.loading('A guardar plano semanal no Google Sheets...') : undefined;
+      const isLocal = isLocalId(config.spreadsheetId);
+
+      const toastId = showToast
+        ? toast.loading(
+            isLocal
+              ? 'A guardar na base de dados local...'
+              : 'A guardar plano semanal no Google Sheets...'
+          )
+        : undefined;
 
       try {
         const tabName = await ensureTabExists();
         const rows = weeklyPlansToRows(next);
 
-        if (isLocalId(config.spreadsheetId)) {
+        if (isLocal) {
           await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${rows.length}`, rows);
-          if (showToast && toastId) toast.success('Plano semanal guardado com sucesso!', { id: toastId });
+          if (showToast && toastId) {
+            toast.success('Plano semanal guardado com sucesso na base de dados local!', { id: toastId });
+          }
           return;
         }
 
-        // Pad para limpar linhas residuais
-        const currentRows = await readRange(config.spreadsheetId, `'${tabName}'!A1:O150`);
-        const existingLen = currentRows ? currentRows.length : 0;
+        // Tenta ler o comprimento existente para padding limpo, mas sem quebrar se falhar
+        let existingLen = 0;
+        try {
+          const currentRows = await readRange(config.spreadsheetId, `'${tabName}'!A:O`);
+          existingLen = currentRows ? currentRows.length : 0;
+        } catch {
+          existingLen = 0;
+        }
 
         if (existingLen > rows.length) {
           const padded = [...rows];
@@ -415,11 +454,19 @@ export function useWeeklyPlans() {
           await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${rows.length}`, rows);
         }
 
-        if (showToast && toastId) toast.success('Plano semanal guardado com sucesso no Sheets!', { id: toastId });
+        if (showToast && toastId) {
+          toast.success(`Plano semanal guardado com sucesso no Google Sheets (Aba "${tabName}")!`, {
+            id: toastId,
+            duration: 4000,
+          });
+        }
       } catch (err) {
         console.error('Erro ao persistir plano semanal:', err);
         if (showToast && toastId) {
-          toast.error(`Erro ao guardar no Sheets: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
+          toast.error(
+            `Erro ao guardar no Sheets: ${err instanceof Error ? err.message : 'Verifique a ligação'}`,
+            { id: toastId, duration: 5000 }
+          );
         }
       }
     },
@@ -466,7 +513,6 @@ export function useWeeklyPlans() {
       if (!existing) return;
 
       const newId = `weekly-${Date.now()}`;
-      // Avança a semana em 7 dias automaticamente
       let nextStart = existing.semanaInicio;
       let nextEnd = existing.semanaFim;
       try {
@@ -511,6 +557,38 @@ export function useWeeklyPlans() {
     [weeklyPlans, persistWeeklyPlans]
   );
 
+  // Sincroniza ativamente os planos com a folha Google Sheets
+  const syncWithSheets = useCallback(async () => {
+    if (!config) return;
+    if (isLocalId(config.spreadsheetId)) {
+      toast.error('A aplicação está em Modo Local. Ligue ao Google Sheets no topo para sincronizar.');
+      return;
+    }
+    const toastId = toast.loading('A sincronizar Planos Semanais com o Google Sheets...');
+    try {
+      const tabName = await ensureTabExists();
+      const rows = weeklyPlansToRows(weeklyPlans);
+      await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${rows.length}`, rows);
+      await load();
+      toast.success(`Planos Semanais guardados e sincronizados na aba "${tabName}"!`, { id: toastId });
+    } catch (err) {
+      toast.error(
+        `Erro ao sincronizar com Sheets: ${err instanceof Error ? err.message : 'Erro desconhecido'}`,
+        { id: toastId }
+      );
+    }
+  }, [config, ensureTabExists, weeklyPlans, load]);
+
+  const ensureHeader = useCallback(async () => {
+    if (!config || isAppsScript(config.spreadsheetId) || isLocalId(config.spreadsheetId)) return;
+    const tabName = getTargetTabName();
+    try {
+      await ensureSheetExists(config.spreadsheetId, sheetsMeta?.sheets, tabName, HEADER);
+    } catch (err) {
+      console.warn('Erro ao garantir cabeçalho de Planos Semanais:', err);
+    }
+  }, [config, sheetsMeta, getTargetTabName]);
+
   return {
     weeklyPlans,
     isLoading,
@@ -519,5 +597,7 @@ export function useWeeklyPlans() {
     updateWeeklyPlan,
     deleteWeeklyPlan,
     duplicateWeeklyPlan,
+    syncWithSheets,
+    ensureHeader,
   };
 }
