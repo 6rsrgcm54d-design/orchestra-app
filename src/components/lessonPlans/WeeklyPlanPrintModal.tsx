@@ -2,6 +2,7 @@ import React from 'react';
 import { X, FileDown, Mail, Info, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
+import { parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -101,16 +102,21 @@ export function generateWeeklyEmailBody(plan: WeeklyPlan, includePdfNotice: bool
     const dataFmt = formatDatePT(d.data);
     text += `${diaNome}${dataFmt ? ` (${dataFmt})` : ''}\n`;
 
-    const obrasClean = (d.obras || 'Trabalho de repertório')
-      .split('\n')
-      .map((l) => l.trim().replace(/^[•\-\*]\s*/, ''))
-      .filter(Boolean);
+    const repItems = parseDayRepertoire(d.obras, d.horario);
+    const hasSpecific = hasSpecificHoursInRepertoire(repItems);
 
-    const horas = d.horario ? d.horario.trim() : 'A definir';
-    if (obrasClean.length <= 1) {
-      text += `${horas} — ${obrasClean[0] || 'Trabalho de repertório'}\n`;
+    if (hasSpecific) {
+      repItems.forEach((it) => {
+        const h = it.horario || d.horario || 'A definir';
+        text += `${h} — ${it.obra}\n`;
+      });
     } else {
-      text += `${horas} — ${obrasClean.join(' / ')}\n`;
+      const horas = d.horario ? d.horario.trim() : 'A definir';
+      if (repItems.length <= 1) {
+        text += `${horas} — ${repItems[0]?.obra || 'Trabalho de repertório'}\n`;
+      } else {
+        text += `${horas} — ${repItems.map((it) => it.obra).join(' / ')}\n`;
+      }
     }
 
     if (d.local && d.local.trim()) {
@@ -163,10 +169,65 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
   const hasAvisos = Boolean(plan.avisosGerais && plan.avisosGerais.trim().length > 0);
 
   const daysHtml = (plan.dias || [])
-    .map((d, idx) => {
+    .map((d, dayIdx) => {
       const diaNome = formatDayOfWeek(d.data, d.diaSemana || 'Dia de Ensaio');
       const dataFmt = formatDatePT(d.data);
-      const bg = idx % 2 === 1 ? 'background-color: #fafaf9;' : 'background-color: #ffffff;';
+      const bg = dayIdx % 2 === 1 ? 'background-color: #fafaf9;' : 'background-color: #ffffff;';
+
+      const repItems = parseDayRepertoire(d.obras, d.horario);
+      const hasSpecific = hasSpecificHoursInRepertoire(repItems);
+
+      if (hasSpecific && repItems.length > 0) {
+        const numRows = repItems.length;
+        return repItems
+          .map((it, itemIdx) => {
+            const isFirst = itemIdx === 0;
+            const isLast = itemIdx === numRows - 1;
+            const borderTop = itemIdx > 0 ? 'border-top: 1px dashed #e5e7eb;' : '';
+
+            const dateCell = isFirst
+              ? `<td rowspan="${numRows}" style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
+                  <div style="font-size: 13px; font-weight: 900; color: #111827; letter-spacing: 0.3px;">
+                    ${escapeHtml(diaNome)}
+                  </div>
+                  <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 3px;">
+                    ${escapeHtml(dataFmt)}
+                  </div>
+                </td>`
+              : '';
+
+            const obsCell =
+              hasAnyObservations && isFirst
+                ? `<td rowspan="${numRows}" style="border: 1px solid #d1d5db; padding: 12px 10px; width: 170px; vertical-align: top; font-size: 11px; color: #374151; font-weight: 600; line-height: 1.4;">
+                    ${d.observacoes && d.observacoes.trim() ? escapeHtml(d.observacoes.trim()) : ''}
+                  </td>`
+                : '';
+
+            const localDisplay =
+              isLast && d.local
+                ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 4px;">${escapeHtml(d.local)}</div>`
+                : '';
+
+            const hoursDisplay = it.horario || d.horario || 'A definir';
+
+            return `
+              <tr style="${bg} page-break-inside: avoid;">
+                ${dateCell}
+                <td style="border: 1px solid #d1d5db; ${borderTop} padding: 10px 10px; width: 160px; vertical-align: middle;">
+                  <div style="font-size: 16px; font-weight: 900; color: #111827; letter-spacing: -0.3px; line-height: 1.2;">
+                    ${escapeHtml(hoursDisplay)}
+                  </div>
+                  ${localDisplay}
+                </td>
+                <td style="border: 1px solid #d1d5db; ${borderTop} padding: 10px 10px; vertical-align: middle; font-size: 13px; font-weight: 700; color: #111827; line-height: 1.4;">
+                  ${escapeHtml(it.obra)}
+                </td>
+                ${obsCell}
+              </tr>
+            `;
+          })
+          .join('');
+      }
 
       const obrasFormatted = escapeHtml(d.obras || 'Trabalho de repertório geral')
         .split('\n')
@@ -548,9 +609,64 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
                 </tr>
               </thead>
               <tbody className="divide-y divide-stone-200 text-sm">
-                {(plan.dias || []).map((item, idx) => {
+                {(plan.dias || []).flatMap((item, dayIdx) => {
+                  const repItems = parseDayRepertoire(item.obras, item.horario);
+                  const hasSpecific = hasSpecificHoursInRepertoire(repItems);
+                  const numRows = hasSpecific ? repItems.length : 1;
+                  const bgClass = dayIdx % 2 === 1 ? 'bg-stone-50/60' : 'bg-white';
+
+                  if (hasSpecific && repItems.length > 0) {
+                    return repItems.map((it, itemIdx) => {
+                      const isFirst = itemIdx === 0;
+                      const isLast = itemIdx === numRows - 1;
+                      const hoursDisplay = it.horario || item.horario || 'A definir';
+
+                      return (
+                        <tr key={`${dayIdx}-${itemIdx}`} className={bgClass}>
+                          {isFirst && (
+                            <td
+                              rowSpan={numRows}
+                              className="py-3 px-3 border border-stone-300 align-top"
+                            >
+                              <div className="font-bold text-stone-900 text-sm">
+                                {formatDayOfWeek(item.data, item.diaSemana || 'Dia')}
+                              </div>
+                              <div className="text-xs text-stone-500 font-medium mt-0.5">
+                                {formatDatePT(item.data)}
+                              </div>
+                            </td>
+                          )}
+
+                          <td className="py-2.5 px-3 border border-stone-300 align-middle">
+                            <div className="text-base sm:text-lg font-black text-gray-900 leading-tight">
+                              {hoursDisplay}
+                            </div>
+                            {isLast && item.local && (
+                              <div className="text-xs text-stone-500 font-medium mt-1">
+                                {item.local}
+                              </div>
+                            )}
+                          </td>
+
+                          <td className="py-2.5 px-3 border border-stone-300 align-middle text-sm font-bold text-stone-900 leading-relaxed">
+                            {it.obra}
+                          </td>
+
+                          {hasAnyObservations && isFirst && (
+                            <td
+                              rowSpan={numRows}
+                              className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-700 font-medium leading-relaxed"
+                            >
+                              {item.observacoes && item.observacoes.trim() ? item.observacoes.trim() : ''}
+                            </td>
+                          )}
+                        </tr>
+                      );
+                    });
+                  }
+
                   return (
-                    <tr key={idx} className={idx % 2 === 1 ? 'bg-stone-50/60' : 'bg-white'}>
+                    <tr key={dayIdx} className={bgClass}>
                       <td className="py-3 px-3 border border-stone-300 align-top">
                         <div className="font-bold text-stone-900 text-sm">
                           {formatDayOfWeek(item.data, item.diaSemana || 'Dia')}
@@ -560,7 +676,6 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
                         </div>
                       </td>
                       <td className="py-3 px-3 border border-stone-300 align-top">
-                        {/* Horas em tamanho de destaque */}
                         <div className="text-base sm:text-lg font-black text-gray-900 leading-tight">
                           {item.horario || 'A definir'}
                         </div>

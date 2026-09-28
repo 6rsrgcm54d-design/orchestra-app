@@ -27,6 +27,7 @@ import LessonPlanPrintModal from './LessonPlanPrintModal';
 import WeeklyPlanFormModal from './WeeklyPlanFormModal';
 import WeeklyPlanPrintModal, { generateWeeklyEmailBody } from './WeeklyPlanPrintModal';
 import { useWeeklyPlans } from '../../hooks/useWeeklyPlans';
+import { parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 
 interface LessonPlansViewProps {
   plans: LessonPlan[];
@@ -851,9 +852,38 @@ export default function LessonPlansView({
                                 </div>
                               </div>
 
-                              <div className="pt-2 text-xs text-stone-800 dark:text-gray-200 whitespace-pre-line leading-relaxed font-medium">
-                                {dia.obras}
-                              </div>
+                              {(() => {
+                                const repItems = parseDayRepertoire(dia.obras, dia.horario);
+                                const hasSpecific = hasSpecificHoursInRepertoire(repItems);
+
+                                if (hasSpecific && repItems.length > 0) {
+                                  return (
+                                    <div className="pt-2 space-y-1.5">
+                                      {repItems.map((it, itemIdx) => (
+                                        <div
+                                          key={it.id || itemIdx}
+                                          className="flex items-start gap-2 p-1.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30"
+                                        >
+                                          {it.horario && (
+                                            <span className="font-mono text-xs font-black text-amber-900 dark:text-amber-200 bg-white dark:bg-gray-800 px-2 py-0.5 rounded shadow-2xs border border-amber-200 dark:border-amber-800 flex-shrink-0">
+                                              {it.horario}
+                                            </span>
+                                          )}
+                                          <span className="text-xs font-bold text-stone-900 dark:text-white leading-snug">
+                                            {it.obra}
+                                          </span>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  );
+                                }
+
+                                return (
+                                  <div className="pt-2 text-xs text-stone-800 dark:text-gray-200 whitespace-pre-line leading-relaxed font-medium">
+                                    {dia.obras}
+                                  </div>
+                                );
+                              })()}
 
                               {dia.observacoes && (
                                 <p className="text-[11px] text-stone-500 dark:text-gray-400 italic mt-1.5">

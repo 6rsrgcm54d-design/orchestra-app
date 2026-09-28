@@ -2,6 +2,55 @@ import React, { useState } from 'react';
 import { X, Plus, Trash2, Sparkles, Calendar, Clock, MapPin, Users, Music2, AlertCircle } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan, WeeklyPlanDay, LessonPlan } from '../../types';
+import { parseDayRepertoire, serializeRepertoireItems } from '../../utils/weeklyPlanParser';
+
+interface DayPieceItem {
+  id: string;
+  horario: string;
+  obra: string;
+}
+
+interface EditableWeeklyPlanDay extends WeeklyPlanDay {
+  items: DayPieceItem[];
+  isRawMode?: boolean;
+}
+
+function parseItemsFromDay(obrasText?: string, defaultHorario?: string): DayPieceItem[] {
+  const parsed = parseDayRepertoire(obrasText, defaultHorario);
+  const items = parsed
+    .filter((p) => p.obra && p.obra.trim().length > 0)
+    .map((p, idx) => ({
+      id: p.id || `item-${Date.now()}-${idx}-${Math.random().toString(36).substring(2, 6)}`,
+      horario: p.horario || '',
+      obra: p.obra || '',
+    }));
+  return items.length > 0 ? items : [{ id: `item-${Date.now()}-0`, horario: '', obra: '' }];
+}
+
+function initEditableDays(days?: WeeklyPlanDay[], defaultStart?: string): EditableWeeklyPlanDay[] {
+  if (days && days.length > 0) {
+    return days.map((d) => ({
+      ...d,
+      items: parseItemsFromDay(d.obras, d.horario),
+      isRawMode: false,
+    }));
+  }
+
+  return [
+    {
+      id: `day-${Date.now()}-1`,
+      diaSemana: 'Segunda-feira',
+      data: defaultStart || '',
+      horario: '17:30 - 19:30',
+      local: 'Sala de Orquestra',
+      naipes: '',
+      obras: '',
+      observacoes: '',
+      items: [{ id: `item-${Date.now()}-0`, horario: '', obra: '' }],
+      isRawMode: false,
+    },
+  ];
+}
 
 interface WeeklyPlanFormModalProps {
   plan?: WeeklyPlan;
@@ -62,21 +111,9 @@ export default function WeeklyPlanFormModal({
     plan?.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado'
   );
 
-  const [dias, setDias] = useState<WeeklyPlanDay[]>(() => {
-    if (plan?.dias && plan.dias.length > 0) return plan.dias;
-    return [
-      {
-        id: `day-${Date.now()}-1`,
-        diaSemana: 'Segunda-feira',
-        data: initialStart,
-        horario: '17:30 - 19:30',
-        local: 'Sala de Orquestra',
-        naipes: '',
-        obras: '',
-        observacoes: '',
-      },
-    ];
-  });
+  const [dias, setDias] = useState<EditableWeeklyPlanDay[]>(() =>
+    initEditableDays(plan?.dias, initialStart)
+  );
 
   const handleStartDateChange = (newStart: string) => {
     setSemanaInicio(newStart);
@@ -108,6 +145,8 @@ export default function WeeklyPlanFormModal({
         naipes: '',
         obras: '',
         observacoes: '',
+        items: [{ id: `item-${Date.now()}-0`, horario: '', obra: '' }],
+        isRawMode: false,
       },
     ]);
   };
@@ -137,6 +176,90 @@ export default function WeeklyPlanFormModal({
     );
   };
 
+  // Funções para gerir as obras e horários individuais de cada dia
+  const handleAddRepertoireItem = (dayId: string) => {
+    setDias((prev) =>
+      prev.map((d) => {
+        if (d.id !== dayId) return d;
+        const newItem: DayPieceItem = {
+          id: `item-${Date.now()}-${d.items.length + 1}`,
+          horario: '',
+          obra: '',
+        };
+        const newItems = [...d.items, newItem];
+        return {
+          ...d,
+          items: newItems,
+          obras: serializeRepertoireItems(newItems),
+        };
+      })
+    );
+  };
+
+  const handleRemoveRepertoireItem = (dayId: string, itemId: string) => {
+    setDias((prev) =>
+      prev.map((d) => {
+        if (d.id !== dayId) return d;
+        const filtered = d.items.filter((it) => it.id !== itemId);
+        const newItems =
+          filtered.length > 0
+            ? filtered
+            : [{ id: `item-${Date.now()}-0`, horario: '', obra: '' }];
+        return {
+          ...d,
+          items: newItems,
+          obras: serializeRepertoireItems(newItems),
+        };
+      })
+    );
+  };
+
+  const handleUpdateRepertoireItem = (
+    dayId: string,
+    itemId: string,
+    field: 'horario' | 'obra',
+    value: string
+  ) => {
+    setDias((prev) =>
+      prev.map((d) => {
+        if (d.id !== dayId) return d;
+        const newItems = d.items.map((it) => (it.id === itemId ? { ...it, [field]: value } : it));
+        return {
+          ...d,
+          items: newItems,
+          obras: serializeRepertoireItems(newItems),
+        };
+      })
+    );
+  };
+
+  const handleToggleDayMode = (dayId: string) => {
+    setDias((prev) =>
+      prev.map((d) => {
+        if (d.id !== dayId) return d;
+        const nextMode = !d.isRawMode;
+        if (nextMode) {
+          return { ...d, isRawMode: true, obras: serializeRepertoireItems(d.items) };
+        } else {
+          const parsed = parseItemsFromDay(d.obras, d.horario);
+          return { ...d, isRawMode: false, items: parsed };
+        }
+      })
+    );
+  };
+
+  const handleRawObrasChange = (dayId: string, value: string) => {
+    setDias((prev) =>
+      prev.map((d) => {
+        if (d.id !== dayId) return d;
+        return {
+          ...d,
+          obras: value,
+        };
+      })
+    );
+  };
+
   // Botão Mágico: Compilar a partir dos Planos de Aula Diários existentes
   const handleAutoCompileFromDailyPlans = () => {
     if (!dailyPlans || dailyPlans.length === 0) {
@@ -162,7 +285,7 @@ export default function WeeklyPlanFormModal({
       return;
     }
 
-    const compiledDays: WeeklyPlanDay[] = matching.map((dp, idx) => {
+    const compiledDays: EditableWeeklyPlanDay[] = matching.map((dp, idx) => {
       let weekday = 'Ensaio';
       try {
         const dObj = new Date(`${dp.data}T00:00:00`);
@@ -179,6 +302,8 @@ export default function WeeklyPlanFormModal({
         })
         .join('\n');
 
+      const dayObras = obrasText || 'Trabalho de repertório geral';
+
       return {
         id: `compiled-${idx + 1}-${Date.now()}`,
         diaSemana: weekday,
@@ -186,8 +311,10 @@ export default function WeeklyPlanFormModal({
         horario: dp.hora || '17:30 - 19:30',
         local: 'Auditório / Sala de Orquestra',
         naipes: '',
-        obras: obrasText || 'Trabalho de repertório geral',
+        obras: dayObras,
         observacoes: dp.notas || '',
+        items: parseItemsFromDay(dayObras, dp.hora),
+        isRawMode: false,
       };
     });
 
@@ -208,13 +335,24 @@ export default function WeeklyPlanFormModal({
       return;
     }
 
+    const cleanedDias: WeeklyPlanDay[] = dias.map(({ items, isRawMode, ...rest }) => ({
+      ...rest,
+      obras: isRawMode ? rest.obras.trim() : serializeRepertoireItems(items).trim(),
+    }));
+
+    const emptyDay = cleanedDias.find((d) => !d.obras || d.obras.trim().length === 0);
+    if (emptyDay) {
+      toast.error(`Por favor indique as obras a ensaiar em ${emptyDay.diaSemana}.`);
+      return;
+    }
+
     onSave({
       orquestra: orquestra || 'Orquestra Artave',
       anoLetivo: anoLetivo || '2026-2027',
       semanaInicio,
       semanaFim,
       titulo: titulo.trim() || undefined,
-      dias,
+      dias: cleanedDias,
       avisosGerais: avisosGerais.trim() || undefined,
       notasRodape: notasRodape.trim() || 'Escola Profissional Artística do Vale do Ave  - Luís Machado',
     });
@@ -464,18 +602,109 @@ export default function WeeklyPlanFormModal({
                   </div>
 
                   {/* Obras a Ensaiar & Programa de Estudo */}
-                  <div>
-                    <label className="block text-[11px] font-bold text-gray-600 dark:text-gray-300 mb-1">
-                      Obras a Ensaiar & Programa de Estudo * (Uma obra por linha)
-                    </label>
-                    <textarea
-                      rows={2}
-                      value={dia.obras}
-                      onChange={(e) => handleUpdateDay(dia.id, 'obras', e.target.value)}
-                      placeholder="• Beethoven: Sinfonia nº 5 (Andamento I - Comp. 1 a 124)&#10;• Márquez: Danzón nº 2"
-                      className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white leading-relaxed focus:ring-1 focus:ring-orchestra-gold"
-                      required
-                    />
+                  <div className="space-y-2 pt-1 border-t border-gray-100 dark:border-gray-700/60">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[11px] font-bold text-gray-700 dark:text-gray-300 flex items-center gap-1.5">
+                        <Music2 size={13} className="text-amber-500" />
+                        <span>Obras & Horários Específicos</span>
+                        <span className="text-[10px] font-semibold text-amber-800 dark:text-amber-300 bg-amber-100 dark:bg-amber-900/50 px-1.5 py-0.5 rounded">
+                          Números grandes no PDF
+                        </span>
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => handleToggleDayMode(dia.id)}
+                        className="text-[11px] font-bold text-amber-700 dark:text-amber-400 hover:underline cursor-pointer"
+                      >
+                        {dia.isRawMode ? '⇄ Alternar para Lista com Horas' : '⇄ Modo Texto Livre'}
+                      </button>
+                    </div>
+
+                    {dia.isRawMode ? (
+                      <div>
+                        <textarea
+                          rows={3}
+                          value={dia.obras}
+                          onChange={(e) => handleRawObrasChange(dia.id, e.target.value)}
+                          placeholder="ex:&#10;12:00 - 12:30 - M. Teresa Moniz - Romance para violino&#10;12:30 - 13:00 - W.A. Mozart - Concerto flauta em ré maior"
+                          className="w-full px-3 py-2 text-xs bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white leading-relaxed focus:ring-1 focus:ring-orchestra-gold font-mono"
+                          required
+                        />
+                        <p className="text-[10px] text-gray-500 mt-1">
+                          Coloque o horário no início da linha (ex: "12:00 - 12:30 - Nome da Obra") para destacar as horas em números grandes.
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {dia.items.map((it) => (
+                          <div
+                            key={it.id}
+                            className="flex items-center gap-2 p-2 bg-gray-50/90 dark:bg-gray-900/50 rounded-lg border border-gray-200 dark:border-gray-700 focus-within:border-amber-400 transition-colors"
+                          >
+                            {/* Horário específico */}
+                            <div className="w-36 sm:w-44 flex-shrink-0">
+                              <div className="relative">
+                                <Clock
+                                  size={12}
+                                  className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"
+                                />
+                                <input
+                                  type="text"
+                                  value={it.horario}
+                                  onChange={(e) =>
+                                    handleUpdateRepertoireItem(dia.id, it.id, 'horario', e.target.value)
+                                  }
+                                  placeholder={dia.horario || 'ex: 12:00 - 12:30'}
+                                  title="Horário específico desta obra (ex: 12:00 - 12:30). Se vazio, usa o horário geral."
+                                  className="w-full pl-7 pr-2 py-1.5 text-xs font-black font-mono bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-amber-900 dark:text-amber-200 focus:outline-none focus:ring-1 focus:ring-orchestra-gold"
+                                />
+                              </div>
+                            </div>
+
+                            {/* Nome da Obra */}
+                            <div className="flex-1 min-w-0">
+                              <input
+                                type="text"
+                                value={it.obra}
+                                onChange={(e) =>
+                                  handleUpdateRepertoireItem(dia.id, it.id, 'obra', e.target.value)
+                                }
+                                placeholder="ex: M. Teresa Moniz - Romance para violino e orquestra"
+                                className="w-full px-2.5 py-1.5 text-xs bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded text-gray-900 dark:text-white font-medium focus:outline-none focus:ring-1 focus:ring-orchestra-gold"
+                                required
+                              />
+                            </div>
+
+                            {/* Botão Remover Obra */}
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveRepertoireItem(dia.id, it.id)}
+                              disabled={dia.items.length <= 1 && !it.obra && !it.horario}
+                              className="p-1.5 text-gray-400 hover:text-red-500 rounded hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors flex-shrink-0 disabled:opacity-30 disabled:hover:text-gray-400 cursor-pointer"
+                              title="Remover esta obra"
+                            >
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        ))}
+
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => handleAddRepertoireItem(dia.id)}
+                            className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-100/70 dark:bg-amber-900/40 hover:bg-amber-100 dark:hover:bg-amber-900/60 rounded-lg border border-amber-300/70 dark:border-amber-700/60 transition-colors cursor-pointer w-fit"
+                          >
+                            <Plus size={13} />
+                            Adicionar Obra / Horário neste dia
+                          </button>
+
+                          <span className="text-[11px] text-gray-500 dark:text-gray-400">
+                            As horas aparecerão com <strong>números grandes</strong> no PDF.
+                          </span>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
