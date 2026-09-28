@@ -43,71 +43,7 @@ export function getInitialWeeklyPlans(): WeeklyPlan[] {
       if (Array.isArray(parsed)) return parsed;
     }
   } catch {}
-
-  // Plano de demonstração inicial para a Orquestra Artave
-  const today = new Date();
-  // Encontra a segunda-feira da semana corrente
-  const dayOfWeek = today.getDay(); // 0 = Domingo, 1 = Segunda
-  const diffToMonday = dayOfWeek === 0 ? -6 : 1 - dayOfWeek;
-  const monday = new Date(today);
-  monday.setDate(today.getDate() + diffToMonday);
-  const sunday = new Date(monday);
-  sunday.setDate(monday.getDate() + 6);
-
-  const fmt = (d: Date) => d.toISOString().split('T')[0];
-
-  return [
-    {
-      id: 'semana-demo-artave',
-      orquestra: 'Orquestra Artave',
-      anoLetivo: '2026-2027',
-      semanaInicio: fmt(monday),
-      semanaFim: fmt(sunday),
-      titulo: 'Plano Semanal de Ensaios — Preparação de Programa',
-      dias: [
-        {
-          id: 'dia-1',
-          diaSemana: 'Segunda-feira',
-          data: fmt(monday),
-          horario: '17:30 - 19:30',
-          local: 'Sala de Orquestra',
-          naipes: 'Tutti',
-          obras: 'L. v. Beethoven: Sinfonia nº 5 em Dó menor, Op. 67\n• Andamento I (Allegro con brio) — Estudo dos compassos 1 a 124\n• Foco: precisão rítmica dos motivos e ataques em tutti',
-          observacoes: '',
-        },
-        {
-          id: 'dia-2',
-          diaSemana: 'Quarta-feira',
-          data: (() => {
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + 2);
-            return fmt(d);
-          })(),
-          horario: '17:30 - 19:30',
-          local: 'Sala de Orquestra',
-          naipes: 'Cordas',
-          obras: 'Arturo Márquez: Danzón nº 2\n• Trabalho de articulação, balance e dinâmicas nos solos de clarinete e oboé',
-          observacoes: 'Trazer surdinas para os naipes de cordas.',
-        },
-        {
-          id: 'dia-3',
-          diaSemana: 'Quarta-feira',
-          data: (() => {
-            const d = new Date(monday);
-            d.setDate(monday.getDate() + 2);
-            return fmt(d);
-          })(),
-          horario: '19:30 - 20:30',
-          local: 'Sala de Orquestra',
-          naipes: 'Tutti',
-          obras: 'Ensaio Geral do Programa Completo:\n• 1. Beethoven: Sinfonia nº 5\n• 2. Márquez: Danzón nº 2',
-          observacoes: '',
-        },
-      ],
-      avisosGerais: '',
-      notasRodape: 'Escola Profissional Artística do Vale do Ave  - Luís Machado',
-    },
-  ];
+  return [];
 }
 
 export function compileWeeklyPlanFromDailyPlans(
@@ -368,32 +304,21 @@ export function useWeeklyPlans() {
 
       if (rows && rows.length > 1) {
         const parsed = parseRowsToWeeklyPlans(rows);
-        if (parsed.length > 0) {
-          setWeeklyPlans(parsed);
-          safeStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
-        } else {
-          // Se a folha estiver vazia mas tivermos planos locais, envia para a folha
-          const local = getInitialWeeklyPlans();
-          if (local.length > 0) {
-            setWeeklyPlans(local);
-            const initialRows = weeklyPlansToRows(local);
-            await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${initialRows.length}`, initialRows);
-          }
-        }
-      } else {
-        // Folha recém-criada ou sem dados: sincroniza dados locais existentes para o Sheets
-        const local = getInitialWeeklyPlans();
-        setWeeklyPlans(local);
-        if (local.length > 0) {
-          const initialRows = weeklyPlansToRows(local);
-          try {
-            await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${initialRows.length}`, initialRows);
-          } catch {}
-        }
+        setWeeklyPlans(parsed);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify(parsed));
+      } else if (rows && rows.length <= 1) {
+        setWeeklyPlans([]);
+        safeStorage.setItem(CACHE_KEY, JSON.stringify([]));
       }
     } catch (err) {
       console.warn('Erro ao carregar planos semanais do Sheets, a usar cache local:', err);
-      setWeeklyPlans(getInitialWeeklyPlans());
+      const saved = safeStorage.getItem(CACHE_KEY);
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (Array.isArray(parsed)) setWeeklyPlans(parsed);
+        } catch {}
+      }
     } finally {
       setIsLoading(false);
     }
