@@ -424,6 +424,10 @@ export function useWeeklyPlans() {
         : undefined;
 
       try {
+        try {
+          await refreshMeta();
+        } catch {}
+
         const tabName = await ensureTabExists();
         const rows = weeklyPlansToRows(next);
 
@@ -464,13 +468,13 @@ export function useWeeklyPlans() {
         console.error('Erro ao persistir plano semanal:', err);
         if (showToast && toastId) {
           toast.error(
-            `Erro ao guardar no Sheets: ${err instanceof Error ? err.message : 'Verifique a ligação'}`,
-            { id: toastId, duration: 5000 }
+            `Erro ao guardar no Sheets: ${err instanceof Error ? err.message : 'Verifique a ligação'}. Dica: crie uma aba com o nome "${DEFAULT_TAB}" no seu Google Sheets.`,
+            { id: toastId, duration: 6000 }
           );
         }
       }
     },
-    [config, ensureTabExists]
+    [config, ensureTabExists, refreshMeta]
   );
 
   const addWeeklyPlan = useCallback(
@@ -561,11 +565,14 @@ export function useWeeklyPlans() {
   const syncWithSheets = useCallback(async () => {
     if (!config) return;
     if (isLocalId(config.spreadsheetId)) {
-      toast.error('A aplicação está em Modo Local. Ligue ao Google Sheets no topo para sincronizar.');
+      toast.error('A aplicação está em Modo Local. Ligue ao Google Sheets no topo para sincronizar.', { duration: 6000 });
       return;
     }
     const toastId = toast.loading('A sincronizar Planos Semanais com o Google Sheets...');
     try {
+      try {
+        await refreshMeta();
+      } catch {}
       const tabName = await ensureTabExists();
       const rows = weeklyPlansToRows(weeklyPlans);
       await updateRange(config.spreadsheetId, `'${tabName}'!A1:O${rows.length}`, rows);
@@ -573,11 +580,11 @@ export function useWeeklyPlans() {
       toast.success(`Planos Semanais guardados e sincronizados na aba "${tabName}"!`, { id: toastId });
     } catch (err) {
       toast.error(
-        `Erro ao sincronizar com Sheets: ${err instanceof Error ? err.message : 'Erro desconhecido'}`,
-        { id: toastId }
+        `Erro ao sincronizar com Sheets: ${err instanceof Error ? err.message : 'Erro desconhecido'}. Verifique se a aba "${DEFAULT_TAB}" existe na sua folha.`,
+        { id: toastId, duration: 6000 }
       );
     }
-  }, [config, ensureTabExists, weeklyPlans, load]);
+  }, [config, ensureTabExists, weeklyPlans, load, refreshMeta]);
 
   const ensureHeader = useCallback(async () => {
     if (!config || isAppsScript(config.spreadsheetId) || isLocalId(config.spreadsheetId)) return;
