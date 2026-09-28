@@ -26,6 +26,7 @@ import {
   getStoredLevelTemplates,
 } from '../../utils/nameParser';
 import { isCbOrchestra, uses20Scale, normalizeOrchestra } from '../../hooks/useEvaluations';
+import { isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
 import LevelTemplatesModal from './LevelTemplatesModal';
 import EvaluationForm from './EvaluationForm';
 
@@ -84,7 +85,7 @@ export default function EvaluationsView({
   evaluations,
   students,
   criteria,
-  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
+  orchestras = CANONICAL_ORCHESTRAS as unknown as string[],
   levelTemplates: propLevelTemplates,
   isLoading,
   onUpdateEvaluation,
@@ -158,22 +159,10 @@ export default function EvaluationsView({
 
   // Orquestras musicais disponíveis
   const availableOrchestras = useMemo(() => {
-    const set = new Set<string>();
-    orchestras.forEach((o) => {
-      if (o && !/^alunos?$|chefe|geral/i.test(o.trim())) {
-        const canonical = /^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o.trim();
-        set.add(canonical);
-      }
-    });
-    students.forEach((s) => {
-      if (s.orquestra && !/^alunos?$|chefe|geral/i.test(s.orquestra.trim())) {
-        const canonical = /^10[º°]?\s*ano$/i.test(s.orquestra.trim()) ? 'Orquestra 10º ano' : s.orquestra.trim();
-        set.add(canonical);
-      }
-    });
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    defaultOrchestras.forEach((def) => set.add(def));
-    return Array.from(set);
+    return sanitizeOrchestraList([
+      ...(orchestras || []),
+      ...students.map((s) => s.orquestra).filter(Boolean) as string[],
+    ]);
   }, [orchestras, students]);
 
   // Orquestras separadas por ciclo
@@ -198,7 +187,7 @@ export default function EvaluationsView({
       return students.filter((s) => !isCbOrchestra(s.orquestra));
     }
     return students.filter(
-      (s) => (s.orquestra || '').trim().toLowerCase() === selectedOrchestra.trim().toLowerCase()
+      (s) => isSameOrchestra(s.orquestra, selectedOrchestra)
     );
   }, [students, selectedOrchestra]);
 

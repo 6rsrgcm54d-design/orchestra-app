@@ -16,6 +16,7 @@ import {
 } from '@dnd-kit/core';
 import type { Student, StagePlan, StagePlanData, NaipeSection, Stand } from '../../types';
 import { NAIPES } from '../../types';
+import { sanitizeOrchestraList, isSameOrchestra } from '../../utils/orchestras';
 import DroppableSeat from './DroppableSeat';
 import DraggableStudent from './DraggableStudent';
 
@@ -107,7 +108,7 @@ export default function StagePlanView({
 
   const relevantStudents = React.useMemo(() => {
     if (!filterOrchestra) return students;
-    return students.filter((s) => s.orquestra === filterOrchestra);
+    return students.filter((s) => isSameOrchestra(s.orquestra, filterOrchestra));
   }, [students, filterOrchestra]);
 
   const sensors = useSensors(
@@ -492,7 +493,8 @@ export default function StagePlanView({
     );
   }
 
-  const hasMultipleOrchestras = orchestras && orchestras.length > 1;
+  const validOrchestras = React.useMemo(() => sanitizeOrchestraList(orchestras), [orchestras]);
+  const hasMultipleOrchestras = validOrchestras.length > 1;
 
   return (
     <div className="p-6 space-y-4">
@@ -578,7 +580,7 @@ export default function StagePlanView({
               className="appearance-none pl-3 pr-8 py-2 text-sm bg-white dark:bg-gray-800 border border-amber-300 dark:border-amber-700 rounded-lg text-amber-900 dark:text-amber-200 font-semibold focus:outline-none focus:ring-2 focus:ring-orchestra-gold"
             >
               <option value="">Todas as Orquestras</option>
-              {orchestras.map((o) => (
+              {validOrchestras.map((o) => (
                 <option key={o} value={o}>
                   {o}
                 </option>

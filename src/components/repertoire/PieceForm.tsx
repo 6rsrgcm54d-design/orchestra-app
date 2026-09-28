@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Piece } from '../../types';
+import { sanitizeOrchestraList, normalizeOrchestraName, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
 
 interface PieceFormProps {
   piece?: Piece;
@@ -19,20 +20,11 @@ const EMPTY: Omit<Piece, 'id' | 'rowIndex'> = {
   orquestra: 'Académica',
 };
 
-export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano', 'Todas'], onSave, onClose }: PieceFormProps) {
-  // Garante que apenas orquestras musicais reais aparecem
+export default function PieceForm({ piece, orchestras = [...CANONICAL_ORCHESTRAS, 'Todas'], onSave, onClose }: PieceFormProps) {
   const validOrchestras = React.useMemo(() => {
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    const nonOrchestraPattern = /^alunos?$|chefe|geral/i;
-    const filtered = orchestras
-      .filter((o) => !nonOrchestraPattern.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    if (!unique.includes('Todas')) unique.push('Todas');
-    return unique;
+    const list = sanitizeOrchestraList(orchestras);
+    if (!list.includes('Todas')) list.push('Todas');
+    return list;
   }, [orchestras]);
 
   const [form, setForm] = useState<Omit<Piece, 'id' | 'rowIndex'>>(
@@ -44,7 +36,7 @@ export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil'
           duracao: piece.duracao,
           estado: piece.estado,
           notas: piece.notas,
-          orquestra: piece.orquestra || 'Académica',
+          orquestra: piece.orquestra === 'Todas' ? 'Todas' : (normalizeOrchestraName(piece.orquestra) || 'Académica'),
         }
       : EMPTY
   );
@@ -58,7 +50,10 @@ export default function PieceForm({ piece, orchestras = ['Académica', 'Juvenil'
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.titulo.trim()) return;
-    onSave(form);
+    onSave({
+      ...form,
+      orquestra: form.orquestra === 'Todas' ? 'Todas' : (normalizeOrchestraName(form.orquestra) || 'Académica'),
+    });
     onClose();
   };
 

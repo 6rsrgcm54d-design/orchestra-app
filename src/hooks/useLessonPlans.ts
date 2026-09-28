@@ -14,6 +14,7 @@ import {
 import { useSheets } from '../context/SheetsContext';
 import type { LessonPlan, LessonPlanItem } from '../types';
 import { safeStorage } from '../utils/storage';
+import { normalizeOrchestraName } from '../utils/orchestras';
 
 const DEFAULT_TAB = 'Planos de Aula';
 const CACHE_KEY = 'orchestra_cache_lesson_plans';
@@ -128,7 +129,7 @@ function parseRawRowsToPlans(rows: string[][]): LessonPlan[] {
   dataRows.forEach((row, i) => {
     const rowIndex = startOffset + i;
     const rawId = (row[mapping.idPlano] ?? '').trim();
-    const orquestra = (row[mapping.orquestra] ?? '').trim();
+    const orquestra = normalizeOrchestraName((row[mapping.orquestra] ?? '').trim());
     const data = (row[mapping.data] ?? '').trim();
     const hora = (row[mapping.hora] ?? '').trim();
     const obra = (row[mapping.obra] ?? '').trim();

@@ -3,6 +3,7 @@ import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Awa
 import type { Student, Piece, Evaluation, Concert, LessonPlan, NavModule } from '../../types';
 import { formatNaipe, formatTimeDisplay, cleanTimeString } from '../../types';
 import { calcAverage } from '../../utils/csvExport';
+import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
 
 interface DashboardProps {
   students: Student[];
@@ -146,20 +147,17 @@ export default function Dashboard({
   onNavigate,
 }: DashboardProps) {
   const orchestras = React.useMemo(() => {
-    if (propOrchestras && propOrchestras.length > 0) {
-      return propOrchestras;
-    }
-    const fromStudents = Array.from(
-      new Set(students.map((s) => s.orquestra).filter((o): o is string => !!o))
-    );
-    return fromStudents.length > 0 ? fromStudents : ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
+    const raw = propOrchestras && propOrchestras.length > 0
+      ? propOrchestras
+      : (students.map((s) => s.orquestra).filter(Boolean) as string[]);
+    return sanitizeOrchestraList(raw);
   }, [propOrchestras, students]);
 
   const hasMultipleOrchestras = orchestras.length > 1;
   const [selectedOrchestraTab, setSelectedOrchestraTab] = useState<string>('todas');
 
   const orchestraBreakdown = hasMultipleOrchestras
-    ? orchestras.map((o) => `${o}: ${students.filter((s) => s.orquestra === o).length}`).join(' · ')
+    ? orchestras.map((o) => `${o}: ${students.filter((s) => isSameOrchestra(s.orquestra, o)).length}`).join(' · ')
     : `${students.length} total`;
 
   const avgScore = calcAverage(evaluations);
@@ -181,7 +179,7 @@ export default function Dashboard({
   const displayedStudents =
     selectedOrchestraTab === 'todas'
       ? students
-      : students.filter((s) => s.orquestra === selectedOrchestraTab);
+      : students.filter((s) => isSameOrchestra(s.orquestra, selectedOrchestraTab));
 
   return (
     <div className="p-6 space-y-6">

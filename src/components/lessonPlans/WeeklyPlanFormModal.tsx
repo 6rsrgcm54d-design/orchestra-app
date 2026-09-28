@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, Sparkles, Calendar, Clock, MapPin, Users, Music2, AlertCircle } from 'lucide-react';
-import toast from 'react-hot-toast';
 import type { WeeklyPlan, WeeklyPlanDay, LessonPlan } from '../../types';
+import toast from 'react-hot-toast';
 import { parseDayRepertoire, serializeRepertoireItems } from '../../utils/weeklyPlanParser';
+import { CANONICAL_ORCHESTRAS, isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList } from '../../utils/orchestras';
 
 interface DayPieceItem {
   id: string;
@@ -72,11 +73,13 @@ const DIAS_SEMANA_DEFAULT = [
 
 export default function WeeklyPlanFormModal({
   plan,
-  orchestras = ['Orquestra Artave', 'Académica', 'Juvenil', 'Orquestra 10º ano'],
+  orchestras = CANONICAL_ORCHESTRAS as unknown as string[],
   dailyPlans = [],
   onSave,
   onClose,
 }: WeeklyPlanFormModalProps) {
+  const validOrchestras = React.useMemo(() => sanitizeOrchestraList(orchestras), [orchestras]);
+
   // Predefinição de datas para a próxima segunda-feira se for novo
   const getNextMonday = () => {
     const today = new Date();
@@ -101,7 +104,9 @@ export default function WeeklyPlanFormModal({
   const initialStart = plan?.semanaInicio || getNextMonday();
   const initialEnd = plan?.semanaFim || getNextSunday(initialStart);
 
-  const [orquestra, setOrquestra] = useState(plan?.orquestra || 'Orquestra Artave');
+  const [orquestra, setOrquestra] = useState(
+    normalizeOrchestraName(plan?.orquestra) || validOrchestras[0] || 'Orquestra Artave'
+  );
   const [anoLetivo, setAnoLetivo] = useState(plan?.anoLetivo || '2026-2027');
   const [semanaInicio, setSemanaInicio] = useState(initialStart);
   const [semanaFim, setSemanaFim] = useState(initialEnd);
@@ -273,8 +278,7 @@ export default function WeeklyPlanFormModal({
       const matchOrch =
         !orquestra ||
         orquestra === 'Todas' ||
-        dp.orquestra.toLowerCase().includes(orquestra.toLowerCase()) ||
-        orquestra.toLowerCase().includes(dp.orquestra.toLowerCase());
+        isSameOrchestra(dp.orquestra, orquestra);
       return isWithinWeek && matchOrch;
     });
 
@@ -347,7 +351,7 @@ export default function WeeklyPlanFormModal({
     }
 
     onSave({
-      orquestra: orquestra || 'Orquestra Artave',
+      orquestra: normalizeOrchestraName(orquestra) || 'Orquestra Artave',
       anoLetivo: anoLetivo || '2026-2027',
       semanaInicio,
       semanaFim,
@@ -405,7 +409,7 @@ export default function WeeklyPlanFormModal({
                 required
               />
               <datalist id="orchestras-list-weekly">
-                {orchestras.map((o) => (
+                {validOrchestras.map((o) => (
                   <option key={o} value={o} />
                 ))}
               </datalist>

@@ -592,10 +592,22 @@ export const INITIAL_LOCAL_DATA: Record<string, string[][]> = {
   ],
 };
 
-function getLocalTab(tabName: string): string[][] {
-  const normalizedKey = Object.keys(INITIAL_LOCAL_DATA).find(
+function normalizeLocalTabKey(tabName: string): string {
+  const direct = Object.keys(INITIAL_LOCAL_DATA).find(
     (k) => k.toLowerCase().trim() === tabName.toLowerCase().trim()
-  ) || tabName;
+  );
+  if (direct) return direct;
+  if (/^(?:orquestra\s+)?artave$/i.test(tabName.trim())) {
+    return 'Artave';
+  }
+  if (/^(?:orquestra\s+)?10[º°]?\s*ano$/i.test(tabName.trim())) {
+    return 'Orquestra 10º ano';
+  }
+  return tabName;
+}
+
+function getLocalTab(tabName: string): string[][] {
+  const normalizedKey = normalizeLocalTabKey(tabName);
 
   const key = `orchestra_db_${normalizedKey}`;
   const saved = safeStorage.getItem(key);
@@ -617,7 +629,8 @@ function getLocalTab(tabName: string): string[][] {
 }
 
 function setLocalTab(tabName: string, data: string[][]): void {
-  const key = `orchestra_db_${tabName}`;
+  const normalizedKey = normalizeLocalTabKey(tabName);
+  const key = `orchestra_db_${normalizedKey}`;
   safeStorage.setItem(key, JSON.stringify(data));
 }
 

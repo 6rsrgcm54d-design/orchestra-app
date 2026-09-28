@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import type { Student } from '../../types';
 import { NAIPES } from '../../types';
+import { sanitizeOrchestraList, normalizeOrchestraName } from '../../utils/orchestras';
 
 interface StudentFormProps {
   student?: Student;
@@ -22,16 +23,7 @@ const EMPTY: Omit<Student, 'id' | 'rowIndex'> = {
 
 export default function StudentForm({ student, orchestras, onSave, onClose }: StudentFormProps) {
   const validOrchestras = React.useMemo(() => {
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
-    const filtered = list
-      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    return unique;
+    return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
   const [form, setForm] = useState<Omit<Student, 'id' | 'rowIndex'>>(
@@ -43,7 +35,7 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
           grau: student.grau || '',
           naipe: student.naipe || '',
           ativo: student.ativo,
-          orquestra: student.orquestra || validOrchestras[0] || 'Académica',
+          orquestra: normalizeOrchestraName(student.orquestra) || validOrchestras[0] || 'Académica',
         }
       : {
           ...EMPTY,
@@ -62,7 +54,10 @@ export default function StudentForm({ student, orchestras, onSave, onClose }: St
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.nome.trim()) return;
-    onSave(form);
+    onSave({
+      ...form,
+      orquestra: normalizeOrchestraName(form.orquestra) || validOrchestras[0] || 'Académica',
+    });
     onClose();
   };
 

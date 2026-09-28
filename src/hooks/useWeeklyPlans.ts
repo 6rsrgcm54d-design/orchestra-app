@@ -12,6 +12,7 @@ import {
 import { useSheets } from '../context/SheetsContext';
 import type { WeeklyPlan, WeeklyPlanDay, LessonPlan } from '../types';
 import { safeStorage } from '../utils/storage';
+import { normalizeOrchestraName, isSameOrchestra } from '../utils/orchestras';
 
 const DEFAULT_TAB = 'Planos Semanais';
 const CACHE_KEY = 'orchestra_cache_weekly_plans';
@@ -129,8 +130,7 @@ export function compileWeeklyPlanFromDailyPlans(
       const matchOrch =
         !orchestra ||
         orchestra === 'Todas' ||
-        p.orquestra.toLowerCase().includes(orchestra.toLowerCase()) ||
-        orchestra.toLowerCase().includes(p.orquestra.toLowerCase());
+        isSameOrchestra(p.orquestra, orchestra);
       return matchOrch && d >= startStr && d <= endStr;
     })
     .sort((a, b) => a.data.localeCompare(b.data) || a.hora.localeCompare(b.hora));
@@ -187,7 +187,7 @@ export function compileWeeklyPlanFromDailyPlans(
 
   return {
     id: `semana-${Date.now()}`,
-    orquestra: orchestra || 'Orquestra Artave',
+    orquestra: normalizeOrchestraName(orchestra) || 'Orquestra Artave',
     anoLetivo: '2026-2027',
     semanaInicio: startStr,
     semanaFim: endStr,
@@ -216,7 +216,7 @@ function parseRowsToWeeklyPlans(rows: string[][]): WeeklyPlan[] {
 
   dataRows.forEach((row, i) => {
     const id = (row[0] ?? '').trim();
-    const orquestra = (row[1] ?? '').trim();
+    const orquestra = normalizeOrchestraName((row[1] ?? '').trim());
     const anoLetivo = (row[2] ?? '').trim() || '2026-2027';
     const semanaInicio = (row[3] ?? '').trim();
     const semanaFim = (row[4] ?? '').trim();

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Plus, Search, Pencil, Trash2 } from 'lucide-react';
 import type { Piece } from '../../types';
+import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
 
 interface RepertoireListProps {
   pieces: Piece[];
@@ -11,22 +12,12 @@ interface RepertoireListProps {
   onDelete: (piece: Piece) => void;
 }
 
-export default function RepertoireList({ pieces, orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'], isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
+export default function RepertoireList({ pieces, orchestras = CANONICAL_ORCHESTRAS as unknown as string[], isLoading, onAdd, onEdit, onDelete }: RepertoireListProps) {
   const [search, setSearch] = useState('');
   const [filterOrquestra, setFilterOrquestra] = useState('');
 
-  // Garante que apenas orquestras musicais reais aparecem (exclui abas administrativas como "Alunos", "Chefes de Naipe")
   const validOrchestras = React.useMemo(() => {
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
-    const filtered = list
-      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    return unique;
+    return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
   const filtered = pieces.filter((p) => {
@@ -35,7 +26,7 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
       p.titulo.toLowerCase().includes(search.toLowerCase()) ||
       p.compositor.toLowerCase().includes(search.toLowerCase()) ||
       (p.orquestra && p.orquestra.toLowerCase().includes(search.toLowerCase()));
-    const matchOrquestra = !filterOrquestra || p.orquestra === filterOrquestra || p.orquestra === 'Todas';
+    const matchOrquestra = !filterOrquestra || isSameOrchestra(p.orquestra, filterOrquestra) || p.orquestra === 'Todas';
     return matchSearch && matchOrquestra;
   });
 
@@ -128,7 +119,7 @@ export default function RepertoireList({ pieces, orchestras = ['Académica', 'Ju
                 <div className="flex items-center gap-2 mt-3 flex-wrap">
                   {piece.orquestra && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-900 dark:bg-amber-900/40 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-                      🎻 {piece.orquestra}
+                      🎻 {normalizeOrchestraName(piece.orquestra)}
                     </span>
                   )}
                   {piece.duracao && (

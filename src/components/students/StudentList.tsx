@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Search, Pencil, Trash2, Filter, Crown } from 'lucide-react';
 import type { Student } from '../../types';
 import { NAIPES, formatNaipe } from '../../types';
+import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
 
 interface StudentListProps {
   students: Student[];
@@ -51,7 +52,7 @@ export default function StudentList({
       s.chefeNaipe.toLowerCase().includes(search.toLowerCase()) ||
       formattedNaipe.toLowerCase().includes(search.toLowerCase());
 
-    const matchOrquestra = !filterOrquestra || s.orquestra === filterOrquestra;
+    const matchOrquestra = !filterOrquestra || isSameOrchestra(s.orquestra, filterOrquestra);
     const matchNaipe = !filterNaipe || formattedNaipe === filterNaipe;
     const isChefe =
       (!!s.chefeNaipe && !['não', 'nao', 'false', '0', '-'].includes(s.chefeNaipe.toLowerCase())) ||
@@ -63,16 +64,7 @@ export default function StudentList({
   });
 
   const validOrchestras = React.useMemo(() => {
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
-    const filtered = list
-      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    return unique;
+    return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
   const hasMultipleOrchestras = validOrchestras.length > 1;
@@ -258,7 +250,7 @@ export default function StudentList({
                       {hasMultipleOrchestras && (
                         <td className="px-4 py-3">
                           <span className="px-2 py-0.5 bg-amber-50 dark:bg-amber-900/30 text-amber-700 dark:text-amber-300 rounded text-xs font-semibold">
-                            {student.orquestra || 'Geral'}
+                            {normalizeOrchestraName(student.orquestra) || 'Geral'}
                           </span>
                         </td>
                       )}

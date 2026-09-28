@@ -32,6 +32,7 @@ import WeeklyPlanPrintModal, { generateWeeklyEmailBody } from './WeeklyPlanPrint
 import { useWeeklyPlans } from '../../hooks/useWeeklyPlans';
 import { useSheets } from '../../context/SheetsContext';
 import { parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
+import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
 
 interface LessonPlansViewProps {
   plans: LessonPlan[];
@@ -174,16 +175,7 @@ export default function LessonPlansView({
   const [printWeeklyPlan, setPrintWeeklyPlan] = useState<WeeklyPlan | undefined>();
 
   const validOrchestras = React.useMemo(() => {
-    const defaultOrchestras = ['Orquestra Artave', 'Académica', 'Juvenil', 'Orquestra 10º ano'];
-    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
-    const filtered = list
-      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    return unique;
+    return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
   // Filtros de Planos Diários
@@ -194,7 +186,7 @@ export default function LessonPlansView({
 
     return plans
       .filter((p) => {
-        if (filterOrquestra && p.orquestra !== filterOrquestra && p.orquestra !== 'Todas') {
+        if (filterOrquestra && !isSameOrchestra(p.orquestra, filterOrquestra) && p.orquestra !== 'Todas') {
           return false;
         }
 
@@ -235,7 +227,7 @@ export default function LessonPlansView({
   const filteredWeekly = React.useMemo(() => {
     return weeklyPlans
       .filter((wp) => {
-        if (filterOrquestra && wp.orquestra !== filterOrquestra && wp.orquestra !== 'Todas') {
+        if (filterOrquestra && !isSameOrchestra(wp.orquestra, filterOrquestra) && wp.orquestra !== 'Todas') {
           return false;
         }
 
@@ -578,7 +570,9 @@ export default function LessonPlansView({
                           <div>
                             <div className="flex items-center gap-2 flex-wrap">
                               <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-                                Orquestra {plan.orquestra}
+                                {normalizeOrchestraName(plan.orquestra).startsWith('Orquestra')
+                                  ? normalizeOrchestraName(plan.orquestra)
+                                  : `Orquestra ${normalizeOrchestraName(plan.orquestra)}`}
                               </span>
                               {dateObj.isToday && (
                                 <span className="px-2 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-red-500 text-white animate-pulse">
@@ -786,7 +780,7 @@ export default function LessonPlansView({
                         <div className="space-y-1">
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/60 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-                              {wp.orquestra || 'Orquestra Artave'}
+                              {normalizeOrchestraName(wp.orquestra) || 'Orquestra Artave'}
                             </span>
                             <span className="text-[11px] font-bold text-gray-500 dark:text-gray-400">
                               Ano letivo {wp.anoLetivo || '2026-2027'}

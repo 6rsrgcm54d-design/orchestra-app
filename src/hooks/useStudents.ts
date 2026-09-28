@@ -5,6 +5,7 @@ import { useSheets } from '../context/SheetsContext';
 import type { Student } from '../types';
 import { formatNaipe } from '../types';
 import { safeStorage } from '../utils/storage';
+import { normalizeOrchestraName, sanitizeOrchestraList, isSameOrchestra } from '../utils/orchestras';
 
 const NON_STUDENT_TABS = new Set([
   'repertório',
@@ -201,7 +202,7 @@ function parseStudentRow(
     grau,
     naipe: naipe || rawNaipe,
     ativo,
-    orquestra: /^10[º°]?\s*ano$/i.test((orquestraVal || tabName).trim()) ? 'Orquestra 10º ano' : (orquestraVal || tabName),
+    orquestra: normalizeOrchestraName(orquestraVal || tabName),
   };
 }
 
@@ -233,6 +234,7 @@ function sanitizeStudent(s: any, idx: number): Student {
     nome: nome || 'Aluno',
     chefeNaipe,
     naipe,
+    orquestra: normalizeOrchestraName(s.orquestra),
   };
 }
 
@@ -243,12 +245,19 @@ function studentToRow(s: Omit<Student, 'id' | 'rowIndex'>): (string | boolean)[]
 function resolveTargetTab(targetOrquestra: string, availableTabs: string[]): string {
   if (!targetOrquestra) return availableTabs[0] || 'Alunos';
   if (availableTabs.includes(targetOrquestra)) return targetOrquestra;
+
+  // Se o aluno pertence à 'Orquestra Artave', mas a aba no Google Sheets se chama 'Artave'
+  if (/^(?:orquestra\s+)?artave$/i.test(targetOrquestra)) {
+    const match = availableTabs.find((t) => /^(?:orquestra\s+)?artave$/i.test(t));
+    if (match) return match;
+  }
+
   // Se o aluno pertence à 'Orquestra 10º ano', mas a aba no Google Sheets se chama '10º ano' ou '10º Ano'
   if (/10[º°]?\s*ano/i.test(targetOrquestra)) {
     const match = availableTabs.find((t) => /10[º°]?\s*ano/i.test(t));
     if (match) return match;
   }
-  const ciMatch = availableTabs.find((t) => t.toLowerCase().trim() === targetOrquestra.toLowerCase().trim());
+  const ciMatch = availableTabs.find((t) => isSameOrchestra(t, targetOrquestra));
   if (ciMatch) return ciMatch;
   return targetOrquestra;
 }
@@ -323,12 +332,7 @@ export function useStudents() {
 
   // Lista de orquestras com nomes amigáveis para a interface
   const publicOrchestras = useMemo(() => {
-    const mapped = studentTabs.map((t) => (/^10[º°]?\s*ano$/i.test(t.trim()) ? 'Orquestra 10º ano' : t));
-    const unique = Array.from(new Set(mapped));
-    if (!unique.some((o) => /10[º°]?\s*ano/i.test(o))) {
-      unique.push('Orquestra 10º ano');
-    }
-    return unique;
+    return sanitizeOrchestraList(studentTabs);
   }, [studentTabs]);
 
   const load = useCallback(async () => {

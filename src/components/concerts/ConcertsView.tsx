@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Plus, Search, Calendar, Clock, MapPin, Music2, Pencil, Trash2, FileText, ChevronRight } from 'lucide-react';
 import type { Concert } from '../../types';
 import { formatTimeDisplay } from '../../types';
+import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
 import ConcertFormModal from './ConcertFormModal';
 
 interface ConcertsViewProps {
@@ -15,7 +16,7 @@ interface ConcertsViewProps {
 
 export default function ConcertsView({
   concerts,
-  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
+  orchestras = CANONICAL_ORCHESTRAS as unknown as string[],
   isLoading,
   onAdd,
   onUpdate,
@@ -27,16 +28,7 @@ export default function ConcertsView({
   const [editingConcert, setEditingConcert] = useState<Concert | undefined>();
 
   const validOrchestras = React.useMemo(() => {
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    const list = orchestras && orchestras.length > 0 ? orchestras : defaultOrchestras;
-    const filtered = list
-      .filter((o) => !/^alunos?$|chefe|geral|todos/i.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    return unique;
+    return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
   const filtered = concerts
@@ -51,7 +43,7 @@ export default function ConcertsView({
         c.programa.toLowerCase().includes(search.toLowerCase()) ||
         c.orquestra.toLowerCase().includes(search.toLowerCase()) ||
         (c.notas && c.notas.toLowerCase().includes(search.toLowerCase()));
-      const matchOrquestra = !filterOrquestra || c.orquestra === filterOrquestra || c.orquestra === 'Todas';
+      const matchOrquestra = !filterOrquestra || isSameOrchestra(c.orquestra, filterOrquestra) || c.orquestra === 'Todas';
       return matchSearch && matchOrquestra;
     })
     .sort((a, b) => {
@@ -214,7 +206,9 @@ export default function ConcertsView({
                       <div>
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 dark:bg-amber-900/50 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700">
-                            Orquestra {concert.orquestra}
+                            {normalizeOrchestraName(concert.orquestra).startsWith('Orquestra')
+                              ? normalizeOrchestraName(concert.orquestra)
+                              : `Orquestra ${normalizeOrchestraName(concert.orquestra)}`}
                           </span>
                           <span className="text-xs text-gray-400 capitalize">
                             {dateObj.diaSemana}

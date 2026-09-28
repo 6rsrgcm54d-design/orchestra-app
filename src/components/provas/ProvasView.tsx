@@ -15,6 +15,7 @@ import toast from 'react-hot-toast';
 import type { ProvaRecord, Student } from '../../types';
 import { calcClassificacaoFinal } from '../../types';
 import { exportProvasToCSV } from '../../utils/csvExport';
+import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
 
 interface ProvasViewProps {
   provas: ProvaRecord[];
@@ -38,7 +39,8 @@ interface ProvasViewProps {
 }
 
 function studentKey(nome: string, orquestra?: string): string {
-  return `${(nome || '').trim().toLowerCase()}|${(orquestra || '').trim().toLowerCase()}`;
+  const norm = normalizeOrchestraName(orquestra);
+  return `${(nome || '').trim().toLowerCase()}|${(norm || '').trim().toLowerCase()}`;
 }
 
 type ParameterKey = 'afinacao' | 'precisaoRitmica' | 'tempo' | 'articulacao' | 'dinamicas' | 'fraseado' | 'timbre';
@@ -195,7 +197,7 @@ function ProvaCellInput({ id, value, onCommit, onNavigate, title }: ProvaCellInp
 export default function ProvasView({
   provas,
   students,
-  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
+  orchestras = CANONICAL_ORCHESTRAS as unknown as string[],
   isLoading,
   onSaveSingleProva,
   onSaveAll,
@@ -227,29 +229,17 @@ export default function ProvasView({
 
   // Orquestras musicais disponíveis
   const availableOrchestras = useMemo(() => {
-    const set = new Set<string>();
-    orchestras.forEach((o) => {
-      if (o && !/^alunos?$|chefe|geral/i.test(o.trim())) {
-        const canonical = /^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o.trim();
-        set.add(canonical);
-      }
-    });
-    students.forEach((s) => {
-      if (s.orquestra && !/^alunos?$|chefe|geral/i.test(s.orquestra.trim())) {
-        const canonical = /^10[º°]?\s*ano$/i.test(s.orquestra.trim()) ? 'Orquestra 10º ano' : s.orquestra.trim();
-        set.add(canonical);
-      }
-    });
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    defaultOrchestras.forEach((def) => set.add(def));
-    return Array.from(set);
+    return sanitizeOrchestraList([
+      ...(orchestras || []),
+      ...students.map((s) => s.orquestra).filter(Boolean) as string[],
+    ]);
   }, [orchestras, students]);
 
   // Alunos da orquestra selecionada
   const orchestraStudents = useMemo(() => {
     if (selectedOrchestra === 'todas') return students;
     return students.filter(
-      (s) => (s.orquestra || '').trim().toLowerCase() === selectedOrchestra.trim().toLowerCase()
+      (s) => isSameOrchestra(s.orquestra, selectedOrchestra)
     );
   }, [students, selectedOrchestra]);
 

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X, Calendar, Clock, MapPin, Music2, FileText } from 'lucide-react';
 import type { Concert } from '../../types';
 import { cleanTimeString } from '../../types';
+import { sanitizeOrchestraList, normalizeOrchestraName, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
 
 interface ConcertFormModalProps {
   concert?: Concert;
@@ -37,14 +38,14 @@ function normalizeDateForInput(d?: string): string {
 
 export default function ConcertFormModal({
   concert,
-  orchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'],
+  orchestras = [...CANONICAL_ORCHESTRAS, 'Todas'],
   onSave,
   onClose,
 }: ConcertFormModalProps) {
   const [form, setForm] = useState<Omit<Concert, 'id' | 'rowIndex'>>(() => {
     if (concert) {
       return {
-        orquestra: concert.orquestra || 'Académica',
+        orquestra: concert.orquestra === 'Todas' ? 'Todas' : (normalizeOrchestraName(concert.orquestra) || 'Académica'),
         data: normalizeDateForInput(concert.data),
         horaEnsaioGeral: cleanTimeString(concert.horaEnsaioGeral) || '15:00',
         horaConcerto: cleanTimeString(concert.horaConcerto) || '21:00',
@@ -59,7 +60,7 @@ export default function ConcertFormModal({
   useEffect(() => {
     if (concert) {
       setForm({
-        orquestra: concert.orquestra || 'Académica',
+        orquestra: concert.orquestra === 'Todas' ? 'Todas' : (normalizeOrchestraName(concert.orquestra) || 'Académica'),
         data: normalizeDateForInput(concert.data),
         horaEnsaioGeral: cleanTimeString(concert.horaEnsaioGeral) || '15:00',
         horaConcerto: cleanTimeString(concert.horaConcerto) || '21:00',
@@ -81,11 +82,14 @@ export default function ConcertFormModal({
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!form.data || !form.local.trim()) return;
-    onSave(form);
+    onSave({
+      ...form,
+      orquestra: form.orquestra === 'Todas' ? 'Todas' : (normalizeOrchestraName(form.orquestra) || 'Académica'),
+    });
     onClose();
   };
 
-  const validOrchestras = orchestras.filter((o) => !/^alunos?$|chefe|geral/i.test(o.trim()));
+  const validOrchestras = sanitizeOrchestraList(orchestras);
   const orqOptions = Array.from(new Set([...validOrchestras, 'Todas']));
 
   return (

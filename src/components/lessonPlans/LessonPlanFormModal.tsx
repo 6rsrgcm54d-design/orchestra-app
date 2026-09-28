@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Plus, Trash2, ArrowUp, ArrowDown, Clock, Music2, Calendar, FileText, Sparkles, CheckCircle2 } from 'lucide-react';
 import type { LessonPlan, LessonPlanItem, Piece } from '../../types';
+import { isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList } from '../../utils/orchestras';
 
 interface LessonPlanFormModalProps {
   plan?: LessonPlan;
@@ -49,7 +50,10 @@ export default function LessonPlanFormModal({
   onSave,
   onClose,
 }: LessonPlanFormModalProps) {
-  const [orquestra, setOrquestra] = useState(plan?.orquestra || orchestras[0] || 'Académica');
+  const validOrchestras = React.useMemo(() => sanitizeOrchestraList(orchestras), [orchestras]);
+  const [orquestra, setOrquestra] = useState(
+    normalizeOrchestraName(plan?.orquestra) || validOrchestras[0] || 'Académica'
+  );
   const [data, setData] = useState(plan?.data || new Date().toISOString().split('T')[0]);
   const [hora, setHora] = useState(plan?.hora || '15:00 - 17:00');
   const [titulo, setTitulo] = useState(plan?.titulo || '');
@@ -80,7 +84,7 @@ export default function LessonPlanFormModal({
   // Obras disponíveis para a orquestra selecionada ou de repertório geral
   const availablePieces = React.useMemo(() => {
     return pieces.filter(
-      (p) => !p.orquestra || p.orquestra === orquestra || p.orquestra === 'Todas'
+      (p) => !p.orquestra || isSameOrchestra(p.orquestra, orquestra) || p.orquestra === 'Todas'
     );
   }, [pieces, orquestra]);
 
@@ -147,7 +151,7 @@ export default function LessonPlanFormModal({
     const validItens = itens.filter((it) => it.obra.trim() || it.atividade.trim());
 
     onSave({
-      orquestra,
+      orquestra: normalizeOrchestraName(orquestra),
       data,
       hora: hora.trim() || '15:00 - 17:00',
       titulo: titulo.trim() || undefined,
@@ -210,7 +214,7 @@ export default function LessonPlanFormModal({
                 required
                 className="w-full px-3 py-2 text-sm bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-orchestra-gold outline-none"
               >
-                {orchestras.map((o) => (
+                {validOrchestras.map((o) => (
                   <option key={o} value={o}>
                     {o}
                   </option>

@@ -9,6 +9,7 @@ import {
   saveStoredLevelTemplates,
   DEFAULT_LEVEL_TEMPLATES,
 } from '../utils/nameParser';
+import { normalizeOrchestraName, isSameOrchestra } from '../utils/orchestras';
 
 const DEFAULT_CB_TAB = 'Avaliações CB';
 const DEFAULT_SEC_TAB = 'Avaliações Secundário';
@@ -65,13 +66,7 @@ export function colIndexToA1(colIdx: number): string {
 }
 
 export function normalizeOrchestra(orch?: string): string {
-  if (!orch) return '';
-  const trimmed = orch.trim();
-  if (/^(?:orquestra\s+)?10[º°ªa]?\s*ano$/i.test(trimmed)) return 'Orquestra 10º ano';
-  if (/^(?:orquestra\s+)?acad[eé]mica$/i.test(trimmed)) return 'Académica';
-  if (/^(?:orquestra\s+)?juvenil$/i.test(trimmed)) return 'Juvenil';
-  if (/^(?:orquestra\s+)?artave$/i.test(trimmed)) return 'Artave';
-  return trimmed;
+  return normalizeOrchestraName(orch);
 }
 
 export function getGrauNumber(grau?: string): number | null {
@@ -263,7 +258,7 @@ function rowToEvaluation(row: string[], rowIndex: number, mapping: HeaderMapping
   const grau = mapping.colGrau !== -1 ? (row[mapping.colGrau] ?? '').trim() : '';
   const naipe = mapping.colNaipe !== -1 ? (row[mapping.colNaipe] ?? '').trim() : '';
   const rawOrquestra = mapping.colOrquestra !== -1 ? (row[mapping.colOrquestra] ?? '').trim() : '';
-  const orquestra = /^10[º°]?\s*ano$/i.test(rawOrquestra) ? 'Orquestra 10º ano' : rawOrquestra;
+  const orquestra = normalizeOrchestraName(rawOrquestra);
   const observacoes = mapping.colObservacoes !== -1 ? (row[mapping.colObservacoes] ?? '').trim() : '';
   const criterio = mapping.colCriterio !== -1 ? (row[mapping.colCriterio] ?? '').trim() : '';
   const data = mapping.colData !== -1 ? (row[mapping.colData] ?? '').trim() : '';

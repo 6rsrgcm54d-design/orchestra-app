@@ -27,6 +27,7 @@ import { useWeeklyPlans } from './hooks/useWeeklyPlans';
 import type { Student, Piece, NavModule } from './types';
 import { Music2, Link2, Sparkles, HardDrive } from 'lucide-react';
 import { safeStorage } from './utils/storage';
+import { sanitizeOrchestraList } from './utils/orchestras';
 
 // ─── Login Page ───────────────────────────────────────────────────────────────
 
@@ -449,18 +450,9 @@ function MainApp() {
     }
   };
 
-  // Orquestras musicais reais (exclui abas administrativas/de alunos como "Alunos", "Chefes de Naipe", etc.)
+  // Orquestras musicais reais unificadas (unifica 'Artave'/'Orquestra Artave', exclui abas administrativas)
   const musicalOrchestras = React.useMemo(() => {
-    const nonOrchestraPattern = /^alunos?$|chefe|geral|todos/i;
-    const filtered = orchestras
-      .filter((o) => !nonOrchestraPattern.test(o.trim()))
-      .map((o) => (/^10[º°]?\s*ano$/i.test(o.trim()) ? 'Orquestra 10º ano' : o));
-    const unique = Array.from(new Set(filtered));
-    const defaultOrchestras = ['Académica', 'Juvenil', 'Artave', 'Orquestra 10º ano'];
-    defaultOrchestras.forEach((def) => {
-      if (!unique.includes(def)) unique.push(def);
-    });
-    return unique;
+    return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
   const spreadsheetTitle = sheetsMeta?.title;
