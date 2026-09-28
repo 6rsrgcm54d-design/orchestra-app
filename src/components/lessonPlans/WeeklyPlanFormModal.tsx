@@ -56,6 +56,7 @@ function initEditableDays(days?: WeeklyPlanDay[], defaultStart?: string): Editab
 interface WeeklyPlanFormModalProps {
   plan?: WeeklyPlan;
   orchestras?: string[];
+  defaultOrchestra?: string;
   dailyPlans?: LessonPlan[];
   onSave: (data: Omit<WeeklyPlan, 'id' | 'rowIndex'>) => void;
   onClose: () => void;
@@ -74,6 +75,7 @@ const DIAS_SEMANA_DEFAULT = [
 export default function WeeklyPlanFormModal({
   plan,
   orchestras = CANONICAL_ORCHESTRAS as unknown as string[],
+  defaultOrchestra,
   dailyPlans = [],
   onSave,
   onClose,
@@ -104,9 +106,19 @@ export default function WeeklyPlanFormModal({
   const initialStart = plan?.semanaInicio || getNextMonday();
   const initialEnd = plan?.semanaFim || getNextSunday(initialStart);
 
-  const [orquestra, setOrquestra] = useState(
-    normalizeOrchestraName(plan?.orquestra) || validOrchestras[0] || 'Orquestra Artave'
-  );
+  const [orquestra, setOrquestra] = useState(() => {
+    if (plan?.orquestra) return normalizeOrchestraName(plan.orquestra);
+    if (defaultOrchestra) return normalizeOrchestraName(defaultOrchestra);
+    return validOrchestras[0] || 'Orquestra Artave';
+  });
+
+  const availableOrchestras = React.useMemo(() => {
+    const list = [...validOrchestras];
+    if (orquestra && !list.some((o) => isSameOrchestra(o, orquestra))) {
+      list.push(orquestra);
+    }
+    return list;
+  }, [validOrchestras, orquestra]);
   const [anoLetivo, setAnoLetivo] = useState(plan?.anoLetivo || '2026-2027');
   const [semanaInicio, setSemanaInicio] = useState(initialStart);
   const [semanaFim, setSemanaFim] = useState(initialEnd);
@@ -399,20 +411,18 @@ export default function WeeklyPlanFormModal({
               <label className="block text-xs font-bold text-gray-700 dark:text-gray-300 mb-1">
                 Orquestra *
               </label>
-              <input
-                type="text"
-                list="orchestras-list-weekly"
+              <select
                 value={orquestra}
                 onChange={(e) => setOrquestra(e.target.value)}
-                placeholder="ex: Orquestra Artave"
                 className="w-full px-3 py-2 bg-white dark:bg-gray-900 border border-gray-300 dark:border-gray-700 rounded-lg text-gray-900 dark:text-white font-medium focus:ring-2 focus:ring-orchestra-gold focus:outline-none"
                 required
-              />
-              <datalist id="orchestras-list-weekly">
-                {validOrchestras.map((o) => (
-                  <option key={o} value={o} />
+              >
+                {availableOrchestras.map((o) => (
+                  <option key={o} value={o}>
+                    {o}
+                  </option>
                 ))}
-              </datalist>
+              </select>
             </div>
 
             {/* Ano Letivo */}

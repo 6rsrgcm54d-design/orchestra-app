@@ -980,6 +980,7 @@ export default function LessonPlansView({
         <WeeklyPlanFormModal
           plan={editingWeeklyPlan}
           orchestras={validOrchestras}
+          defaultOrchestra={filterOrquestra || 'Orquestra Artave'}
           dailyPlans={plans}
           onSave={handleSaveWeeklyModal}
           onClose={() => setIsWeeklyFormModalOpen(false)}
