@@ -130,8 +130,8 @@ export function cleanTimeString(val: string | number | undefined | null): string
     return '';
   }
 
-  // 5. Formato "15:00:00" ou "15:00"
-  const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?$/);
+  // 5. Formato "15:00:00" ou "15:00" ou "15:00h"
+  const timeMatch = str.match(/^(\d{1,2}):(\d{2})(?::\d{2})?\s*(?:h|hrs|m|min)?$/i);
   if (timeMatch) {
     const h = parseInt(timeMatch[1], 10);
     const m = parseInt(timeMatch[2], 10);
@@ -141,8 +141,8 @@ export function cleanTimeString(val: string | number | undefined | null): string
     return '';
   }
 
-  // 6. Formato "15h" ou "15h30" ou "15H00"
-  const hMatch = str.match(/^(\d{1,2})h(\d{2})?$/i);
+  // 6. Formato "15h" ou "15h30" ou "15H00" ou "15h30m"
+  const hMatch = str.match(/^(\d{1,2})h(\d{2})?(?:m|min)?$/i);
   if (hMatch) {
     const h = parseInt(hMatch[1], 10);
     const min = hMatch[2] ? parseInt(hMatch[2], 10) : 0;
@@ -153,7 +153,7 @@ export function cleanTimeString(val: string | number | undefined | null): string
   }
 
   // 7. Formato "15.00" ou "15,30" (notação decimal de hora)
-  const dotMatch = str.match(/^(\d{1,2})[.,](\d{2})$/);
+  const dotMatch = str.match(/^(\d{1,2})[.,](\d{2})\s*(?:h|hrs)?$/i);
   if (dotMatch) {
     const h = parseInt(dotMatch[1], 10);
     const m = parseInt(dotMatch[2], 10);
@@ -163,11 +163,22 @@ export function cleanTimeString(val: string | number | undefined | null): string
     return '';
   }
 
-  // 8. Se for apenas hora simples em número inteiro (ex: "15")
-  if (/^\d{1,2}$/.test(str)) {
-    const h = parseInt(str, 10);
+  // 8. Se for apenas hora simples em número inteiro (ex: "15" ou "15h")
+  const simpleHour = str.match(/^(\d{1,2})\s*(?:h|hrs)?$/i);
+  if (simpleHour) {
+    const h = parseInt(simpleHour[1], 10);
     if (h >= 0 && h < 24) {
       return `${String(h).padStart(2, '0')}:00`;
+    }
+  }
+
+  // 9. Extração flexível de hora contida em texto (ex: "às 15:00", "15:00 (ensaio)", "15h00 (auditório)")
+  const embeddedMatch = str.match(/(?:às|as|pelas)?\s*(\d{1,2})[:h.](\d{2})/i) || str.match(/(\d{1,2})\s*h(?:oras)?/i);
+  if (embeddedMatch) {
+    const h = parseInt(embeddedMatch[1], 10);
+    const m = embeddedMatch[2] ? parseInt(embeddedMatch[2], 10) : 0;
+    if (h >= 0 && h < 24 && m >= 0 && m < 60) {
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
     }
   }
 

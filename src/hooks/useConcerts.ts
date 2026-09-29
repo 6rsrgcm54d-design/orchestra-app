@@ -138,6 +138,24 @@ function rowToConcert(
     }
   }
 
+  // Se houver dois horários combinados na mesma célula (ex: "15:00 / 21:00" ou "15h e 21h")
+  if (!horaEnsaioGeral || !horaConcerto) {
+    const rawEnsaio = String(row[mapping.horaEnsaioGeral] || '');
+    const rawConcerto = String(row[mapping.horaConcerto] || '');
+    const combined = (rawConcerto.includes('/') || rawConcerto.includes('&') || rawConcerto.includes(' e ') || rawConcerto.includes(' às '))
+      ? rawConcerto
+      : rawEnsaio;
+    const twoTimesMatch = combined.match(/(\d{1,2}(?:[:h.]\d{2})?)\s*(?:\/|&|\be\b|às|-)\s*(\d{1,2}(?:[:h.]\d{2})?)/i);
+    if (twoTimesMatch) {
+      const t1 = cleanTimeString(twoTimesMatch[1]);
+      const t2 = cleanTimeString(twoTimesMatch[2]);
+      if (t1 && t2) {
+        if (!horaEnsaioGeral) horaEnsaioGeral = t1;
+        if (!horaConcerto) horaConcerto = t2;
+      }
+    }
+  }
+
   // Se as horas vierem vazias do Google Sheets (ex: versão do Apps Script sem formatação de horas),
   // PRESERVA o horário que o utilizador já gravou na aplicação para este concerto!
   if (!horaEnsaioGeral && existingConcert?.horaEnsaioGeral) {
@@ -166,8 +184,8 @@ function concertToRow(c: Omit<Concert, 'id' | 'rowIndex'>): string[] {
   return [
     c.orquestra || 'Académica',
     c.data || '',
-    ensaio || '',
-    concerto || '',
+    ensaio ? `'${ensaio}` : '',
+    concerto ? `'${concerto}` : '',
     c.local || '',
     c.programa || '',
     c.notas || '',
@@ -241,7 +259,7 @@ export function useConcerts() {
     if (!config) return;
     setIsLoading(true);
     try {
-      const rows = await readRange(config.spreadsheetId, `${TAB}!A:G`);
+      const rows = await readRange(config.spreadsheetId, `${TAB}!A:Z`);
       if (rows && rows.length > 0) {
         // Localiza a linha correta do cabeçalho caso existam títulos ou linhas vazias no topo
         let headerIndex = -1;
@@ -366,6 +384,30 @@ export function useConcerts() {
     [config, getSheetId, load]
   );
 
+  const saveAllConcerts = useCallback(async () => {
+    if (!config) return;
+    if (isLocalId(config.spreadsheetId)) {
+      toast.error('A aplicação está em Modo Local. Ligue ao Google Sheets para sincronizar.', { duration: 5000 });
+      return;
+    }
+    const toastId = toast.loading('A guardar todos os concertos e horários no Google Sheets...');
+    try {
+      await ensureTabExists();
+      const rows = [
+        HEADER,
+        ...concerts.map((c) => concertToRow(c)),
+      ];
+      await updateRange(config.spreadsheetId, `${TAB}!A1:G${rows.length}`, rows);
+      toast.success('Todos os concertos e horários foram gravados com sucesso no Google Sheets!', {
+        id: toastId,
+        duration: 4000,
+      });
+      await load();
+    } catch (err) {
+      toast.error(`Erro ao guardar no Sheets: ${err instanceof Error ? err.message : 'Erro'}`, { id: toastId });
+    }
+  }, [config, ensureTabExists, concerts, load]);
+
   const ensureHeader = useCallback(async () => {
     if (!config) return;
     try {
@@ -383,6 +425,7 @@ export function useConcerts() {
     addConcert,
     updateConcert,
     deleteConcert,
+    saveAllConcerts,
     ensureHeader,
   };
 }

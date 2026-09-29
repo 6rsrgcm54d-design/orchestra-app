@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Search, Calendar, Clock, MapPin, Music2, Pencil, Trash2, FileText, ChevronRight } from 'lucide-react';
+import { Plus, Search, Calendar, Clock, MapPin, Music2, Pencil, Trash2, FileText, ChevronRight, CloudUpload } from 'lucide-react';
 import type { Concert } from '../../types';
 import { formatTimeDisplay } from '../../types';
 import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName, CANONICAL_ORCHESTRAS } from '../../utils/orchestras';
@@ -12,6 +12,7 @@ interface ConcertsViewProps {
   onAdd: (data: Omit<Concert, 'id' | 'rowIndex'>) => void;
   onUpdate: (concert: Concert) => void;
   onDelete: (concert: Concert) => void;
+  onSaveAll?: () => void;
 }
 
 export default function ConcertsView({
@@ -21,6 +22,7 @@ export default function ConcertsView({
   onAdd,
   onUpdate,
   onDelete,
+  onSaveAll,
 }: ConcertsViewProps) {
   const [search, setSearch] = useState('');
   const [filterOrquestra, setFilterOrquestra] = useState('');
@@ -136,6 +138,18 @@ export default function ConcertsView({
               <option key={o} value={o}>{o}</option>
             ))}
           </select>
+
+          {onSaveAll && (
+            <button
+              onClick={onSaveAll}
+              disabled={isLoading}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-700 hover:border-amber-400 hover:text-amber-700 dark:hover:text-amber-300 rounded-lg font-bold text-xs transition-all shadow-xs cursor-pointer"
+              title="Guardar todos os concertos e horários no Google Sheets"
+            >
+              <CloudUpload size={15} className={isLoading ? 'animate-bounce text-amber-500' : 'text-amber-600'} />
+              <span>Guardar no Sheets</span>
+            </button>
+          )}
 
           <button
             onClick={handleAdd}

@@ -276,6 +276,7 @@ function MainApp() {
     addConcert,
     updateConcert,
     deleteConcert,
+    saveAllConcerts,
     ensureHeader: ensureConcertsHeader,
   } = useConcerts();
 
@@ -515,6 +516,7 @@ function MainApp() {
             onAdd={addConcert}
             onUpdate={updateConcert}
             onDelete={deleteConcert}
+            onSaveAll={saveAllConcerts}
           />
         );
       case 'evaluations':
