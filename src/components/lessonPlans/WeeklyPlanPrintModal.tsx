@@ -2,7 +2,7 @@ import React from 'react';
 import { X, FileDown, Mail, Info, Copy } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
-import { parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
+import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -102,21 +102,33 @@ export function generateWeeklyEmailBody(plan: WeeklyPlan, includePdfNotice: bool
     const dataFmt = formatDatePT(d.data);
     text += `${diaNome}${dataFmt ? ` (${dataFmt})` : ''}\n`;
 
-    const repItems = parseDayRepertoire(d.obras, d.horario);
-    const hasSpecific = hasSpecificHoursInRepertoire(repItems);
+    const blocks = parseDayRepertoireBlocks(d.obras, d.horario);
+    const hasSpecific = blocks.some((b) => b.hasSpecificTime);
 
     if (hasSpecific) {
-      repItems.forEach((it) => {
-        const h = it.horario || d.horario || 'A definir';
-        text += `${h} — ${it.obra}\n`;
+      blocks.forEach((b) => {
+        if (b.horario) {
+          text += `${b.horario} — ${b.titulo}\n`;
+        } else if (b.titulo) {
+          text += `${b.titulo}\n`;
+        }
+        (b.detalhes || []).forEach((det) => {
+          text += `  • ${det}\n`;
+        });
       });
     } else {
-      const horas = d.horario ? d.horario.trim() : 'A definir';
-      if (repItems.length <= 1) {
-        text += `${horas} — ${repItems[0]?.obra || 'Trabalho de repertório'}\n`;
-      } else {
-        text += `${horas} — ${repItems.map((it) => it.obra).join(' / ')}\n`;
+      const horas = d.horario && d.horario.trim() ? d.horario.trim() : '';
+      if (horas) {
+        text += `Horário: ${horas}\n`;
       }
+      blocks.forEach((b) => {
+        if (b.titulo) {
+          text += `• ${b.titulo}\n`;
+        }
+        (b.detalhes || []).forEach((det) => {
+          text += `  • ${det}\n`;
+        });
+      });
     }
 
     if (d.local && d.local.trim()) {
@@ -174,107 +186,82 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
       const dataFmt = formatDatePT(d.data);
       const bg = dayIdx % 2 === 1 ? 'background-color: #fafaf9;' : 'background-color: #ffffff;';
 
-      const repItems = parseDayRepertoire(d.obras, d.horario);
-      const hasSpecific = hasSpecificHoursInRepertoire(repItems);
+      const blocks = parseDayRepertoireBlocks(d.obras, d.horario);
+      const hasSpecific = blocks.some((b) => b.hasSpecificTime);
+      const numRows = blocks.length;
 
-      if (hasSpecific && repItems.length > 0) {
-        const numRows = repItems.length;
-        return repItems
-          .map((it, itemIdx) => {
-            const isFirst = itemIdx === 0;
-            const isLast = itemIdx === numRows - 1;
-            const borderTop = itemIdx > 0 ? 'border-top: 1px dashed #e5e7eb;' : '';
+      return blocks
+        .map((b, blockIdx) => {
+          const isFirst = blockIdx === 0;
+          const isLast = blockIdx === numRows - 1;
+          const borderTop = blockIdx > 0 ? 'border-top: 1px dashed #e5e7eb;' : '';
 
-            const dateCell = isFirst
-              ? `<td rowspan="${numRows}" style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
-                  <div style="font-size: 13px; font-weight: 900; color: #111827; letter-spacing: 0.3px;">
-                    ${escapeHtml(diaNome)}
-                  </div>
-                  <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 3px;">
-                    ${escapeHtml(dataFmt)}
-                  </div>
+          const dateCell = isFirst
+            ? `<td rowspan="${numRows}" style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
+                <div style="font-size: 13px; font-weight: 900; color: #111827; letter-spacing: 0.3px;">
+                  ${escapeHtml(diaNome)}
+                </div>
+                <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 3px;">
+                  ${escapeHtml(dataFmt)}
+                </div>
+              </td>`
+            : '';
+
+          const obsCell =
+            hasAnyObservations && isFirst
+              ? `<td rowspan="${numRows}" style="border: 1px solid #d1d5db; padding: 12px 10px; width: 170px; vertical-align: top; font-size: 11px; color: #374151; font-weight: 600; line-height: 1.4;">
+                  ${d.observacoes && d.observacoes.trim() ? escapeHtml(d.observacoes.trim()) : ''}
                 </td>`
               : '';
 
-            const obsCell =
-              hasAnyObservations && isFirst
-                ? `<td rowspan="${numRows}" style="border: 1px solid #d1d5db; padding: 12px 10px; width: 170px; vertical-align: top; font-size: 11px; color: #374151; font-weight: 600; line-height: 1.4;">
-                    ${d.observacoes && d.observacoes.trim() ? escapeHtml(d.observacoes.trim()) : ''}
-                  </td>`
-                : '';
+          const localDisplay =
+            isLast && d.local
+              ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 4px;">${escapeHtml(d.local)}</div>`
+              : '';
 
-            const localDisplay =
-              isLast && d.local
-                ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 4px;">${escapeHtml(d.local)}</div>`
-                : '';
+          // Apenas mostra os horários que o utilizador colocou no texto livre!
+          // Se o dia não tiver nenhum horário no texto livre, recorre a d.horario como fallback geral.
+          const hoursDisplay = hasSpecific
+            ? (b.horario || '')
+            : (d.horario || 'A definir');
 
-            const hoursDisplay = it.horario || d.horario || 'A definir';
+          const hoursHtml = hoursDisplay
+            ? `<div style="font-size: 16px; font-weight: 900; color: #111827; letter-spacing: -0.3px; line-height: 1.2;">
+                ${escapeHtml(hoursDisplay)}
+              </div>`
+            : '';
 
-            return `
-              <tr style="${bg} page-break-inside: avoid;">
-                ${dateCell}
-                <td style="border: 1px solid #d1d5db; ${borderTop} padding: 10px 10px; width: 160px; vertical-align: middle;">
-                  <div style="font-size: 16px; font-weight: 900; color: #111827; letter-spacing: -0.3px; line-height: 1.2;">
-                    ${escapeHtml(hoursDisplay)}
-                  </div>
-                  ${localDisplay}
-                </td>
-                <td style="border: 1px solid #d1d5db; ${borderTop} padding: 10px 10px; vertical-align: middle; font-size: 13px; font-weight: 700; color: #111827; line-height: 1.4;">
-                  ${escapeHtml(it.obra)}
-                </td>
-                ${obsCell}
-              </tr>
-            `;
-          })
-          .join('');
-      }
+          const mainTitleHtml = b.titulo
+            ? `<div style="font-size: 13px; font-weight: 800; color: #111827; line-height: 1.4;">
+                ${escapeHtml(b.titulo)}
+              </div>`
+            : '';
 
-      const obrasFormatted = escapeHtml(d.obras || 'Trabalho de repertório geral')
-        .split('\n')
-        .filter((l) => l.trim().length > 0)
-        .map((l) => {
-          const trimmed = l.trim();
-          if (trimmed.startsWith('•') || trimmed.startsWith('-')) {
-            return `<div style="margin: 2px 0 2px 8px; color: #1f2937; font-weight: 500;">${trimmed}</div>`;
-          }
-          return `<div style="margin: 3px 0; color: #111827; font-weight: 700;">• ${trimmed}</div>`;
+          const detailsHtml = (b.detalhes || [])
+            .map(
+              (det) =>
+                `<div style="font-size: 11px; font-weight: 500; color: #374151; line-height: 1.35; margin-top: 3px; padding-left: 8px;">
+                  • ${escapeHtml(det)}
+                </div>`
+            )
+            .join('');
+
+          return `
+            <tr style="${bg} page-break-inside: avoid;">
+              ${dateCell}
+              <td style="border: 1px solid #d1d5db; ${borderTop} padding: 10px 10px; width: 160px; vertical-align: middle;">
+                ${hoursHtml}
+                ${localDisplay}
+              </td>
+              <td style="border: 1px solid #d1d5db; ${borderTop} padding: 10px 10px; vertical-align: middle;">
+                ${mainTitleHtml}
+                ${detailsHtml}
+              </td>
+              ${obsCell}
+            </tr>
+          `;
         })
         .join('');
-
-      return `
-        <tr style="${bg} page-break-inside: avoid;">
-          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
-            <div style="font-size: 13px; font-weight: 900; color: #111827; letter-spacing: 0.3px;">
-              ${escapeHtml(diaNome)}
-            </div>
-            <div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 3px;">
-              ${escapeHtml(dataFmt)}
-            </div>
-          </td>
-          <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 160px; vertical-align: top;">
-            <div style="font-size: 16px; font-weight: 900; color: #111827; letter-spacing: -0.3px; line-height: 1.2;">
-              ${escapeHtml(d.horario || 'A definir')}
-            </div>
-            ${
-              d.local
-                ? `<div style="font-size: 11px; color: #6b7280; font-weight: 600; margin-top: 4px;">${escapeHtml(d.local)}</div>`
-                : ''
-            }
-          </td>
-          <td style="border: 1px solid #d1d5db; padding: 12px 10px; vertical-align: top; font-size: 12px; line-height: 1.5;">
-            ${obrasFormatted}
-          </td>
-          ${
-            hasAnyObservations
-              ? `
-            <td style="border: 1px solid #d1d5db; padding: 12px 10px; width: 170px; vertical-align: top; font-size: 11px; color: #374151; font-weight: 600; line-height: 1.4;">
-              ${d.observacoes && d.observacoes.trim() ? escapeHtml(d.observacoes.trim()) : ''}
-            </td>
-          `
-              : ''
-          }
-        </tr>
-      `;
     })
     .join('');
 
@@ -610,91 +597,78 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
               </thead>
               <tbody className="divide-y divide-stone-200 text-sm">
                 {(plan.dias || []).flatMap((item, dayIdx) => {
-                  const repItems = parseDayRepertoire(item.obras, item.horario);
-                  const hasSpecific = hasSpecificHoursInRepertoire(repItems);
-                  const numRows = hasSpecific ? repItems.length : 1;
+                  const blocks = parseDayRepertoireBlocks(item.obras, item.horario);
+                  const hasSpecific = blocks.some((b) => b.hasSpecificTime);
+                  const numRows = blocks.length;
                   const bgClass = dayIdx % 2 === 1 ? 'bg-stone-50/60' : 'bg-white';
 
-                  if (hasSpecific && repItems.length > 0) {
-                    return repItems.map((it, itemIdx) => {
-                      const isFirst = itemIdx === 0;
-                      const isLast = itemIdx === numRows - 1;
-                      const hoursDisplay = it.horario || item.horario || 'A definir';
+                  return blocks.map((b, blockIdx) => {
+                    const isFirst = blockIdx === 0;
+                    const isLast = blockIdx === numRows - 1;
+                    const hoursDisplay = hasSpecific
+                      ? (b.horario || '')
+                      : (item.horario || 'A definir');
 
-                      return (
-                        <tr key={`${dayIdx}-${itemIdx}`} className={bgClass}>
-                          {isFirst && (
-                            <td
-                              rowSpan={numRows}
-                              className="py-3 px-3 border border-stone-300 align-top"
-                            >
-                              <div className="font-bold text-stone-900 text-sm">
-                                {formatDayOfWeek(item.data, item.diaSemana || 'Dia')}
-                              </div>
-                              <div className="text-xs text-stone-500 font-medium mt-0.5">
-                                {formatDatePT(item.data)}
-                              </div>
-                            </td>
-                          )}
+                    return (
+                      <tr key={`${dayIdx}-${blockIdx}`} className={bgClass}>
+                        {isFirst && (
+                          <td
+                            rowSpan={numRows}
+                            className="py-3 px-3 border border-stone-300 align-top"
+                          >
+                            <div className="font-bold text-stone-900 text-sm">
+                              {formatDayOfWeek(item.data, item.diaSemana || 'Dia')}
+                            </div>
+                            <div className="text-xs text-stone-500 font-medium mt-0.5">
+                              {formatDatePT(item.data)}
+                            </div>
+                          </td>
+                        )}
 
-                          <td className="py-2.5 px-3 border border-stone-300 align-middle">
+                        <td className="py-2.5 px-3 border border-stone-300 align-middle">
+                          {hoursDisplay && (
                             <div className="text-base sm:text-lg font-black text-gray-900 leading-tight">
                               {hoursDisplay}
                             </div>
-                            {isLast && item.local && (
-                              <div className="text-xs text-stone-500 font-medium mt-1">
-                                {item.local}
-                              </div>
-                            )}
-                          </td>
-
-                          <td className="py-2.5 px-3 border border-stone-300 align-middle text-sm font-bold text-stone-900 leading-relaxed">
-                            {it.obra}
-                          </td>
-
-                          {hasAnyObservations && isFirst && (
-                            <td
-                              rowSpan={numRows}
-                              className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-700 font-medium leading-relaxed"
-                            >
-                              {item.observacoes && item.observacoes.trim() ? item.observacoes.trim() : ''}
-                            </td>
                           )}
-                        </tr>
-                      );
-                    });
-                  }
-
-                  return (
-                    <tr key={dayIdx} className={bgClass}>
-                      <td className="py-3 px-3 border border-stone-300 align-top">
-                        <div className="font-bold text-stone-900 text-sm">
-                          {formatDayOfWeek(item.data, item.diaSemana || 'Dia')}
-                        </div>
-                        <div className="text-xs text-stone-500 font-medium mt-0.5">
-                          {formatDatePT(item.data)}
-                        </div>
-                      </td>
-                      <td className="py-3 px-3 border border-stone-300 align-top">
-                        <div className="text-base sm:text-lg font-black text-gray-900 leading-tight">
-                          {item.horario || 'A definir'}
-                        </div>
-                        {item.local && (
-                          <div className="text-xs text-stone-500 font-medium mt-1">
-                            {item.local}
-                          </div>
-                        )}
-                      </td>
-                      <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-900 leading-relaxed whitespace-pre-line font-medium">
-                        {item.obras}
-                      </td>
-                      {hasAnyObservations && (
-                        <td className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-700 font-medium leading-relaxed">
-                          {item.observacoes && item.observacoes.trim() ? item.observacoes.trim() : ''}
+                          {isLast && item.local && (
+                            <div className="text-xs text-stone-500 font-medium mt-1">
+                              {item.local}
+                            </div>
+                          )}
                         </td>
-                      )}
-                    </tr>
-                  );
+
+                        <td className="py-2.5 px-3 border border-stone-300 align-middle">
+                          {b.titulo && (
+                            <div className="text-sm font-bold text-stone-900 leading-snug">
+                              {b.titulo}
+                            </div>
+                          )}
+                          {(b.detalhes || []).length > 0 && (
+                            <div className="mt-1 space-y-0.5 pl-2">
+                              {b.detalhes.map((det, detIdx) => (
+                                <div
+                                  key={detIdx}
+                                  className="text-xs font-medium text-stone-600 leading-normal"
+                                >
+                                  • {det}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </td>
+
+                        {hasAnyObservations && isFirst && (
+                          <td
+                            rowSpan={numRows}
+                            className="py-3 px-3 border border-stone-300 align-top text-xs text-stone-700 font-medium leading-relaxed"
+                          >
+                            {item.observacoes && item.observacoes.trim() ? item.observacoes.trim() : ''}
+                          </td>
+                        )}
+                      </tr>
+                    );
+                  });
                 })}
               </tbody>
             </table>

@@ -2,7 +2,12 @@ import React, { useState } from 'react';
 import { X, Plus, Trash2, Sparkles, Calendar, Clock, MapPin, Users, Music2, AlertCircle } from 'lucide-react';
 import type { WeeklyPlan, WeeklyPlanDay, LessonPlan } from '../../types';
 import toast from 'react-hot-toast';
-import { parseDayRepertoire, serializeRepertoireItems } from '../../utils/weeklyPlanParser';
+import {
+  parseDayRepertoire,
+  serializeRepertoireItems,
+  parseDayRepertoireBlocks,
+  TIME_PREFIX_REGEX,
+} from '../../utils/weeklyPlanParser';
 import { CANONICAL_ORCHESTRAS, isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList } from '../../utils/orchestras';
 
 interface DayPieceItem {
@@ -30,11 +35,21 @@ function parseItemsFromDay(obrasText?: string, defaultHorario?: string): DayPiec
 
 function initEditableDays(days?: WeeklyPlanDay[], defaultStart?: string): EditableWeeklyPlanDay[] {
   if (days && days.length > 0) {
-    return days.map((d) => ({
-      ...d,
-      items: parseItemsFromDay(d.obras, d.horario),
-      isRawMode: false,
-    }));
+    return days.map((d) => {
+      const lines = (d.obras || '')
+        .split('\n')
+        .map((l) => l.trim())
+        .filter((l) => l.length > 0);
+      const hasSpecificTimeInSome = lines.some((l) => TIME_PREFIX_REGEX.test(l));
+      const hasUntimedLines = lines.some((l) => !TIME_PREFIX_REGEX.test(l));
+      const isRaw = d.isRawMode ?? (hasSpecificTimeInSome && hasUntimedLines);
+
+      return {
+        ...d,
+        items: parseItemsFromDay(d.obras, d.horario),
+        isRawMode: isRaw,
+      };
+    });
   }
 
   return [
@@ -351,10 +366,28 @@ export default function WeeklyPlanFormModal({
       return;
     }
 
-    const cleanedDias: WeeklyPlanDay[] = dias.map(({ items, isRawMode, ...rest }) => ({
-      ...rest,
-      obras: isRawMode ? rest.obras.trim() : serializeRepertoireItems(items).trim(),
-    }));
+    const cleanedDias: WeeklyPlanDay[] = dias.map(({ items, isRawMode, ...rest }) => {
+      const finalObras = isRawMode ? rest.obras.trim() : serializeRepertoireItems(items).trim();
+
+      // Se o utilizador escreveu horários no texto livre, sincroniza o horário do dia se estiver com o default
+      let finalHorario = rest.horario ? rest.horario.trim() : '';
+      if (isRawMode && finalObras) {
+        const blocks = parseDayRepertoireBlocks(finalObras, finalHorario);
+        const specificTimes = blocks.map((b) => b.horario).filter(Boolean);
+        if (specificTimes.length > 0) {
+          if (!finalHorario || finalHorario === '17:30 - 19:30') {
+            finalHorario = specificTimes.join(' / ');
+          }
+        }
+      }
+
+      return {
+        ...rest,
+        horario: finalHorario || 'A definir',
+        obras: finalObras,
+        isRawMode: Boolean(isRawMode),
+      };
+    });
 
     const emptyDay = cleanedDias.find((d) => !d.obras || d.obras.trim().length === 0);
     if (emptyDay) {

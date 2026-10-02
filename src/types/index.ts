@@ -312,6 +312,7 @@ export interface WeeklyPlanDay {
   naipes?: string; // ex: "Tutti Geral", "Apenas Cordas", "Madeiras e Metais"
   obras: string; // Obras a ensaiar e movimentos/compassos de estudo
   observacoes?: string; // Recomendações específicas para o dia
+  isRawMode?: boolean; // Modo texto livre no formulário
 }
 
 export interface WeeklyPlan {

@@ -31,7 +31,7 @@ import WeeklyPlanFormModal from './WeeklyPlanFormModal';
 import WeeklyPlanPrintModal, { generateWeeklyEmailBody } from './WeeklyPlanPrintModal';
 import { useWeeklyPlans } from '../../hooks/useWeeklyPlans';
 import { useSheets } from '../../context/SheetsContext';
-import { parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
+import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
 
 interface LessonPlansViewProps {
@@ -854,58 +854,74 @@ export default function LessonPlansView({
                               key={dia.id || idx}
                               className="p-3 bg-stone-50/80 dark:bg-gray-900/50 rounded-xl border border-stone-200/80 dark:border-gray-700/60"
                             >
-                              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1.5 border-b border-stone-200/50 dark:border-gray-700/50">
-                                <div className="flex items-center gap-2">
-                                  <span className="font-bold text-xs uppercase tracking-wider text-stone-900 dark:text-white">
-                                    {dia.diaSemana}
-                                  </span>
-                                  <span className="text-[11px] text-stone-500 dark:text-gray-400 font-medium">
-                                    {formatDatePTShort(dia.data)}
-                                  </span>
-                                </div>
-
-                                <div className="flex items-center gap-2">
-                                  <span className="font-mono text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded">
-                                    {dia.horario || 'A definir'}
-                                  </span>
-                                  {dia.naipes && (
-                                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">
-                                      {dia.naipes.replace(/tutti\s+geral/gi, 'Tutti')}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-
                               {(() => {
-                                const repItems = parseDayRepertoire(dia.obras, dia.horario);
-                                const hasSpecific = hasSpecificHoursInRepertoire(repItems);
-
-                                if (hasSpecific && repItems.length > 0) {
-                                  return (
-                                    <div className="pt-2 space-y-1.5">
-                                      {repItems.map((it, itemIdx) => (
-                                        <div
-                                          key={it.id || itemIdx}
-                                          className="flex items-start gap-2 p-1.5 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30"
-                                        >
-                                          {it.horario && (
-                                            <span className="font-mono text-xs font-black text-amber-900 dark:text-amber-200 bg-white dark:bg-gray-800 px-2 py-0.5 rounded shadow-2xs border border-amber-200 dark:border-amber-800 flex-shrink-0">
-                                              {it.horario}
-                                            </span>
-                                          )}
-                                          <span className="text-xs font-bold text-stone-900 dark:text-white leading-snug">
-                                            {it.obra}
-                                          </span>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  );
-                                }
+                                const blocks = parseDayRepertoireBlocks(dia.obras, dia.horario);
+                                const hasSpecific = blocks.some((b) => b.hasSpecificTime);
+                                const specificTimes = blocks.map((b) => b.horario).filter(Boolean);
+                                const displayHours =
+                                  hasSpecific && specificTimes.length > 0
+                                    ? specificTimes.join(' • ')
+                                    : dia.horario || 'A definir';
 
                                 return (
-                                  <div className="pt-2 text-xs text-stone-800 dark:text-gray-200 whitespace-pre-line leading-relaxed font-medium">
-                                    {dia.obras}
-                                  </div>
+                                  <>
+                                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 pb-1.5 border-b border-stone-200/50 dark:border-gray-700/50">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-xs uppercase tracking-wider text-stone-900 dark:text-white">
+                                          {dia.diaSemana}
+                                        </span>
+                                        <span className="text-[11px] text-stone-500 dark:text-gray-400 font-medium">
+                                          {formatDatePTShort(dia.data)}
+                                        </span>
+                                      </div>
+
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-mono text-xs font-bold text-amber-900 dark:text-amber-200 bg-amber-100 dark:bg-amber-900/50 px-2 py-0.5 rounded">
+                                          {displayHours}
+                                        </span>
+                                        {dia.naipes && (
+                                          <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 dark:text-emerald-300 bg-emerald-100 dark:bg-emerald-900/40 px-1.5 py-0.5 rounded">
+                                            {dia.naipes.replace(/tutti\s+geral/gi, 'Tutti')}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    {blocks.length > 0 && (hasSpecific || blocks[0].detalhes.length > 0) ? (
+                                      <div className="pt-2 space-y-2">
+                                        {blocks.map((b, bIdx) => (
+                                          <div
+                                            key={b.id || bIdx}
+                                            className="p-2 rounded-lg bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200/60 dark:border-amber-900/30 space-y-1"
+                                          >
+                                            <div className="flex items-start gap-2">
+                                              {b.horario && (
+                                                <span className="font-mono text-xs font-black text-amber-900 dark:text-amber-200 bg-white dark:bg-gray-800 px-2 py-0.5 rounded shadow-2xs border border-amber-200 dark:border-amber-800 flex-shrink-0">
+                                                  {b.horario}
+                                                </span>
+                                              )}
+                                              <span className="text-xs font-bold text-stone-900 dark:text-white leading-snug">
+                                                {b.titulo}
+                                              </span>
+                                            </div>
+                                            {b.detalhes.length > 0 && (
+                                              <div className="pl-3 space-y-0.5 text-xs text-stone-600 dark:text-stone-300 font-medium">
+                                                {b.detalhes.map((det, dIdx) => (
+                                                  <div key={dIdx} className="leading-snug">
+                                                    • {det}
+                                                  </div>
+                                                ))}
+                                              </div>
+                                            )}
+                                          </div>
+                                        ))}
+                                      </div>
+                                    ) : (
+                                      <div className="pt-2 text-xs text-stone-800 dark:text-gray-200 whitespace-pre-line leading-relaxed font-medium">
+                                        {dia.obras}
+                                      </div>
+                                    )}
+                                  </>
                                 );
                               })()}
 
