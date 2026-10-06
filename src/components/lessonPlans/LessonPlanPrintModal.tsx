@@ -1,7 +1,6 @@
 import React from 'react';
 import { X, Printer, Calendar, Clock, Music2, FileDown, CheckSquare, Info } from 'lucide-react';
 import type { LessonPlan } from '../../types';
-import { exportCleanPdfFromElement } from '../../utils/pdfExport';
 
 interface LessonPlanPrintModalProps {
   plan: LessonPlan;
@@ -349,28 +348,8 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
 }
 
 export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintModalProps) {
-  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
-  const sheetRef = React.useRef<HTMLDivElement>(null);
-
   const handlePrint = () => {
     printLessonPlanToPdf(plan);
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!sheetRef.current) {
-      handlePrint();
-      return;
-    }
-    setIsGeneratingPdf(true);
-    try {
-      const orchClean = (plan.orquestra || 'Orquestra').replace(/\s+/g, '_');
-      const filename = `Plano_Aula_${orchClean}_${plan.data}.pdf`;
-      await exportCleanPdfFromElement(sheetRef.current, filename, 'A gerar PDF limpo sem endereço no rodapé...');
-    } catch {
-      handlePrint();
-    } finally {
-      setIsGeneratingPdf(false);
-    }
   };
 
   const totalMinutos = (plan.itens || []).reduce((acc, it) => {
@@ -412,38 +391,24 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
               <span className="font-bold text-sm text-gray-800 dark:text-white">
                 Impressão & Exportação em PDF
               </span>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-red-100 dark:bg-red-900/40 text-red-700 dark:text-red-300 border border-red-200 dark:border-red-800/60">
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800/60">
                 PDF Limpo
               </span>
             </div>
             <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5 flex items-center gap-1">
               <Info size={12} className="text-amber-500 flex-shrink-0" />
-              <span>Para guardar o PDF sem menus nem fundos escuros, clique no botão e escolha <strong>"Guardar como PDF"</strong>.</span>
+              <span>Layout limpo sem menus nem fundos escuros. No iPad, faça zoom na folha com 2 dedos para abrir diretamente o PDF.</span>
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
-            {/* Guardar em PDF (Limpo - sem URL no fundo da página) */}
-            <button
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy hover:bg-orchestra-gold-light font-bold text-xs rounded-lg transition-all shadow active:scale-95 disabled:opacity-50 cursor-pointer"
-              title="Descarregar ficheiro PDF oficial limpo sem endereço no fundo da página (ideal para iPad e PC)"
-            >
-              <FileDown size={15} />
-              <span>{isGeneratingPdf ? 'A gerar PDF...' : 'Guardar em PDF'}</span>
-            </button>
-
-            {/* Imprimir via AirPrint / Sistema */}
+          <div className="flex items-center gap-2 self-end sm:self-auto">
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-2 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
-              title="Imprimir diretamente para impressora (AirPrint no iPad)"
+              className="flex items-center gap-2 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow-md active:scale-95"
             >
-              <Printer size={14} />
-              <span>Imprimir</span>
+              <FileDown size={16} />
+              Guardar em PDF / Imprimir
             </button>
-
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -455,12 +420,7 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
         </div>
 
         {/* Pré-visualização da Folha Oficial de Ensaio */}
-        <div className="p-4 sm:p-6 bg-stone-100 flex justify-center max-h-[80vh] overflow-y-auto">
-          <div
-            ref={sheetRef}
-            className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 shadow-xl rounded-xl border border-gray-200"
-            style={{ width: '100%', maxWidth: '820px', minWidth: '700px' }}
-          >
+        <div className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 max-h-[80vh] overflow-y-auto">
           {/* Cabeçalho Oficial */}
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
@@ -571,6 +531,5 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }

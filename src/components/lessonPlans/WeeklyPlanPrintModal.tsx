@@ -3,7 +3,6 @@ import { X, FileDown, Mail, Info, Copy, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
-import { exportCleanPdfFromElement } from '../../utils/pdfExport';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -455,28 +454,9 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 
 export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintModalProps) {
   const [includePdfNotice, setIncludePdfNotice] = React.useState(true);
-  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
-  const sheetRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
     printWeeklyPlanToPdf(plan);
-  };
-
-  const handleDownloadPdf = async () => {
-    if (!sheetRef.current) {
-      handlePrint();
-      return;
-    }
-    setIsGeneratingPdf(true);
-    try {
-      const orchClean = (plan.orquestra || 'Orquestra_Artave').replace(/\s+/g, '_');
-      const filename = `Plano_Semanal_${orchClean}_${plan.semanaInicio}.pdf`;
-      await exportCleanPdfFromElement(sheetRef.current, filename, 'A gerar PDF oficial sem endereço...');
-    } catch {
-      handlePrint();
-    } finally {
-      setIsGeneratingPdf(false);
-    }
   };
 
   const handleSendGmail = () => {
@@ -556,25 +536,14 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
               Enviar no Gmail
             </button>
 
-            {/* Guardar PDF (Limpo - sem URL de rodapé) */}
-            <button
-              onClick={handleDownloadPdf}
-              disabled={isGeneratingPdf}
-              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy hover:bg-orchestra-gold-light font-bold text-xs rounded-lg transition-all shadow active:scale-95 disabled:opacity-50 cursor-pointer"
-              title="Descarregar ficheiro PDF oficial limpo sem endereço no fundo da página (ideal para iPad e PC)"
-            >
-              <FileDown size={15} />
-              <span>{isGeneratingPdf ? 'A gerar PDF...' : 'Guardar em PDF'}</span>
-            </button>
-
-            {/* Imprimir via AirPrint / Sistema */}
+            {/* Guardar PDF / Imprimir */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-1.5 px-3 py-2 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
-              title="Imprimir diretamente para impressora (AirPrint no iPad)"
+              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy hover:bg-orchestra-gold-light font-bold text-xs rounded-lg transition-all shadow active:scale-95 cursor-pointer"
+              title="Guardar em PDF ou imprimir (sem endereço no rodapé)"
             >
-              <Printer size={14} />
-              <span>Imprimir</span>
+              <FileDown size={15} />
+              <span>Guardar em PDF / Imprimir</span>
             </button>
 
             <button
@@ -594,7 +563,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
               iPad / PC
             </span>
             <span>
-              Clique em <strong>"Guardar em PDF"</strong> para descarregar o documento <strong>100% limpo, sem o endereço da app no fundo</strong>.
+              Margens e títulos ajustados para <strong>ocultar o endereço no rodapé da página</strong>.
             </span>
           </div>
 
@@ -610,12 +579,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
         </div>
 
         {/* Pré-visualização da Folha Oficial A4 */}
-        <div className="p-4 sm:p-8 bg-stone-100 flex justify-center max-h-[80vh] overflow-auto">
-          <div
-            ref={sheetRef}
-            style={{ width: '100%', maxWidth: '820px', minWidth: '700px' }}
-            className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 shadow-md rounded-sm"
-          >
+        <div className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 max-h-[80vh] overflow-y-auto">
             {/* Cabeçalho Oficial */}
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
@@ -751,6 +715,5 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
         </div>
       </div>
     </div>
-  </div>
-);
+  );
 }
