@@ -1,8 +1,9 @@
 import React from 'react';
-import { X, FileDown, Mail, Info, Copy } from 'lucide-react';
+import { X, FileDown, Mail, Info, Copy, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
+import { exportCleanPdfFromElement } from '../../utils/pdfExport';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -270,11 +271,20 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
     <html lang="pt">
     <head>
       <meta charset="utf-8">
-      <title>Plano Semanal de Ensaios - ${escapeHtml(orch)}</title>
+      <title></title>
       <style>
         @page {
           size: A4 portrait;
-          margin: 12mm 15mm;
+          margin: 0 !important;
+        }
+        @page :left {
+          margin: 0 !important;
+        }
+        @page :right {
+          margin: 0 !important;
+        }
+        @page :first {
+          margin: 0 !important;
         }
         * {
           box-sizing: border-box;
@@ -284,10 +294,15 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
         html, body {
           background: #ffffff !important;
           color: #111827 !important;
-          margin: 0;
-          padding: 0;
+          margin: 0 !important;
+          padding: 0 !important;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           font-size: 13px;
+        }
+        .print-sheet {
+          padding: 12mm 15mm;
+          box-sizing: border-box;
+          width: 100%;
         }
         .header {
           border-bottom: 2.5px solid #111827;
@@ -377,45 +392,47 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
       </style>
     </head>
     <body>
-      <div class="header">
-        <div>
-          <div class="institution-badge">Escola Profissional Artística do Vale do Ave</div>
-          <h1 class="title">Plano Semanal de Ensaios</h1>
-          <div class="official-subtitle">${escapeHtml(orch)} • Ano letivo ${escapeHtml(ano)}</div>
+      <div class="print-sheet">
+        <div class="header">
+          <div>
+            <div class="institution-badge">Escola Profissional Artística do Vale do Ave</div>
+            <h1 class="title">Plano Semanal de Ensaios</h1>
+            <div class="official-subtitle">${escapeHtml(orch)} • Ano letivo ${escapeHtml(ano)}</div>
+          </div>
+          <div class="week-badge-box">
+            <div class="week-range">${escapeHtml(formatWeekRange(plan.semanaInicio, plan.semanaFim))}</div>
+          </div>
         </div>
-        <div class="week-badge-box">
-          <div class="week-range">${escapeHtml(formatWeekRange(plan.semanaInicio, plan.semanaFim))}</div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 160px;">Dia & Data</th>
+              <th style="width: 160px;">Horas</th>
+              <th>Repertório</th>
+              ${hasAnyObservations ? '<th style="width: 170px;">Observações</th>' : ''}
+            </tr>
+          </thead>
+          <tbody>
+            ${daysHtml}
+          </tbody>
+        </table>
+
+        ${
+          hasAvisos
+            ? `
+          <div class="avisos-box">
+            <div class="avisos-title">Avisos da Semana</div>
+            <div style="font-size: 12px; color: #78350f; line-height: 1.5; white-space: pre-line;">${escapeHtml(plan.avisosGerais || '')}</div>
+          </div>
+        `
+            : ''
+        }
+
+        <div class="footer">
+          <span>${escapeHtml(rodape)}</span>
+          <span style="font-size: 9px; color: #9ca3af; font-weight: normal;">Emitido em ${new Date().toLocaleDateString('pt-PT')}</span>
         </div>
-      </div>
-
-      <table>
-        <thead>
-          <tr>
-            <th style="width: 160px;">Dia & Data</th>
-            <th style="width: 160px;">Horas</th>
-            <th>Repertório</th>
-            ${hasAnyObservations ? '<th style="width: 170px;">Observações</th>' : ''}
-          </tr>
-        </thead>
-        <tbody>
-          ${daysHtml}
-        </tbody>
-      </table>
-
-      ${
-        hasAvisos
-          ? `
-        <div class="avisos-box">
-          <div class="avisos-title">Avisos da Semana</div>
-          <div style="font-size: 12px; color: #78350f; line-height: 1.5; white-space: pre-line;">${escapeHtml(plan.avisosGerais || '')}</div>
-        </div>
-      `
-          : ''
-      }
-
-      <div class="footer">
-        <span>${escapeHtml(rodape)}</span>
-        <span style="font-size: 9px; color: #9ca3af; font-weight: normal;">Emitido em ${new Date().toLocaleDateString('pt-PT')}</span>
       </div>
     </body>
     </html>
@@ -438,9 +455,28 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 
 export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintModalProps) {
   const [includePdfNotice, setIncludePdfNotice] = React.useState(true);
+  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
+  const sheetRef = React.useRef<HTMLDivElement>(null);
 
   const handlePrint = () => {
     printWeeklyPlanToPdf(plan);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!sheetRef.current) {
+      handlePrint();
+      return;
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const orchClean = (plan.orquestra || 'Orquestra_Artave').replace(/\s+/g, '_');
+      const filename = `Plano_Semanal_${orchClean}_${plan.semanaInicio}.pdf`;
+      await exportCleanPdfFromElement(sheetRef.current, filename, 'A gerar PDF oficial sem endereço...');
+    } catch {
+      handlePrint();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const handleSendGmail = () => {
@@ -520,13 +556,25 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
               Enviar no Gmail
             </button>
 
-            {/* Guardar PDF / Imprimir */}
+            {/* Guardar PDF (Limpo - sem URL de rodapé) */}
             <button
-              onClick={handlePrint}
-              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy hover:bg-orchestra-gold-light font-bold text-xs rounded-lg transition-all shadow active:scale-95"
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy hover:bg-orchestra-gold-light font-bold text-xs rounded-lg transition-all shadow active:scale-95 disabled:opacity-50 cursor-pointer"
+              title="Descarregar ficheiro PDF oficial limpo sem endereço no fundo da página (ideal para iPad e PC)"
             >
               <FileDown size={15} />
-              Guardar em PDF / Imprimir
+              <span>{isGeneratingPdf ? 'A gerar PDF...' : 'Guardar em PDF'}</span>
+            </button>
+
+            {/* Imprimir via AirPrint / Sistema */}
+            <button
+              onClick={handlePrint}
+              className="flex items-center gap-1.5 px-3 py-2 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+              title="Imprimir diretamente para impressora (AirPrint no iPad)"
+            >
+              <Printer size={14} />
+              <span>Imprimir</span>
             </button>
 
             <button
@@ -542,9 +590,11 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
         {/* Barra de Apoio e Opção de Anexo */}
         <div className="bg-amber-50/80 border-b border-amber-200/80 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
           <div className="flex items-center gap-2">
-            <span className="font-bold text-amber-850">Como enviar com PDF:</span>
+            <span className="font-bold text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded text-[10px] uppercase tracking-wide">
+              iPad / PC
+            </span>
             <span>
-              1º Clique em <strong>"Guardar em PDF / Imprimir"</strong> ➔ 2º No Gmail aberto, anexe o PDF clicando no clipe (📎).
+              Clique em <strong>"Guardar em PDF"</strong> para descarregar o documento <strong>100% limpo, sem o endereço da app no fundo</strong>.
             </span>
           </div>
 
@@ -560,8 +610,13 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
         </div>
 
         {/* Pré-visualização da Folha Oficial A4 */}
-        <div className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 max-h-[80vh] overflow-y-auto">
-          {/* Cabeçalho Oficial */}
+        <div className="p-4 sm:p-8 bg-stone-100 flex justify-center max-h-[80vh] overflow-auto">
+          <div
+            ref={sheetRef}
+            style={{ width: '100%', maxWidth: '820px', minWidth: '700px' }}
+            className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 shadow-md rounded-sm"
+          >
+            {/* Cabeçalho Oficial */}
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-widest font-black text-amber-700 mb-1">
@@ -696,5 +751,6 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }

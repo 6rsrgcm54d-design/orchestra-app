@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Printer, Calendar, Clock, Music2, FileDown, CheckSquare, Info } from 'lucide-react';
 import type { LessonPlan } from '../../types';
+import { exportCleanPdfFromElement } from '../../utils/pdfExport';
 
 interface LessonPlanPrintModalProps {
   plan: LessonPlan;
@@ -109,11 +110,20 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
     <html lang="pt">
     <head>
       <meta charset="utf-8">
-      <title>Plano de Aula - ${escapeHtml(plan.orquestra)} - ${escapeHtml(plan.data)}</title>
+      <title></title>
       <style>
         @page {
           size: A4 portrait;
-          margin: 12mm 15mm;
+          margin: 0 !important;
+        }
+        @page :left {
+          margin: 0 !important;
+        }
+        @page :right {
+          margin: 0 !important;
+        }
+        @page :first {
+          margin: 0 !important;
         }
         * {
           box-sizing: border-box;
@@ -123,10 +133,15 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
         html, body {
           background: #ffffff !important;
           color: #111827 !important;
-          margin: 0;
-          padding: 0;
+          margin: 0 !important;
+          padding: 0 !important;
           font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
           font-size: 13px;
+        }
+        .print-sheet {
+          padding: 12mm 15mm;
+          box-sizing: border-box;
+          width: 100%;
         }
         .header {
           border-bottom: 2px solid #111827;
@@ -244,7 +259,8 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
       </style>
     </head>
     <body>
-      <div class="header">
+      <div class="print-sheet">
+        <div class="header">
         <div>
           <div class="badge-institution">${escapeHtml(plan.orquestra ? (plan.orquestra.toLowerCase().startsWith('orquestra') ? plan.orquestra : 'Orquestra ' + plan.orquestra) : 'Orquestra')}</div>
           <h1 class="title">Plano de Aula & Ensaio</h1>
@@ -312,7 +328,8 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
         </div>
         <div class="conductor-box">Espaço reservado para apontamentos na estante durante o ensaio...</div>
       </div>
-    </body>
+    </div>
+  </body>
     </html>
   `;
 
@@ -332,8 +349,28 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
 }
 
 export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintModalProps) {
+  const [isGeneratingPdf, setIsGeneratingPdf] = React.useState(false);
+  const sheetRef = React.useRef<HTMLDivElement>(null);
+
   const handlePrint = () => {
     printLessonPlanToPdf(plan);
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!sheetRef.current) {
+      handlePrint();
+      return;
+    }
+    setIsGeneratingPdf(true);
+    try {
+      const orchClean = (plan.orquestra || 'Orquestra').replace(/\s+/g, '_');
+      const filename = `Plano_Aula_${orchClean}_${plan.data}.pdf`;
+      await exportCleanPdfFromElement(sheetRef.current, filename, 'A gerar PDF limpo sem endereço no rodapé...');
+    } catch {
+      handlePrint();
+    } finally {
+      setIsGeneratingPdf(false);
+    }
   };
 
   const totalMinutos = (plan.itens || []).reduce((acc, it) => {
@@ -385,14 +422,28 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
             </p>
           </div>
 
-          <div className="flex items-center gap-2 self-end sm:self-auto">
+          <div className="flex items-center gap-2 self-end sm:self-auto flex-wrap">
+            {/* Guardar em PDF (Limpo - sem URL no fundo da página) */}
+            <button
+              onClick={handleDownloadPdf}
+              disabled={isGeneratingPdf}
+              className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy hover:bg-orchestra-gold-light font-bold text-xs rounded-lg transition-all shadow active:scale-95 disabled:opacity-50 cursor-pointer"
+              title="Descarregar ficheiro PDF oficial limpo sem endereço no fundo da página (ideal para iPad e PC)"
+            >
+              <FileDown size={15} />
+              <span>{isGeneratingPdf ? 'A gerar PDF...' : 'Guardar em PDF'}</span>
+            </button>
+
+            {/* Imprimir via AirPrint / Sistema */}
             <button
               onClick={handlePrint}
-              className="flex items-center gap-2 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow-md active:scale-95"
+              className="flex items-center gap-1.5 px-3 py-2 bg-stone-200 hover:bg-stone-300 text-stone-800 font-bold text-xs rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+              title="Imprimir diretamente para impressora (AirPrint no iPad)"
             >
-              <FileDown size={16} />
-              Guardar em PDF / Imprimir
+              <Printer size={14} />
+              <span>Imprimir</span>
             </button>
+
             <button
               onClick={onClose}
               className="p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
@@ -404,7 +455,12 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
         </div>
 
         {/* Pré-visualização da Folha Oficial de Ensaio */}
-        <div className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 max-h-[80vh] overflow-y-auto">
+        <div className="p-4 sm:p-6 bg-stone-100 flex justify-center max-h-[80vh] overflow-y-auto">
+          <div
+            ref={sheetRef}
+            className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 shadow-xl rounded-xl border border-gray-200"
+            style={{ width: '100%', maxWidth: '820px', minWidth: '700px' }}
+          >
           {/* Cabeçalho Oficial */}
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
@@ -515,5 +571,6 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
         </div>
       </div>
     </div>
-  );
+  </div>
+);
 }
