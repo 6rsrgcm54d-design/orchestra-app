@@ -45,10 +45,19 @@ export function formatNaipe(val: string | number | undefined | null): string {
   const str = String(val).trim();
   if (!str) return '';
 
+  // Termos genéricos de exclusão ou códigos não instrumentais (ex: "99", "0", "sem naipe", etc.)
+  if (/^(?:99|0|sem\s*naipe|sem|nenhum|n\/?a|nd|null|undefined|outros|outros\s*instrumentos|-|—)$/i.test(str)) {
+    return '';
+  }
+
   // Procura por número direto (ex: "1", "01", 1)
   const num = parseInt(str, 10);
-  if (!isNaN(num) && NAIPE_NUM_MAP[num] && (String(num) === str || /^\d+$/.test(str))) {
-    return NAIPE_NUM_MAP[num];
+  if (!isNaN(num) && (String(num) === str || /^\d+$/.test(str))) {
+    if (NAIPE_NUM_MAP[num]) {
+      return NAIPE_NUM_MAP[num];
+    }
+    // Qualquer número que não corresponda aos 16 naipes oficiais (ex: 99, 0, 999) NÃO é um naipe
+    return '';
   }
 
   // Procura por prefixo numérico (ex: "1 - Violino", "1. Violinos")
@@ -80,6 +89,15 @@ export function formatNaipe(val: string | number | undefined | null): string {
   if (lower === 'harpa' || lower === 'harp') return 'Harpa';
 
   return str;
+}
+
+export function isValidOrchestraNaipe(val?: string | number | null): boolean {
+  if (val === undefined || val === null) return false;
+  const formatted = formatNaipe(val);
+  if (!formatted) return false;
+  if (/^(?:99|0|sem\s*naipe|outros|nenhum|n\/?a|-|—)$/i.test(formatted)) return false;
+  if (/^\d+$/.test(formatted)) return false;
+  return true;
 }
 
 export function cleanTimeString(val: string | number | undefined | null): string {

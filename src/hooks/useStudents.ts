@@ -172,7 +172,7 @@ function parseStudentRow(
     rawNaipe &&
     rawNaipe.trim() !== '' &&
     !/^[-–—\s]+$/.test(rawNaipe.trim()) &&
-    !/^(n\/?a|nenhum|sem\s*naipe|sem|nd|null|undefined|0)$/i.test(rawNaipe.trim()) &&
+    !/^(n\/?a|nenhum|sem\s*naipe|sem|nd|null|undefined|0|99)$/i.test(rawNaipe.trim()) &&
     naipe &&
     naipe !== '—' &&
     naipe !== '-'
@@ -200,7 +200,7 @@ function parseStudentRow(
     nome: rawNome,
     chefeNaipe,
     grau,
-    naipe: naipe || rawNaipe,
+    naipe: naipe || (rawNaipe === '99' ? '' : rawNaipe),
     ativo,
     orquestra: normalizeOrchestraName(orquestraVal || tabName),
   };

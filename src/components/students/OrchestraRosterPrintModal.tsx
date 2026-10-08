@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { X, Printer, FileDown, FileSpreadsheet, Users, Crown, Info, Check } from 'lucide-react';
 import type { Student } from '../../types';
+import { isValidOrchestraNaipe } from '../../types';
 import {
   groupStudentsByOrchestra,
   groupStudentsByNaipe,
@@ -41,10 +42,11 @@ export function printOrchestraRosterToPdf(
   targetOrchestra: string,
   availableOrchestras?: string[]
 ) {
+  const validStudents = students.filter((s) => isValidOrchestraNaipe(s.naipe));
   const targetStudents =
     targetOrchestra && targetOrchestra !== 'todas'
-      ? students.filter((s) => isSameOrchestra(s.orquestra, targetOrchestra))
-      : students;
+      ? validStudents.filter((s) => isSameOrchestra(s.orquestra, targetOrchestra))
+      : validStudents;
 
   const orchGroups = groupStudentsByOrchestra(targetStudents, availableOrchestras);
   const nowStr = new Date().toLocaleDateString('pt-PT');
@@ -70,6 +72,7 @@ export function printOrchestraRosterToPdf(
         : `Orquestra ${group.orchestra}`;
       const naipeGroups = groupStudentsByNaipe(group.students);
       const isLastGroup = groupIdx === orchGroups.length - 1;
+      const totalMusicos = naipeGroups.reduce((acc, ng) => acc + ng.students.length, 0);
 
       // Resumo de instrumentos
       const summaryBadgesHtml = naipeGroups
@@ -151,7 +154,7 @@ export function printOrchestraRosterToPdf(
             <div class="official-subtitle">${escapeHtml(orchTitle)} • Ano letivo ${anoLetivo}</div>
           </div>
           <div class="total-badge-box">
-            <div class="total-number">${group.students.length}</div>
+            <div class="total-number">${totalMusicos}</div>
             <div class="total-label">Instrumentistas</div>
           </div>
         </div>
@@ -467,12 +470,16 @@ export default function OrchestraRosterPrintModal({
     return sanitizeOrchestraList(orchestras);
   }, [orchestras]);
 
+  const validStudents = React.useMemo(() => {
+    return students.filter((s) => isValidOrchestraNaipe(s.naipe));
+  }, [students]);
+
   const targetStudents = React.useMemo(() => {
     if (!selectedOrchestra || selectedOrchestra === 'todas') {
-      return students;
+      return validStudents;
     }
-    return students.filter((s) => isSameOrchestra(s.orquestra, selectedOrchestra));
-  }, [students, selectedOrchestra]);
+    return validStudents.filter((s) => isSameOrchestra(s.orquestra, selectedOrchestra));
+  }, [validStudents, selectedOrchestra]);
 
   const orchGroups = React.useMemo(() => {
     return groupStudentsByOrchestra(targetStudents, validOrchestras);
@@ -518,9 +525,9 @@ export default function OrchestraRosterPrintModal({
               onChange={(e) => setSelectedOrchestra(e.target.value)}
               className="text-xs bg-white border border-amber-300 rounded-lg px-2.5 py-2 text-amber-950 font-bold focus:outline-none focus:ring-2 focus:ring-orchestra-gold shadow-sm"
             >
-              <option value="todas">Todas as Orquestras ({students.length})</option>
+              <option value="todas">Todas as Orquestras ({validStudents.length})</option>
               {validOrchestras.map((o) => {
-                const count = students.filter((s) => isSameOrchestra(s.orquestra, o)).length;
+                const count = validStudents.filter((s) => isSameOrchestra(s.orquestra, o)).length;
                 return (
                   <option key={o} value={o}>
                     {o} ({count})
@@ -586,6 +593,7 @@ export default function OrchestraRosterPrintModal({
                 ? group.orchestra
                 : `Orquestra ${group.orchestra}`;
               const naipeGroups = groupStudentsByNaipe(group.students);
+              const totalMusicos = naipeGroups.reduce((acc, ng) => acc + ng.students.length, 0);
 
               return (
                 <div key={group.orchestra} className="space-y-6 pb-8 border-b-2 border-dashed border-gray-200 last:border-b-0">
@@ -604,7 +612,7 @@ export default function OrchestraRosterPrintModal({
                     </div>
 
                     <div className="text-right bg-stone-100 p-3 rounded-xl border border-stone-200 min-w-[100px]">
-                      <div className="text-2xl font-black text-stone-900">{group.students.length}</div>
+                      <div className="text-2xl font-black text-stone-900">{totalMusicos}</div>
                       <div className="text-[10px] font-bold uppercase tracking-wider text-stone-500">
                         Instrumentistas
                       </div>

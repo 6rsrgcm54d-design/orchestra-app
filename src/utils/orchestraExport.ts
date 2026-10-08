@@ -1,5 +1,5 @@
 import type { Student } from '../types';
-import { NAIPES, formatNaipe } from '../types';
+import { NAIPES, formatNaipe, isValidOrchestraNaipe } from '../types';
 import { isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList, getInstitutionForOrchestra } from './orchestras';
 import toast from 'react-hot-toast';
 
@@ -33,7 +33,10 @@ export function groupStudentsByNaipe(students: Student[]): { naipe: string; stud
   const map = new Map<string, Student[]>();
 
   students.forEach((s) => {
-    const formatted = formatNaipe(s.naipe) || 'Outros Instrumentos';
+    if (!isValidOrchestraNaipe(s.naipe)) return;
+    const formatted = formatNaipe(s.naipe);
+    if (!formatted) return;
+
     if (!map.has(formatted)) {
       map.set(formatted, []);
     }
@@ -66,7 +69,7 @@ export function groupStudentsByNaipe(students: Student[]): { naipe: string; stud
 }
 
 /**
- * Agrupa os alunos por Orquestra
+ * Agrupa os alunos por Orquestra (apenas instrumentistas com naipe válido)
  */
 export function groupStudentsByOrchestra(
   students: Student[],
@@ -76,7 +79,9 @@ export function groupStudentsByOrchestra(
   const result: { orchestra: string; students: Student[] }[] = [];
 
   listOrchs.forEach((orchName) => {
-    const orchStudents = students.filter((s) => isSameOrchestra(s.orquestra, orchName));
+    const orchStudents = students.filter(
+      (s) => isSameOrchestra(s.orquestra, orchName) && isValidOrchestraNaipe(s.naipe)
+    );
     if (orchStudents.length > 0) {
       result.push({
         orchestra: orchName,
@@ -84,16 +89,6 @@ export function groupStudentsByOrchestra(
       });
     }
   });
-
-  // Alunos que possam não ter orquestra atribuída ou pertencer a outra designação
-  const matchedIds = new Set(result.flatMap((r) => r.students.map((s) => s.id)));
-  const remaining = students.filter((s) => !matchedIds.has(s.id));
-  if (remaining.length > 0) {
-    result.push({
-      orchestra: 'Geral / Outros',
-      students: remaining,
-    });
-  }
 
   return result;
 }
@@ -106,13 +101,14 @@ export function exportOrchestrasToExcel(
   selectedOrchestra?: string,
   availableOrchestras?: string[]
 ): void {
+  const validStudents = students.filter((s) => isValidOrchestraNaipe(s.naipe));
   const targetStudents =
     selectedOrchestra && selectedOrchestra !== 'todas'
-      ? students.filter((s) => isSameOrchestra(s.orquestra, selectedOrchestra))
-      : students;
+      ? validStudents.filter((s) => isSameOrchestra(s.orquestra, selectedOrchestra))
+      : validStudents;
 
   if (targetStudents.length === 0) {
-    toast.error('Não existem alunos para exportar.');
+    toast.error('Não existem músicos com naipe atribuído para exportar.');
     return;
   }
 
@@ -137,11 +133,11 @@ export function exportOrchestrasToExcel(
       ? group.orchestra
       : `Orquestra ${group.orchestra}`;
     const groupInst = getInstitutionForOrchestra(group.orchestra);
-
-    lines.push(`=== ${orchTitle.toUpperCase()} - ${groupInst.toUpperCase()} (${group.students.length} Músicos) ===; ; ; ; ; ; `);
-    lines.push('Orquestra;Naipe;Nº / Ordem;Nome do Músico;Chefe de Naipe;Grau;Estado');
-
     const naipeGroups = groupStudentsByNaipe(group.students);
+    const totalGroupMusicians = naipeGroups.reduce((acc, ng) => acc + ng.students.length, 0);
+
+    lines.push(`=== ${orchTitle.toUpperCase()} - ${groupInst.toUpperCase()} (${totalGroupMusicians} Músicos) ===; ; ; ; ; ; `);
+    lines.push('Orquestra;Naipe;Nº / Ordem;Nome do Músico;Chefe de Naipe;Grau;Estado');
 
     naipeGroups.forEach((ng) => {
       ng.students.forEach((s, idx) => {
@@ -178,7 +174,7 @@ export function exportOrchestrasToExcel(
     naipeGroups.forEach((ng) => {
       lines.push(`${ng.naipe};${ng.students.length}; ; ; ; ; `);
     });
-    lines.push(`TOTAL;${group.students.length}; ; ; ; ; `);
+    lines.push(`TOTAL;${totalGroupMusicians}; ; ; ; ; `);
     lines.push('');
     lines.push(''); // Separação entre orquestras
   });
