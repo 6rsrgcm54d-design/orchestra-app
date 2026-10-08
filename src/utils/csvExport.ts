@@ -1,6 +1,55 @@
 import type { Evaluation } from '../types';
 
 /**
+ * Converte uma string Unicode para um Uint8Array codificado em Windows-1252 (ANSI),
+ * garantindo compatibilidade nativa imediata com o Microsoft Excel no Windows
+ * e preservando todos os acentos da língua portuguesa (ç, ã, é, ó, ú, º, ª, etc.) sem erros de codificação.
+ */
+export function stringToWindows1252(str: string): Uint8Array {
+  const bytes = new Uint8Array(str.length);
+  for (let i = 0; i < str.length; i++) {
+    const code = str.charCodeAt(i);
+    if (code <= 127) {
+      bytes[i] = code;
+    } else if (code >= 160 && code <= 255) {
+      // Todos os caracteres latinos portugueses (ç, Ç, ã, Ã, é, É, ó, Ó, ú, Ú, º, ª, etc.)
+      bytes[i] = code;
+    } else {
+      switch (code) {
+        case 0x2013: // – en-dash
+          bytes[i] = 0x96;
+          break;
+        case 0x2014: // — em-dash
+          bytes[i] = 0x97;
+          break;
+        case 0x2018: // ‘
+          bytes[i] = 0x91;
+          break;
+        case 0x2019: // ’
+          bytes[i] = 0x92;
+          break;
+        case 0x201c: // “
+          bytes[i] = 0x93;
+          break;
+        case 0x201d: // ”
+          bytes[i] = 0x94;
+          break;
+        case 0x2022: // • bullet
+          bytes[i] = 0x95;
+          break;
+        case 0x20ac: // € euro
+          bytes[i] = 0x80;
+          break;
+        default:
+          bytes[i] = 0x3f; // '?'
+          break;
+      }
+    }
+  }
+  return bytes;
+}
+
+/**
  * Exporta avaliações para um ficheiro CSV e faz download no browser.
  */
 export function exportEvaluationsToCSV(evaluations: Evaluation[], filename = 'avaliacoes.csv'): void {
@@ -19,15 +68,15 @@ export function exportEvaluationsToCSV(evaluations: Evaluation[], filename = 'av
     .map((row) =>
       row
         .map((cell) => {
-          // Escape cells with commas, quotes or newlines
-          const escaped = cell.replace(/"/g, '""');
-          return /[",\n]/.test(escaped) ? `"${escaped}"` : escaped;
+          const str = String(cell ?? '').replace(/"/g, '""');
+          return /[";\n\r]/.test(str) ? `"${str}"` : str;
         })
-        .join(',')
+        .join(';')
     )
-    .join('\n');
+    .join('\r\n');
 
-  const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+  const encodedBytes = stringToWindows1252(csvContent);
+  const blob = new Blob([encodedBytes.buffer as ArrayBuffer], { type: 'text/csv;charset=windows-1252;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.href = url;

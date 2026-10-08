@@ -1,6 +1,7 @@
 import type { Student } from '../types';
 import { NAIPES, formatNaipe, isValidOrchestraNaipe } from '../types';
 import { isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList, getInstitutionForOrchestra } from './orchestras';
+import { stringToWindows1252 } from './csvExport';
 import toast from 'react-hot-toast';
 
 export function isChefeDeNaipe(student: Student): boolean {
@@ -179,9 +180,10 @@ export function exportOrchestrasToExcel(
     lines.push(''); // Separação entre orquestras
   });
 
-  // Converte para Blob com UTF-8 BOM (\uFEFF) para abrir com perfeição no Excel Windows/Mac
-  const csvContent = '\uFEFF' + lines.join('\r\n');
-  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  // Converte para Windows-1252 (ANSI) para abrir nativamente no Microsoft Excel com acentos perfeitos
+  const csvContent = lines.join('\r\n');
+  const encodedBytes = stringToWindows1252(csvContent);
+  const blob = new Blob([encodedBytes.buffer as ArrayBuffer], { type: 'text/csv;charset=windows-1252;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
 
