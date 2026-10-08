@@ -90,3 +90,25 @@ export function sanitizeOrchestraList(list?: string[]): string[] {
 
   return unique;
 }
+
+/**
+ * Retorna o nome da instituição associada à orquestra:
+ * - Se for Académica ou Juvenil -> "Conservatório Bomfim"
+ * - Se for Artave, Orquestra Artave, 10º ano ou outra -> "Escola Profissional Artística do Vale do Ave"
+ */
+export function getInstitutionForOrchestra(orchestraName?: string): string {
+  if (!orchestraName) return 'Escola Profissional Artística do Vale do Ave';
+  const norm = orchestraName.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+  if (norm.includes('acad') || norm.includes('juvenil') || norm.includes('bomfim')) {
+    return 'Conservatório Bomfim';
+  }
+  return 'Escola Profissional Artística do Vale do Ave';
+}
+
+/**
+ * Retorna o texto de rodapé oficial para a orquestra especificada.
+ */
+export function getFooterForOrchestra(orchestraName?: string): string {
+  const inst = getInstitutionForOrchestra(orchestraName);
+  return `${inst}  - Luís Machado`;
+}

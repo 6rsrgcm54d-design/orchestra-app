@@ -3,6 +3,7 @@ import { X, FileDown, Mail, Info, Copy, Printer } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
+import { getInstitutionForOrchestra, getFooterForOrchestra } from '../../utils/orchestras';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -170,7 +171,10 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
 
   const orch = plan.orquestra || 'Orquestra Artave';
   const ano = plan.anoLetivo || '2026-2027';
-  const rodape = plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado';
+  const institution = getInstitutionForOrchestra(orch);
+  const rodape = (institution === 'Conservatório Bomfim' && (!plan.notasRodape || plan.notasRodape.includes('Escola Profissional Artística do Vale do Ave')))
+    ? getFooterForOrchestra(orch)
+    : (plan.notasRodape || getFooterForOrchestra(orch));
 
   // Observações só aparecem se pelo menos um dia tiver algo escrito
   const hasAnyObservations = (plan.dias || []).some(
@@ -394,7 +398,7 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
       <div class="print-sheet">
         <div class="header">
           <div>
-            <div class="institution-badge">Escola Profissional Artística do Vale do Ave</div>
+            <div class="institution-badge">${escapeHtml(institution)}</div>
             <h1 class="title">Plano Semanal de Ensaios</h1>
             <div class="official-subtitle">${escapeHtml(orch)} • Ano letivo ${escapeHtml(ano)}</div>
           </div>
@@ -488,7 +492,10 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
 
   const orch = plan.orquestra || 'Orquestra Artave';
   const ano = plan.anoLetivo || '2026-2027';
-  const rodape = plan.notasRodape || 'Escola Profissional Artística do Vale do Ave  - Luís Machado';
+  const institution = getInstitutionForOrchestra(orch);
+  const rodape = (institution === 'Conservatório Bomfim' && (!plan.notasRodape || plan.notasRodape.includes('Escola Profissional Artística do Vale do Ave')))
+    ? getFooterForOrchestra(orch)
+    : (plan.notasRodape || getFooterForOrchestra(orch));
 
   const hasAnyObservations = (plan.dias || []).some(
     (d) => d.observacoes && d.observacoes.trim().length > 0
@@ -584,7 +591,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
           <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
             <div>
               <p className="text-[11px] uppercase tracking-widest font-black text-amber-700 mb-1">
-                Escola Profissional Artística do Vale do Ave
+                {institution}
               </p>
               <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
                 Plano Semanal de Ensaios

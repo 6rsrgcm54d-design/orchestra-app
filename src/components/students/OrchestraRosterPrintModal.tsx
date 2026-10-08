@@ -7,7 +7,13 @@ import {
   exportOrchestrasToExcel,
   isChefeDeNaipe,
 } from '../../utils/orchestraExport';
-import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
+import {
+  sanitizeOrchestraList,
+  isSameOrchestra,
+  normalizeOrchestraName,
+  getInstitutionForOrchestra,
+  getFooterForOrchestra,
+} from '../../utils/orchestras';
 
 interface OrchestraRosterPrintModalProps {
   students: Student[];
@@ -140,7 +146,7 @@ export function printOrchestraRosterToPdf(
         <!-- Cabeçalho Oficial -->
         <div class="header">
           <div>
-            <div class="institution-badge">Escola Profissional Artística do Vale do Ave</div>
+            <div class="institution-badge">${escapeHtml(getInstitutionForOrchestra(group.orchestra))}</div>
             <h1 class="title">Constituição da Orquestra</h1>
             <div class="official-subtitle">${escapeHtml(orchTitle)} • Ano letivo ${anoLetivo}</div>
           </div>
@@ -152,7 +158,6 @@ export function printOrchestraRosterToPdf(
 
         <!-- Quadro Síntese de Efetivos -->
         <div class="summary-box">
-          <div class="summary-title">Quadro de Efetivos & Instrumentação (${orchTitle})</div>
           <div class="summary-badges-grid">
             ${summaryBadgesHtml}
           </div>
@@ -165,7 +170,7 @@ export function printOrchestraRosterToPdf(
 
         <!-- Rodapé Oficial -->
         <div class="footer">
-          <span>Escola Profissional Artística do Vale do Ave  - Luís Machado</span>
+          <span>${escapeHtml(getFooterForOrchestra(group.orchestra))}</span>
           <span style="font-size: 9px; color: #9ca3af; font-weight: normal;">Emitido em ${nowStr}</span>
         </div>
       </div>
@@ -588,7 +593,7 @@ export default function OrchestraRosterPrintModal({
                   <div className="border-b-2 border-gray-900 pb-4 flex items-start justify-between">
                     <div>
                       <p className="text-[11px] uppercase tracking-widest font-black text-amber-700 mb-1">
-                        Escola Profissional Artística do Vale do Ave
+                        {getInstitutionForOrchestra(group.orchestra)}
                       </p>
                       <h1 className="text-2xl sm:text-3xl font-black text-gray-900 tracking-tight">
                         Constituição da Orquestra
@@ -607,10 +612,7 @@ export default function OrchestraRosterPrintModal({
                   </div>
 
                   {/* Quadro de Resumo de Efetivos */}
-                  <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-200 space-y-2">
-                    <span className="text-[11px] font-bold uppercase tracking-wider text-amber-900 block">
-                      Quadro de Efetivos & Instrumentação ({orchTitle})
-                    </span>
+                  <div className="p-3 bg-amber-50/90 rounded-xl border border-amber-200">
                     <div className="flex flex-wrap gap-1.5">
                       {naipeGroups.map((ng) => (
                         <div
@@ -692,7 +694,7 @@ export default function OrchestraRosterPrintModal({
 
                   {/* Rodapé Oficial por Orquestra */}
                   <div className="pt-3 border-t border-stone-200 flex items-center justify-between text-xs font-bold text-stone-700">
-                    <span>Escola Profissional Artística do Vale do Ave  - Luís Machado</span>
+                    <span>{getFooterForOrchestra(group.orchestra)}</span>
                     <span className="text-[10px] text-stone-400 font-normal">
                       Documento emitido em {nowStr}
                     </span>

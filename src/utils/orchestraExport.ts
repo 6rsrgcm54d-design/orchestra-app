@@ -1,6 +1,6 @@
 import type { Student } from '../types';
 import { NAIPES, formatNaipe } from '../types';
-import { isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList } from './orchestras';
+import { isSameOrchestra, normalizeOrchestraName, sanitizeOrchestraList, getInstitutionForOrchestra } from './orchestras';
 import toast from 'react-hot-toast';
 
 export function isChefeDeNaipe(student: Student): boolean {
@@ -124,7 +124,11 @@ export function exportOrchestrasToExcel(
   const lines: string[] = [];
 
   // Cabeçalho institucional
-  lines.push(`CONSTITUIÇÃO DAS ORQUESTRAS - ESCOLA PROFISSIONAL ARTÍSTICA DO VALE DO AVE; ; ; ; ; ; `);
+  const topInst = selectedOrchestra && selectedOrchestra !== 'todas'
+    ? `CONSTITUIÇÃO DA ORQUESTRA - ${getInstitutionForOrchestra(selectedOrchestra).toUpperCase()}`
+    : 'CONSTITUIÇÃO DAS ORQUESTRAS';
+
+  lines.push(`${topInst}; ; ; ; ; ; `);
   lines.push(`Data de Emissão: ${nowStr};Ano Letivo: ${yearStr}-${yearStr + 1};Total de Músicos: ${targetStudents.length}; ; ; ; `);
   lines.push(''); // Linha vazia
 
@@ -132,8 +136,9 @@ export function exportOrchestrasToExcel(
     const orchTitle = group.orchestra.toLowerCase().startsWith('orquestra')
       ? group.orchestra
       : `Orquestra ${group.orchestra}`;
+    const groupInst = getInstitutionForOrchestra(group.orchestra);
 
-    lines.push(`=== ${orchTitle.toUpperCase()} (${group.students.length} Músicos) ===; ; ; ; ; ; `);
+    lines.push(`=== ${orchTitle.toUpperCase()} - ${groupInst.toUpperCase()} (${group.students.length} Músicos) ===; ; ; ; ; ; `);
     lines.push('Orquestra;Naipe;Nº / Ordem;Nome do Músico;Chefe de Naipe;Grau;Estado');
 
     const naipeGroups = groupStudentsByNaipe(group.students);
@@ -167,13 +172,13 @@ export function exportOrchestrasToExcel(
       });
     });
 
-    // Quadro Síntese da Instrumentação desta Orquestra
+    // Quadro Síntese da Instrumentação desta Orquestra (Apenas naipes e número de instrumentistas)
     lines.push('');
-    lines.push(`Resumo de Efetivos - ${orchTitle};Nº de Músicos; ; ; ; ; `);
+    lines.push('Naipe;Nº de Instrumentistas; ; ; ; ; ');
     naipeGroups.forEach((ng) => {
       lines.push(`${ng.naipe};${ng.students.length}; ; ; ; ; `);
     });
-    lines.push(`TOTAL EFETIVOS ${orchTitle.toUpperCase()};${group.students.length}; ; ; ; ; `);
+    lines.push(`TOTAL;${group.students.length}; ; ; ; ; `);
     lines.push('');
     lines.push(''); // Separação entre orquestras
   });
