@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
-import { Plus, Search, Pencil, Trash2, Filter, Crown } from 'lucide-react';
+import { Plus, Search, Pencil, Trash2, Filter, Crown, Printer, FileSpreadsheet } from 'lucide-react';
 import type { Student } from '../../types';
 import { NAIPES, formatNaipe } from '../../types';
 import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
+import OrchestraRosterPrintModal from './OrchestraRosterPrintModal';
+import { exportOrchestrasToExcel } from '../../utils/orchestraExport';
 
 interface StudentListProps {
   students: Student[];
@@ -25,6 +27,7 @@ export default function StudentList({
   const [filterOrquestra, setFilterOrquestra] = useState('');
   const [filterNaipe, setFilterNaipe] = useState('');
   const [filterChefe, setFilterChefe] = useState('');
+  const [showRosterPrintModal, setShowRosterPrintModal] = useState(false);
 
   const filtered = students.filter((s) => {
     const formattedNaipe = formatNaipe(s.naipe);
@@ -189,9 +192,32 @@ export default function StudentList({
             <option value="chefe">Apenas Chefes de Naipe</option>
           </select>
 
+          {/* Botão Exportar Excel */}
           <button
+            type="button"
+            onClick={() => exportOrchestrasToExcel(students, filterOrquestra, validOrchestras)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs sm:text-sm rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+            title="Exportar constituição das orquestras para Excel (.csv compatível com UTF-8 e separador ;)"
+          >
+            <FileSpreadsheet size={16} />
+            <span className="hidden md:inline">Exportar Excel</span>
+          </button>
+
+          {/* Botão Imprimir Constituição */}
+          <button
+            type="button"
+            onClick={() => setShowRosterPrintModal(true)}
+            className="flex items-center gap-1.5 px-3 py-2 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-amber-300 dark:border-amber-700/60 hover:bg-amber-50 dark:hover:bg-amber-950/30 text-amber-900 dark:text-amber-200 font-semibold text-xs sm:text-sm rounded-lg transition-all shadow-xs active:scale-95 cursor-pointer"
+            title="Imprimir ou guardar em PDF a constituição das orquestras"
+          >
+            <Printer size={16} className="text-amber-600" />
+            <span className="hidden md:inline">Imprimir Constituição</span>
+          </button>
+
+          <button
+            type="button"
             onClick={onAdd}
-            className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-medium text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow"
+            className="flex items-center gap-1.5 px-4 py-2 bg-orchestra-gold text-orchestra-navy font-bold text-xs sm:text-sm rounded-lg hover:bg-orchestra-gold-light transition-all shadow active:scale-95"
           >
             <Plus size={16} />
             Adicionar
@@ -315,6 +341,15 @@ export default function StudentList({
           </div>
         )}
       </div>
+
+      {showRosterPrintModal && (
+        <OrchestraRosterPrintModal
+          students={students}
+          orchestras={validOrchestras}
+          initialOrchestra={filterOrquestra || 'todas'}
+          onClose={() => setShowRosterPrintModal(false)}
+        />
+      )}
     </div>
   );
 }

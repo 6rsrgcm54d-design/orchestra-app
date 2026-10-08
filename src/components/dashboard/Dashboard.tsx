@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
-import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award, CalendarCheck } from 'lucide-react';
+import { Users, Music, Star, Theater, Calendar, Clock, MapPin, ChevronRight, Award, CalendarCheck, Printer, FileSpreadsheet } from 'lucide-react';
 import type { Student, Piece, Evaluation, Concert, LessonPlan, NavModule } from '../../types';
 import { formatNaipe, formatTimeDisplay, cleanTimeString } from '../../types';
 import { calcAverage } from '../../utils/csvExport';
 import { sanitizeOrchestraList, isSameOrchestra, normalizeOrchestraName } from '../../utils/orchestras';
+import OrchestraRosterPrintModal from '../students/OrchestraRosterPrintModal';
+import { exportOrchestrasToExcel } from '../../utils/orchestraExport';
 
 interface DashboardProps {
   students: Student[];
@@ -155,6 +157,7 @@ export default function Dashboard({
 
   const hasMultipleOrchestras = orchestras.length > 1;
   const [selectedOrchestraTab, setSelectedOrchestraTab] = useState<string>('todas');
+  const [showRosterPrintModal, setShowRosterPrintModal] = useState(false);
 
   const orchestraBreakdown = hasMultipleOrchestras
     ? orchestras.map((o) => `${o}: ${students.filter((s) => isSameOrchestra(s.orquestra, o)).length}`).join(' · ')
@@ -228,39 +231,64 @@ export default function Dashboard({
             </p>
           </div>
 
-          {/* Separador de Orquestras */}
-          {hasMultipleOrchestras && (
-            <div className="flex bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl text-xs gap-1">
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Separador de Orquestras */}
+            {hasMultipleOrchestras && (
+              <div className="flex bg-gray-100 dark:bg-gray-700/60 p-1 rounded-xl text-xs gap-1">
+                <button
+                  type="button"
+                  onClick={() => setSelectedOrchestraTab('todas')}
+                  className={`px-3 py-1.5 rounded-lg transition-all ${
+                    selectedOrchestraTab === 'todas'
+                      ? 'bg-white dark:bg-gray-800 text-orchestra-navy dark:text-white font-bold shadow-sm'
+                      : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
+                  }`}
+                >
+                  Todas as Orquestras ({students.length})
+                </button>
+                {orchestras.map((o) => {
+                  const count = students.filter((s) => s.orquestra === o).length;
+                  return (
+                    <button
+                      key={o}
+                      type="button"
+                      onClick={() => setSelectedOrchestraTab(o)}
+                      className={`px-3 py-1.5 rounded-lg transition-all ${
+                        selectedOrchestraTab === o
+                          ? 'bg-white dark:bg-gray-800 text-orchestra-gold font-bold shadow-sm'
+                          : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
+                      }`}
+                    >
+                      {o} ({count})
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Ações Rápidas: Exportar Excel e Imprimir */}
+            <div className="flex items-center gap-1.5">
               <button
                 type="button"
-                onClick={() => setSelectedOrchestraTab('todas')}
-                className={`px-3 py-1.5 rounded-lg transition-all ${
-                  selectedOrchestraTab === 'todas'
-                    ? 'bg-white dark:bg-gray-800 text-orchestra-navy dark:text-white font-bold shadow-sm'
-                    : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
-                }`}
+                onClick={() => exportOrchestrasToExcel(students, selectedOrchestraTab, orchestras)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold text-xs rounded-lg transition-all shadow-sm active:scale-95 cursor-pointer"
+                title="Exportar constituição para Excel (.csv compatível com UTF-8 e separador ;)"
               >
-                Todas as Orquestras ({students.length})
+                <FileSpreadsheet size={14} />
+                <span className="hidden sm:inline">Exportar Excel</span>
               </button>
-              {orchestras.map((o) => {
-                const count = students.filter((s) => s.orquestra === o).length;
-                return (
-                  <button
-                    key={o}
-                    type="button"
-                    onClick={() => setSelectedOrchestraTab(o)}
-                    className={`px-3 py-1.5 rounded-lg transition-all ${
-                      selectedOrchestraTab === o
-                        ? 'bg-white dark:bg-gray-800 text-orchestra-gold font-bold shadow-sm'
-                        : 'text-gray-500 hover:text-gray-800 dark:text-gray-400'
-                    }`}
-                  >
-                    {o} ({count})
-                  </button>
-                );
-              })}
+
+              <button
+                type="button"
+                onClick={() => setShowRosterPrintModal(true)}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-white dark:bg-gray-800 text-amber-900 dark:text-amber-200 border border-amber-300 dark:border-amber-700/60 hover:bg-amber-50 dark:hover:bg-amber-950/30 font-semibold text-xs rounded-lg transition-all shadow-xs active:scale-95 cursor-pointer"
+                title="Imprimir ou guardar em PDF a constituição da orquestra"
+              >
+                <Printer size={14} className="text-amber-600" />
+                <span className="hidden sm:inline">Imprimir Constituição</span>
+              </button>
             </div>
-          )}
+          </div>
         </div>
 
         {selectedOrchestraTab !== 'todas' ? (
@@ -487,6 +515,15 @@ export default function Dashboard({
           </div>
         </div>
       </div>
+
+      {showRosterPrintModal && (
+        <OrchestraRosterPrintModal
+          students={students}
+          orchestras={orchestras}
+          initialOrchestra={selectedOrchestraTab}
+          onClose={() => setShowRosterPrintModal(false)}
+        />
+      )}
     </div>
   );
 }
