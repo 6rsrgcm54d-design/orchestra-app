@@ -82,7 +82,31 @@
   }
 }
 
+/* Contentor isolado para impressão (sempre oculto no ecrã) */
+#print-isolated-mount {
+  display: none !important;
+}
+
 @media print {
+  @page {
+    size: A4 portrait;
+    margin: 0 !important;
+  }
+  @page :left {
+    margin: 0 !important;
+  }
+  @page :right {
+    margin: 0 !important;
+  }
+  @page :first {
+    margin: 0 !important;
+  }
+
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
   html,
   html.dark,
   body,
@@ -93,12 +117,34 @@
     color: #111827 !important;
   }
 
+  /* Quando o isolamento de documento está ativo (iPad / PC) */
+  body.printing-isolated-doc {
+    background: #ffffff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  body.printing-isolated-doc > *:not(#print-isolated-mount) {
+    display: none !important;
+  }
+
+  body.printing-isolated-doc > #print-isolated-mount {
+    display: block !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    background: #ffffff !important;
+    color: #111827 !important;
+  }
+
   aside,
   header,
   nav,
   .print-hidden,
-  .print\\:hidden {
+  .print\:hidden {
     display: none !important;
   }
 }
+
 

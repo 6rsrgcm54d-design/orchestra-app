@@ -4,6 +4,7 @@ import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 import { getInstitutionForOrchestra, getFooterForOrchestra } from '../../utils/orchestras';
+import { printHtmlDocument } from '../../utils/printDocument';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -157,18 +158,6 @@ export function generateWeeklyEmailBody(plan: WeeklyPlan, includePdfNotice: bool
 }
 
 export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.right = '0';
-  iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = '0';
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentWindow?.document;
-  if (!doc) return;
-
   const orch = plan.orquestra || 'Orquestra Artave';
   const ano = plan.anoLetivo || '2026-2027';
   const institution = getInstitutionForOrchestra(orch);
@@ -441,19 +430,8 @@ export function printWeeklyPlanToPdf(plan: WeeklyPlan) {
     </html>
   `;
 
-  doc.open();
-  doc.write(htmlContent);
-  doc.close();
-
-  setTimeout(() => {
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    setTimeout(() => {
-      try {
-        document.body.removeChild(iframe);
-      } catch {}
-    }, 2000);
-  }, 250);
+  const docTitle = `Plano Semanal - ${orch} - ${plan.semanaInicio || ''}`;
+  printHtmlDocument(htmlContent, docTitle);
 }
 
 export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintModalProps) {
@@ -503,10 +481,10 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
   const hasAvisos = Boolean(plan.avisosGerais && plan.avisosGerais.trim().length > 0);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-gray-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0 print:overflow-visible">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-4xl lg:max-w-5xl max-h-[92vh] flex flex-col overflow-hidden border border-gray-200 print:border-none print:shadow-none print:rounded-none print:max-w-none print:max-h-none print:m-0">
         {/* Barra Superior com Ações */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 px-6 border-b border-gray-200 bg-gray-50 gap-3">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 px-6 border-b border-gray-200 bg-gray-50 gap-3 print:hidden">
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-sm text-gray-900">
@@ -564,7 +542,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
         </div>
 
         {/* Barra de Apoio e Opção de Anexo */}
-        <div className="bg-amber-50/80 border-b border-amber-200/80 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950">
+        <div className="bg-amber-50/80 border-b border-amber-200/80 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 print:hidden">
           <div className="flex items-center gap-2">
             <span className="font-bold text-amber-900 bg-amber-200/70 px-2 py-0.5 rounded text-[10px] uppercase tracking-wide">
               iPad / PC

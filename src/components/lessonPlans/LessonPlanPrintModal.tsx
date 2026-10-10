@@ -1,6 +1,7 @@
 import React from 'react';
 import { X, Printer, Calendar, Clock, Music2, FileDown, CheckSquare, Info } from 'lucide-react';
 import type { LessonPlan } from '../../types';
+import { printHtmlDocument } from '../../utils/printDocument';
 
 interface LessonPlanPrintModalProps {
   plan: LessonPlan;
@@ -40,19 +41,6 @@ function formatDateFull(dateStr: string): string {
 }
 
 export function printLessonPlanToPdf(plan: LessonPlan) {
-  // Cria iframe invisível dedicado exclusivamente à impressão do plano
-  const iframe = document.createElement('iframe');
-  iframe.style.position = 'fixed';
-  iframe.style.right = '0';
-  iframe.style.bottom = '0';
-  iframe.style.width = '0';
-  iframe.style.height = '0';
-  iframe.style.border = '0';
-  document.body.appendChild(iframe);
-
-  const doc = iframe.contentWindow?.document;
-  if (!doc) return;
-
   const totalMinutos = (plan.itens || []).reduce((acc, it) => {
     const m = typeof it.minuto === 'number' ? it.minuto : parseInt(String(it.minuto), 10) || 0;
     return acc + m;
@@ -332,19 +320,8 @@ export function printLessonPlanToPdf(plan: LessonPlan) {
     </html>
   `;
 
-  doc.open();
-  doc.write(htmlContent);
-  doc.close();
-
-  setTimeout(() => {
-    iframe.contentWindow?.focus();
-    iframe.contentWindow?.print();
-    setTimeout(() => {
-      try {
-        document.body.removeChild(iframe);
-      } catch {}
-    }, 2000);
-  }, 250);
+  const docTitle = `Plano de Aula - ${plan.orquestra || 'Orquestra'} - ${plan.data}`;
+  printHtmlDocument(htmlContent, docTitle);
 }
 
 export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintModalProps) {
@@ -381,10 +358,10 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto">
-      <div className="bg-white text-gray-900 rounded-2xl max-w-4xl w-full border border-gray-200 shadow-2xl overflow-hidden my-4 flex flex-col">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0 print:overflow-visible">
+      <div className="bg-white text-gray-900 rounded-2xl max-w-4xl w-full border border-gray-200 shadow-2xl overflow-hidden my-4 flex flex-col print:border-none print:shadow-none print:rounded-none print:max-w-none print:m-0">
         {/* Barra Superior do Modal */}
-        <div className="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="p-4 bg-gray-100 dark:bg-gray-800 border-b border-gray-200 dark:border-gray-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 print:hidden">
           <div>
             <div className="flex items-center gap-2">
               <Printer size={18} className="text-orchestra-gold" />
