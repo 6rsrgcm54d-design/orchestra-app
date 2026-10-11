@@ -1,10 +1,10 @@
 import React from 'react';
-import { X, FileDown, Mail, Info, Copy, Printer } from 'lucide-react';
+import { X, FileDown, Mail, Info, Copy, Printer, ExternalLink } from 'lucide-react';
 import toast from 'react-hot-toast';
 import type { WeeklyPlan } from '../../types';
 import { parseDayRepertoireBlocks, parseDayRepertoire, hasSpecificHoursInRepertoire } from '../../utils/weeklyPlanParser';
 import { getInstitutionForOrchestra, getFooterForOrchestra } from '../../utils/orchestras';
-import { printHtmlDocument } from '../../utils/printDocument';
+import { printHtmlDocument, isIOSStandalone, openInSafariForPrinting } from '../../utils/printDocument';
 
 interface WeeklyPlanPrintModalProps {
   plan: WeeklyPlan;
@@ -479,6 +479,7 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
     (d) => d.observacoes && d.observacoes.trim().length > 0
   );
   const hasAvisos = Boolean(plan.avisosGerais && plan.avisosGerais.trim().length > 0);
+  const isStandalone = isIOSStandalone();
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4 backdrop-blur-sm animate-fade-in overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0 print:overflow-visible">
@@ -540,6 +541,26 @@ export default function WeeklyPlanPrintModal({ plan, onClose }: WeeklyPlanPrintM
             </button>
           </div>
         </div>
+
+        {/* Aviso de Modo Ecrã Inicial do iPad (Standalone) */}
+        {isStandalone && (
+          <div className="bg-amber-100 border-b border-amber-300 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 print:hidden">
+            <div className="flex items-center gap-2">
+              <Info size={16} className="text-amber-700 flex-shrink-0" />
+              <span>
+                <strong>Modo Ícone do iPad:</strong> No modo autónomo do ecrã inicial, a Apple restringe a impressão direta.
+              </span>
+            </div>
+            <button
+              onClick={openInSafariForPrinting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-lg text-xs transition-all shadow-sm active:scale-95 flex-shrink-0 self-end sm:self-auto cursor-pointer"
+              title="Abrir no Safari para imprimir ou guardar em PDF sem restrições"
+            >
+              <ExternalLink size={13} />
+              <span>Abrir no Safari para Imprimir</span>
+            </button>
+          </div>
+        )}
 
         {/* Barra de Apoio e Opção de Anexo */}
         <div className="bg-amber-50/80 border-b border-amber-200/80 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-950 print:hidden">

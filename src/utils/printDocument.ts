@@ -4,10 +4,14 @@
  *
  * Resolve as restrições do WebKit e do iOS Safari:
  * 1. WebKit/Safari bloqueia ou ignora iframes com dimensões 0x0 ou disparados com setTimeout (perda do token de gesto do utilizador).
- * 2. No iPad / iOS, a impressão via DOM isolado com window.print() síncrono é a solução oficial recomendada pela Apple.
- * 3. No PC, tenta o iframe com dimensões reais e invisível (100vw x 100vh), com fallback automático e imediato para DOM isolado.
- * 4. Elimina o endereço URL e rodapés do browser através de @page { margin: 0 !important; }.
+ * 2. No iPad / iOS (Safari), a impressão via DOM isolado com window.print() síncrono é a solução oficial recomendada pela Apple.
+ * 3. No modo Standalone (quando adicionado ao Ecrã Inicial como Web App no iOS), a Apple desativa window.print() por restrição de sistema.
+ *    Para esse caso, é fornecida a deteção isIOSStandalone() e o redirecionamento imediato para o Safari onde a impressão funciona a 100%.
+ * 4. No PC, tenta o iframe com dimensões reais e invisível (100vw x 100vh), com fallback automático e imediato para DOM isolado.
+ * 5. Elimina o endereço URL e rodapés do browser através de @page { margin: 0 !important; }.
  */
+
+import toast from 'react-hot-toast';
 
 export function isMobileOrTabletDevice(): boolean {
   if (typeof navigator === 'undefined') return false;
@@ -20,6 +24,34 @@ export function isMobileOrTabletDevice(): boolean {
     (platform.startsWith('Mac') && maxTouchPoints > 1) ||
     (maxTouchPoints > 1 && 'ontouchstart' in window)
   );
+}
+
+/**
+ * Deteta se a app está a correr no modo "Standalone / Web App do Ecrã Inicial" no iOS.
+ * Neste modo, a Apple bloqueia deliberadamente a invocação da interface nativa de impressão.
+ */
+export function isIOSStandalone(): boolean {
+  if (typeof window === 'undefined') return false;
+  const nav = window.navigator as unknown as { standalone?: boolean };
+  const isStandaloneNav = Boolean(nav && nav.standalone === true);
+  const isStandaloneDisplay =
+    typeof window.matchMedia === 'function' &&
+    window.matchMedia('(display-mode: standalone)').matches;
+  return isStandaloneNav || isStandaloneDisplay;
+}
+
+/**
+ * Abre o endereço atual no Safari nativo para permitir impressão completa sem restrições.
+ */
+export function openInSafariForPrinting(): void {
+  const currentUrl = window.location.href;
+  const a = document.createElement('a');
+  a.href = currentUrl;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }
 
 /**
@@ -136,7 +168,24 @@ function printViaIframe(htmlContent: string): boolean {
  * Função pública para imprimir qualquer documento HTML com suporte garantido para iPad e PC.
  */
 export function printHtmlDocument(htmlContent: string, title?: string): void {
-  // No iPad e dispositivos táteis móveis, usar sempre montagem isolada nativa
+  // Se estiver a correr no modo Standalone / Web App do ecrã inicial do iPad:
+  // A Apple desativa por política interna a janela de impressão no modo autónomo.
+  if (isIOSStandalone()) {
+    // Tenta primeiro o método isolado
+    printViaIsolatedDom(htmlContent, title);
+
+    // Se estiver no ecrã inicial, alerta o utilizador e fornece passagem para o Safari
+    toast(
+      'No modo de ecrã inicial do iPad, a Apple restringe a impressão direta. A abrir no Safari...',
+      { icon: '⚠️', duration: 6000 }
+    );
+    setTimeout(() => {
+      openInSafariForPrinting();
+    }, 600);
+    return;
+  }
+
+  // No iPad e dispositivos táteis móveis no Safari, usar montagem isolada nativa
   if (isMobileOrTabletDevice()) {
     printViaIsolatedDom(htmlContent, title);
     return;

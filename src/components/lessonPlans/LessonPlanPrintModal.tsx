@@ -1,7 +1,7 @@
 import React from 'react';
-import { X, Printer, Calendar, Clock, Music2, FileDown, CheckSquare, Info } from 'lucide-react';
+import { X, Printer, Calendar, Clock, Music2, FileDown, CheckSquare, Info, ExternalLink } from 'lucide-react';
 import type { LessonPlan } from '../../types';
-import { printHtmlDocument } from '../../utils/printDocument';
+import { printHtmlDocument, isIOSStandalone, openInSafariForPrinting } from '../../utils/printDocument';
 
 interface LessonPlanPrintModalProps {
   plan: LessonPlan;
@@ -357,6 +357,8 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
     };
   });
 
+  const isStandalone = isIOSStandalone();
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-black/70 backdrop-blur-sm overflow-y-auto print:static print:bg-transparent print:p-0 print:m-0 print:overflow-visible">
       <div className="bg-white text-gray-900 rounded-2xl max-w-4xl w-full border border-gray-200 shadow-2xl overflow-hidden my-4 flex flex-col print:border-none print:shadow-none print:rounded-none print:max-w-none print:m-0">
@@ -395,6 +397,26 @@ export default function LessonPlanPrintModal({ plan, onClose }: LessonPlanPrintM
             </button>
           </div>
         </div>
+
+        {/* Aviso de Modo Ecrã Inicial do iPad (Standalone) */}
+        {isStandalone && (
+          <div className="bg-amber-100 dark:bg-amber-950/40 border-b border-amber-300 dark:border-amber-800/60 px-4 sm:px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 dark:text-amber-200 print:hidden">
+            <div className="flex items-center gap-2">
+              <Info size={16} className="text-amber-700 dark:text-amber-400 flex-shrink-0" />
+              <span>
+                <strong>Modo Ícone do iPad:</strong> No modo autónomo do ecrã inicial, a Apple restringe a impressão direta.
+              </span>
+            </div>
+            <button
+              onClick={openInSafariForPrinting}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-lg text-xs transition-all shadow-sm active:scale-95 flex-shrink-0 self-end sm:self-auto cursor-pointer"
+              title="Abrir no Safari para imprimir ou guardar em PDF sem restrições"
+            >
+              <ExternalLink size={13} />
+              <span>Abrir no Safari para Imprimir</span>
+            </button>
+          </div>
+        )}
 
         {/* Pré-visualização da Folha Oficial de Ensaio */}
         <div className="p-8 sm:p-10 space-y-6 bg-white text-gray-900 max-h-[80vh] overflow-y-auto">
