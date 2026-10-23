@@ -547,19 +547,24 @@ export default function OrchestraRosterPrintModal({
 
         {/* Aviso de Modo Ecrã Inicial do iPad (Standalone) */}
         {isStandalone && (
-          <div className="bg-amber-100 border-b border-amber-300 px-6 py-2.5 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-amber-900 print:hidden">
-            <div className="flex items-center gap-2">
-              <Info size={16} className="text-amber-700 flex-shrink-0" />
-              <span>
-                <strong>Modo Ícone do iPad:</strong> No modo autónomo do ecrã inicial, a Apple restringe a impressão direta.
-              </span>
+          <div className="bg-amber-100 border-b border-amber-300 px-6 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs text-amber-900 print:hidden">
+            <div className="flex items-start gap-2.5">
+              <Info size={18} className="text-amber-700 flex-shrink-0 mt-0.5" />
+              <div className="space-y-0.5">
+                <div>
+                  <strong>Modo Ícone do iPad:</strong> Se o diálogo de impressão não abrir no ecrã inicial, toque em <strong>Abrir no Safari para Imprimir</strong>.
+                </div>
+                <div className="text-[11px] text-amber-800/80">
+                  💡 <em>Dica:</em> Elimine o ícone antigo e volte a adicioná-lo através do Safari (&quot;Partilhar&quot; &rarr; &quot;Adicionar ao Ecrã Principal&quot;) para abrir sempre diretamente no Safari!
+                </div>
+              </div>
             </div>
             <button
               onClick={openInSafariForPrinting}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-lg text-xs transition-all shadow-sm active:scale-95 flex-shrink-0 self-end sm:self-auto cursor-pointer"
-              title="Abrir no Safari para imprimir ou guardar em PDF sem restrições"
+              className="inline-flex items-center gap-2 px-3.5 py-2 bg-amber-800 hover:bg-amber-900 text-white font-bold rounded-lg text-xs transition-all shadow-md active:scale-95 flex-shrink-0 self-end sm:self-auto cursor-pointer"
+              title="Abrir diretamente no Safari para imprimir via AirPrint ou guardar em PDF sem restrições"
             >
-              <ExternalLink size={13} />
+              <ExternalLink size={14} />
               <span>Abrir no Safari para Imprimir</span>
             </button>
           </div>
